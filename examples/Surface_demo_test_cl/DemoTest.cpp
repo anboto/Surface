@@ -32,7 +32,7 @@ void TestSurfaceX_Calc() {
 	UppLog() << "\nMesh data";
 	mesh.GetPanelParams();
 	t.Start();
-	mesh.GetSurface();
+	mesh.GetArea();
 	mesh.GetVolume();
 	t.Pause();
 	UppLog() << Format("\nSurface: %.3f", mesh.surface);	
@@ -43,7 +43,7 @@ void TestSurfaceX_Calc() {
 	under.CutZ(mesh, -1);
 	under.GetPanelParams();
 	t.Start();
-	under.GetSurface();
+	under.GetArea();
 	under.GetVolume();
 	t.Pause();
 	UppLog() << Format("\nSurface: %.3f", under.surface);	
@@ -53,11 +53,8 @@ void TestSurfaceX_Calc() {
 	UppLog() << Format("\nCB:      %s %s %s", FDS(cb.x, 10, true), FDS(cb.y, 10, true), FDS(cb.z, 10, true));
 
 	Point3D c0(0, 0, 0);
-	VectorXd f;
-	under.GetHydrostaticForce(f, c0, rho, g);
-	UppLog() << "\nHydroF:  ";
-	for (int i = 0; i < 6; ++i)
-		UppLog() << FDS(f(i), 10, true) << " ";
+	Force6D f = under.GetHydrostaticForce(c0, rho, g);
+	UppLog() << "\nHydroF:  " << f;
 	
 	UppLog() << "\nSurfaceX data";
 	
@@ -86,12 +83,10 @@ void TestSurfaceX_Calc() {
 	double x, y, z, x0 = 1, y0 = 2, z0 = 3;
 	SurfaceX::TransRot(x, y, z, x0, y0, z0, quat);
 	
-	MatrixXd centroids, centroids0(2, 3);
-	centroids << x0, y0, z0, x0, y0, z0;
+	MatrixXd centroids0(2, 3);
+	centroids0 << x0, y0, z0, x0, y0, z0;
 	
-	centroids = quat * centroids0.colwise().homogeneous();
-	
-	
+	//MatrixXd centroids = quat * centroids0.colwise().homogeneous();	
 }
 
 void TestSurfaceX_TransRot() {
@@ -99,14 +94,14 @@ void TestSurfaceX_TransRot() {
 	
 	String strfile = LZ4Decompress(Data, Data_length);
 	
-	Vector<double> TwrTpTDxi, TwrTpTDyi, TwrTpTDzi, PtfmSurge, PtfmSway, PtfmHeave, PtfmRoll, PtfmPitch, PtfmYaw;
+	UVector<double> TwrTpTDxi, TwrTpTDyi, TwrTpTDzi, PtfmSurge, PtfmSway, PtfmHeave, PtfmRoll, PtfmPitch, PtfmYaw;
 	
 	int posid = 0;
 	while(posid >= 0) {
 		String line = GetLine(strfile, posid);
 		if (Trim(line).IsEmpty())
 			break;
-		Vector<String> split = Split(line, ';');
+		UVector<String> split = Split(line, ';');
 		int i = 0;
 		PtfmSurge << ScanDouble(split[i++]);
 		PtfmSway  << ScanDouble(split[i++]);
