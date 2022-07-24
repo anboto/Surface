@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2021 - 2022, the Anboto author and contributors
 #include <Core/Core.h>
-#include <Functions4U/Functions4U/Functions4U.h>
+#include <Functions4U/Functions4U.h>
 #include <plugin/lz4/lz4.h>
-#include <Eigen/Eigen/Eigen.h>
-#include <Surface/Surface/Surface.h>
+#include <Eigen/Eigen.h>
+#include <Surface/Surface.h>
 
 using namespace Upp;
 using namespace Eigen;

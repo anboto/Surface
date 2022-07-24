@@ -3,8 +3,8 @@
 #ifndef _GLCanvas_surface_h_
 #define _GLCanvas_surface_h_
 
-#include <Eigen/Eigen/Eigen.h>
-#include <Functions4U/Functions4U/Functions4U.h>
+#include <Eigen/Eigen.h>
+#include <Functions4U/Functions4U.h>
 
 namespace Upp {
 using namespace Eigen;
