@@ -2,12 +2,12 @@
 // Copyright 2021 - 2022, the Anboto author and contributors
 #include <Core/Core.h>
 
-#include <Eigen/Eigen.h>
-#include <Surface/Surface.h>
+#include <Eigen/Eigen/Eigen.h>
+#include <Surface/Surface/Surface.h>
 #include <Geom/Geom.h>
-#include <Functions4U/Functions4U.h>
+#include <Functions4U/Functions4U/Functions4U.h>
 #include <numeric> 
-#include <STEM4U/Rootfinding.h>
+#include <STEM4U/STEM4U/Rootfinding.h>
 
 namespace Upp {
 using namespace Eigen;
