@@ -546,6 +546,8 @@ public:
 	Point3D GetCenterOfBuoyancy() const;
 	void GetInertia33(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
 	void GetInertia66(MatrixXd &inertia, const Point3D &cg, bool refine) const;
+	static void TranslateInertia33(Matrix3d &inertia, double m, const Value3D &delta);
+	static void TranslateInertia66(MatrixXd &inertia, const Value3D &delta);
 	Force6D GetHydrostaticForce(const Point3D &c0, double rho, double g) const;
 	Force6D GetHydrostaticForceNormalized(const Point3D &c0) const;
 	Force6D GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double rho, double g) const;

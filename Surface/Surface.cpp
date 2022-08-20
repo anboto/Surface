@@ -1168,7 +1168,7 @@ void Surface::GetInertia66(MatrixXd &inertia, const Point3D &cg, bool refine) co
 	inertia = MatrixXd::Zero(6,6);	
 	Matrix3d inertia3;
 	GetInertia33(inertia3, cg, refine);
-	inertia.bottomRightCorner(3, 3) = inertia3;
+	inertia.bottomRightCorner<3,3>() = inertia3;
 	inertia(0, 0) = inertia(1, 1) = inertia(2, 2) = 1;
 	
 	Point3D c = clone(cg);
@@ -1184,11 +1184,48 @@ void Surface::GetInertia66(MatrixXd &inertia, const Point3D &cg, bool refine) co
 	} 
 	inertia(1, 5) = inertia(5, 1) =  c.x;
 	inertia(2, 4) = inertia(4, 2) = -c.x;
-	inertia(0, 5) = inertia(5, 0) = -c.y;
 	inertia(2, 3) = inertia(3, 2) =  c.y;
+	inertia(0, 5) = inertia(5, 0) = -c.y;
 	inertia(0, 4) = inertia(4, 0) =  c.z;
 	inertia(1, 3) = inertia(3, 1) = -c.z;
 }	
+
+void Surface::TranslateInertia33(Matrix3d &inertia, double m, const Value3D &delta) {
+	inertia(0, 0) += m*(sqr(delta.y) + sqr(delta.z));
+	inertia(1, 1) += m*(sqr(delta.x) + sqr(delta.z));
+	inertia(2, 2) += m*(sqr(delta.x) + sqr(delta.y));
+	double mxy = m*delta.x*delta.y;
+	double mxz = m*delta.x*delta.z;
+	double myz = m*delta.y*delta.z;
+	inertia(0, 1) -= mxy;
+	inertia(1, 0) -= mxy;
+	inertia(0, 2) -= mxz;
+	inertia(2, 0) -= mxz;
+	inertia(1, 2) -= myz;
+	inertia(2, 1) -= myz;
+}
+
+void Surface::TranslateInertia66(MatrixXd &inertia, const Value3D &delta) {
+	double m = inertia(0, 0);
+	Matrix3d inertia3 = inertia.bottomRightCorner<3,3>();
+	TranslateInertia33(inertia3, m, delta);
+	inertia.bottomRightCorner<3,3>() = inertia3;
+	double mdx = m*delta.x;
+	double mdy = m*delta.y;
+	double mdz = m*delta.z;
+	inertia(1, 5) += mdx;
+	inertia(5, 1) += mdx;
+	inertia(2, 4) -= mdx;
+	inertia(4, 2) -= mdx;
+	inertia(2, 3) += mdy;
+	inertia(3, 2) += mdy;
+	inertia(0, 5) -= mdy;
+	inertia(5, 0) -= mdy;
+	inertia(0, 4) += mdz;
+	inertia(4, 0) += mdz;
+	inertia(1, 3) -= mdz;
+	inertia(3, 1) -= mdz;
+}
 
 Force6D Surface::GetHydrostaticForce(const Point3D &c0, double rho, double g) const {
 	Force6D f = GetHydrostaticForceNormalized(c0);	
