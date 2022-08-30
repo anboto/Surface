@@ -2049,6 +2049,19 @@ bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho,
 	return true;
 }
 
+void Surface::Scale(double rx, double ry, double rz, const Point3D &c0) {
+	for (auto &n : nodes) 
+		n.Translate(rx*(n.x -c0.x), ry*(n.y -c0.y), rz*(n.z -c0.z)); 
+	
+	for (auto &n : skewed) 
+		n.Scale(rx, ry, rz, c0); 
+	
+	for (auto &n : segTo1panel) 
+		n.Scale(rx, ry, rz, c0); 
+	for (auto &n : segTo3panel) 
+		n.Scale(rx, ry, rz, c0); 
+}
+
 void Surface::DeployXSymmetry() {
 	int nnodes = nodes.GetCount();
 	for (int i = 0; i < nnodes; ++i) {

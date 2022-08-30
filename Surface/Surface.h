@@ -368,10 +368,13 @@ public:
 		from.Translate(dx, dy, dz);
 		to.Translate(dx, dy, dz);
 	}
-	
 	void TransRot(const Affine3d &quat) {
 		from.TransRot(quat);
 		to.TransRot(quat);
+	}
+	void Scale(double rx, double ry, double rz, const Point3D &c0) {
+		from.Translate(rx*(from.x -c0.x), ry*(from.y -c0.y), rz*(from.z -c0.z)); 
+		to.Translate(rx*(to.x -c0.x), ry*(to.y -c0.y), rz*(to.z -c0.z)); 
 	}
 };
 
@@ -581,6 +584,8 @@ public:
 	
 	bool TranslateArchimede(double mass, double rho, double &dz, Surface &under);
 	bool Archimede(double mass, Point3D &cg, const Point3D &c0, double rho, double g, double &dz, double &droll, double &dpitch, Surface &under);
+	
+	void Scale(double rx, double ry, double rz, const Point3D &c0);
 	
 	bool healing{false};
 	int numTriangles, numBiQuads, numMonoQuads;
