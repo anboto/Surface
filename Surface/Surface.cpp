@@ -1064,11 +1064,13 @@ void Surface::GetVolume() {
 }
 
 int Surface::VolumeMatch(double ratioWarning, double ratioError) const {
+	if (volumex < 0 || volumey < 0 || volumez < 0)
+		return -2;
 	if (volumex == 0 || volumey == 0 || volumez == 0)
 		return 0;
-	if ((volumex == 0 && !Between(volume/volumex, 1-ratioError, 1+ratioError)) ||
-		(volumey == 0 && !Between(volume/volumey, 1-ratioError, 1+ratioError)) ||
-		(volumez == 0 && !Between(volume/volumez, 1-ratioError, 1+ratioError)))
+	if (!Between(volume/volumex, 1-ratioError, 1+ratioError) ||
+		!Between(volume/volumey, 1-ratioError, 1+ratioError) ||
+		!Between(volume/volumez, 1-ratioError, 1+ratioError))
 		return -2;
 	if (!Between(volume/volumex, 1-ratioWarning, 1+ratioWarning) ||
 		!Between(volume/volumey, 1-ratioWarning, 1+ratioWarning) ||
