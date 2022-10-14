@@ -5,7 +5,8 @@ noblitz;
 uses
 	Core,
 	plugin/png,
-	Surface;
+	Surface,
+	Functions4U;
 
 file
 	DemoTest.cpp,

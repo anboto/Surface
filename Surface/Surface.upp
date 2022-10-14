@@ -1,7 +1,8 @@
 description "Basic 3D primitives and its handling\377B44,169,203";
 
 uses
-	Geom;
+	Geom,
+	Eigen;
 
 file
 	Surface.cpp,
