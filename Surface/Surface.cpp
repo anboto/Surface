@@ -74,25 +74,25 @@ void TranslateForce(const Point3D &from, const VectorXd &ffrom, Point3D &to, Vec
 	fto(5) += M.z;
 }
 
-void Point3D::Translate(double dx, double dy, double dz) {
+void Value3D::Translate(double dx, double dy, double dz) {
 	x += dx;
 	y += dy;
 	z += dz;
 }
 
-void Point3D::Rotate(double ax, double ay, double az, double cx, double cy, double cz) {
+void Value3D::Rotate(double ax, double ay, double az, double cx, double cy, double cz) {
 	Affine3d aff;
 	GetTransform(aff, ax, ay, az, cx, cy, cz);
 	TransRot(aff);
 }
 
-void Point3D::TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
+void Value3D::TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
 	Affine3d aff;
 	GetTransform(aff, dx, dy, dz, ax, ay, az, cx, cy, cz);
 	TransRot(aff);
 }
 
-void Point3D::TransRot(const Affine3d &quat) {
+void Value3D::TransRot(const Affine3d &quat) {
 	Vector3d pnt0(x, y, z);	
 	Vector3d pnt = quat * pnt0;
 
@@ -101,10 +101,20 @@ void Point3D::TransRot(const Affine3d &quat) {
 	z = pnt[2];
 }
 
-void TransRot(const Point3D &pos, const Point3D &ref, VectorXd &x, VectorXd &y, VectorXd &z, VectorXd &rx, VectorXd &ry, VectorXd &rz) {
+void TransRot(const Value3D &pos, const Value3D &ref, double x, double y, double z, double rx, double ry, double rz, Value3D &npos) {
+	npos = clone(pos);
+	npos.TransRot(x, y, z, rx, ry, rz, ref.x, ref.y, ref.z);
+}
+
+void TransRot(const Value3D &pos, const Value3D &ref, const VectorXd &transf, Value3D &npos) {
+	npos = clone(pos);
+	npos.TransRot(transf[0], transf[1], transf[2], transf[3], transf[4], transf[5], ref.x, ref.y, ref.z);
+}
+
+void TransRot(const Value3D &pos, const Value3D &ref, VectorXd &x, VectorXd &y, VectorXd &z, VectorXd &rx, VectorXd &ry, VectorXd &rz) {
 	ASSERT((x.size() == y.size()) && (y.size() == z.size()) && (z.size() == rx.size()) && (rx.size() == ry.size()) && (ry.size() == rz.size()));
 	for (int i = 0; i < x.size(); ++i) {
-		Point3D ps = clone(pos);
+		Value3D ps = clone(pos);
 		ps.TransRot(x[i], y[i], z[i], rx[i], ry[i], rz[i], ref.x, ref.y, ref.z);
 		x[i] = ps.x;
 		y[i] = ps.y;
@@ -112,23 +122,57 @@ void TransRot(const Point3D &pos, const Point3D &ref, VectorXd &x, VectorXd &y, 
 	}
 }
 
+bool TransRotChangeRef(const Value3D &ref, const VectorXd &transf, const Value3D &nref, VectorXd &ntransf) {
+	int nump = 4;
+	
+	UArray<Value3D> points(nump), tpoints(nump);
+	
+	for (int i = 0; i < nump; ++i) {
+		points[i][0] = Random(100);
+		points[i][1] = Random(100);
+		points[i][2] = Random(100);
+		TransRot(points[i], ref, transf, tpoints[i]);
+	}
+	
+	ntransf = clone(transf);		// Initial values
+	ntransf.array() += 0.1;			// Some noise
+	
+	if (!NonLinearOptimization(ntransf, 3*nump, [&](const VectorXd &x, VectorXd &res)->int {
+		for(int i = 0; i < nump; i += 2) {
+			Value3D np0, np1;
+			TransRot(points[i],   nref, x, np0);
+			TransRot(points[i+1], nref, x, np1);
+			res[3*i+0] = tpoints[i].x - np0.x;
+			res[3*i+1] = tpoints[i].y - np0.y;
+			res[3*i+2] = tpoints[i].z - np0.z;
+			res[3*i+3] = tpoints[i+1].x - np1.x;
+			res[3*i+4] = tpoints[i+1].y - np1.y;
+			res[3*i+5] = tpoints[i+1].z - np1.z;
+		}
+		return 0;	
+	}))
+		return false;
+	
+	return true;
+}
+
 void GetTransform(Affine3d &aff, double ax, double ay, double az, double cx, double cy, double cz) {
 	Vector3d c(cx, cy, cz);	
-	aff =	Translation3d(c) *
-			AngleAxisd(ax, Vector3d::UnitX()) *
-		 	AngleAxisd(ay, Vector3d::UnitY()) *
-		 	AngleAxisd(az, Vector3d::UnitZ()) *
-		 	Translation3d(-c);
+	aff = Translation3d(c) *
+		  AngleAxisd(ax, Vector3d::UnitX()) *
+		  AngleAxisd(ay, Vector3d::UnitY()) *
+		  AngleAxisd(az, Vector3d::UnitZ()) *
+		  Translation3d(-c);
 }
 
 void GetTransform(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
 	Vector3d d(dx, dy, dz), c(cx, cy, cz);	
-	aff =	Translation3d(d) *
-			Translation3d(c) *
-			AngleAxisd(ax, Vector3d::UnitX()) *
-		 	AngleAxisd(ay, Vector3d::UnitY()) *
-		 	AngleAxisd(az, Vector3d::UnitZ()) *
-		 	Translation3d(-c);
+	aff = Translation3d(d) *
+		  Translation3d(c) *
+		  AngleAxisd(ax, Vector3d::UnitX()) *
+		  AngleAxisd(ay, Vector3d::UnitY()) *
+		  AngleAxisd(az, Vector3d::UnitZ()) *
+		  Translation3d(-c);
 }
 
 Point3D Segment3D::IntersectionPlaneX(double x) {
@@ -606,12 +650,12 @@ bool Surface::ReorientPanels0(bool _side) {
 	
 	panelStack << ip;
 	while (!panelStack.IsEmpty()) {
-		int id = panelStack.GetCount() - 1;
+		int id = panelStack.size() - 1;
 		int ipp = panelStack[id];
 		panelStack.Remove(id, 1);
 		panelProcessed << ipp;
 		
-		for (int is = 0; is < segments.GetCount(); ++is) {
+		for (int is = 0; is < segments.size(); ++is) {
 			const Upp::Index<int> &segPanels = segments[is].panels;
 			if (segPanels.Find(ipp) >= 0) {
 				for (int i = 0; i < segPanels.GetCount(); ++i) {
@@ -626,7 +670,7 @@ bool Surface::ReorientPanels0(bool _side) {
 		}
 	}
 	
-	numUnprocessed = panels.GetCount() - panelProcessed.GetCount();
+	numUnprocessed = panels.size() - panelProcessed.size();
 
 	return true;
 }
@@ -914,8 +958,8 @@ String Surface::CheckErrors() const {
 	for (int ip = 0; ip < panels.GetCount(); ++ip) {
 		const Panel &panel = panels[ip];
 		for (int i = 0; i < 4; ++i) {
-			if (panel.id[i] >= nodes.GetCount())
-				return Format(t_("Node %d in panel %d [%d] does not exist"), panel.id[i]+1, ip+1, i+1);
+			if (panel.id[i] >= nodes.size())
+				return Format(t_("Node %d [%d] in panel %d does not exist"), panel.id[i]+1, i+1, ip+1);
 		}
 	}
 	if (IsEmpty())
@@ -924,7 +968,7 @@ String Surface::CheckErrors() const {
 }
 		
 void Surface::GetPanelParams() {
-	for (int ip = 0; ip < panels.GetCount(); ++ip) {
+	for (int ip = 0; ip < panels.size(); ++ip) {
 		Panel &panel = panels[ip];
 		GetPanelParams(panel);
 	}	
@@ -2065,7 +2109,7 @@ void Surface::Scale(double rx, double ry, double rz, const Point3D &c0) {
 }
 
 void Surface::DeployXSymmetry() {
-	int nnodes = nodes.GetCount();
+	int nnodes = nodes.size();
 	for (int i = 0; i < nnodes; ++i) {
 		Point3D 	  &dest = nodes.Add();
 		const Point3D &orig = nodes[i];
@@ -2073,7 +2117,7 @@ void Surface::DeployXSymmetry() {
 		dest.y =  orig.y;
 		dest.z =  orig.z;
 	}
-	int npanels = panels.GetCount();
+	int npanels = panels.size();
 	for (int i = 0; i < npanels; ++i) {
 		Panel 		&dest = panels.Add();
 		const Panel &orig = panels[i];
@@ -2082,10 +2126,21 @@ void Surface::DeployXSymmetry() {
 		dest.id[2] = orig.id[1] + nnodes;
 		dest.id[3] = orig.id[0] + nnodes;
 	}
+	int nseg = segments.size();
+	for (int i = 0; i < nseg; ++i) {
+		Segment       &dest = segments.Add();
+		const Segment &orig = segments[i];
+		Point3D p0 = clone(nodes[orig.inode0]);
+		p0.x *= -1;
+		dest.inode0 = FindNode(p0);
+		Point3D p1 = clone(nodes[orig.inode1]);
+		p1.x *= -1;
+		dest.inode1 = FindNode(p1);
+	}
 }
 
 void Surface::DeployYSymmetry() {
-	int nnodes = nodes.GetCount();
+	int nnodes = nodes.size();
 	for (int i = 0; i < nnodes; ++i) {
 		Point3D 	  &dest = nodes.Add();
 		const Point3D &orig = nodes[i];
@@ -2093,7 +2148,7 @@ void Surface::DeployYSymmetry() {
 		dest.y = -orig.y;
 		dest.z =  orig.z;
 	}
-	int npanels = panels.GetCount();
+	int npanels = panels.size();
 	for (int i = 0; i < npanels; ++i) {
 		Panel 		&dest = panels.Add();
 		const Panel &orig = panels[i];
@@ -2101,6 +2156,17 @@ void Surface::DeployYSymmetry() {
 		dest.id[1] = orig.id[2] + nnodes;
 		dest.id[2] = orig.id[1] + nnodes;
 		dest.id[3] = orig.id[0] + nnodes;
+	}
+	int nseg = segments.size();
+	for (int i = 0; i < nseg; ++i) {
+		Segment       &dest = segments.Add();
+		const Segment &orig = segments[i];
+		Point3D p0 = clone(nodes[orig.inode0]);
+		p0.y *= -1;
+		dest.inode0 = FindNode(p0);
+		Point3D p1 = clone(nodes[orig.inode1]);
+		p1.y *= -1;
+		dest.inode1 = FindNode(p1);
 	}
 }
 
@@ -2122,7 +2188,7 @@ void Surface::AddNode(Point3D &p) {
 	nodes << p;
 }
 
-int Surface::FindNode(Point3D &p) {
+int Surface::FindNode(const Point3D &p) {
 	for (int i = 0; i < nodes.GetCount(); ++i) {
 		if (nodes[i] == p)
 			return i;
@@ -2728,6 +2794,14 @@ ForceVector &ForceVector::TransRot(const Affine3d &aff) {
 	force.t.TransRot(aff);
 	return *this;
 }
+
+ForceVector &ForceVector::Translate(const Point3D &p) {
+	Direction3D R = point - p;
+	force.r += R%force.t;
+	point = clone(p);	
+	return *this;
+}
+
 
 // Just force, no moment
 void Force6D::AddLinear(const Direction3D &dir, const Point3D &point, const Point3D &c0) {

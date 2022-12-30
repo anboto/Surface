@@ -100,6 +100,15 @@ public:
 	inline void operator+=(const Value3D& a) {x += a.x; y += a.y; z += a.z;}
 	inline void operator-=(const Value3D& a) {x -= a.x; y -= a.y; z -= a.z;}
 
+	double& operator[](int id) {
+		ASSERT(id >= 0 && id < 3);
+		switch (id) {
+		case 0:	return x;
+		case 1:	return y;
+		default:return z;
+		}
+	}
+	
 	double Length() const {return ::sqrt(x*x + y*y + z*z);}
 	Value3D &Normalize() {
 		double length = Length();
@@ -140,13 +149,17 @@ public:
 	}
 };
 
+void TransRot(const Value3D &pos, const Value3D &ref, const VectorXd &transf, Value3D &npos);
+void TransRot(const Value3D &pos, const Value3D &ref, double x, double y, double z, double rx, double ry, double rz, Value3D &npos);
+void TransRot(const Value3D &pos, const Value3D &ref, VectorXd &x, VectorXd &y, VectorXd &z, VectorXd &rx, VectorXd &ry, VectorXd &rz);
+
+bool TransRotChangeRef(const Value3D &ref, const VectorXd &transf, const Value3D &nref, VectorXd &ntransf);
+	
 typedef Value3D Direction3D;
 typedef Value3D Point3D;
 
 void GetTransform(Affine3d &aff, double ax, double ay, double az, double cx, double cy, double cz);
 void GetTransform(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz);	
-
-void TransRot(const Point3D &pos, const Point3D &ref, VectorXd &x, VectorXd &y, VectorXd &z, VectorXd &rx, VectorXd &ry, VectorXd &rz);
 
 class Value6D {
 public:
@@ -185,6 +198,17 @@ public:
 	void operator*=(double v) 			{t.x *= v;		t.y *= v;		t.z *= v;		r.x *= v;		r.y *= v;		r.z *= v;}
 	
 	double& operator[](int id) {
+		ASSERT(id >= 0 && id < 6);
+		switch (id) {
+		case 0:	return t.x;
+		case 1:	return t.y;
+		case 2:	return t.z;
+		case 3:	return r.x;
+		case 4:	return r.y;
+		default:return r.z;
+		}
+	}
+	double operator[](int id) const {
 		ASSERT(id >= 0 && id < 6);
 		switch (id) {
 		case 0:	return t.x;
@@ -240,6 +264,9 @@ public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
 	ForceVector() {}
+	ForceVector(const Point3D &p, const Force6D &f) {
+		Set(p, f);
+	}
 	ForceVector(double x, double y, double z, double fx, double fy, double fz, double rx, double ry, double rz) {
 		Set(x, y, z, fx, fy, fz, rx, ry, rz);
 	}
@@ -254,9 +281,16 @@ public:
 		force.r.y = ry;
 		force.r.z = rz;
 	}
+	void Set(const Point3D &p, const Force6D &f) {
+		point = clone(p);
+		force = clone(f);
+	}
 	
 	ForceVector &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz);
 	ForceVector &TransRot(const Affine3d &aff);
+	
+	ForceVector &Translate(const Point3D &p);
+	
 	String ToString() const {return "From: " + point.ToString() + ". Value: " + force.ToString();}
 	
 	Force6D force;
@@ -522,9 +556,11 @@ public:
 	
 	Vector<Point3D> nodes;
 	Vector<Panel> panels;
+	Vector<Segment> segments;
 	
-	int GetNumNodes() const		{return nodes.GetCount();}
-	int GetNumPanels() const	{return panels.GetCount();}
+	int GetNumNodes() const		{return nodes.size();}
+	int GetNumPanels() const	{return panels.size();}
+	int GetNumSegments() const	{return segments.size();}
 	
 	Vector<Segment3D> skewed;
 	Vector<Segment3D> segWaterlevel, segTo1panel, segTo3panel;
@@ -589,7 +625,6 @@ public:
 	
 	bool healing{false};
 	int numTriangles, numBiQuads, numMonoQuads;
-	Vector<Segment> segments;
 	double avgLenSegment = -1;
 	int numDupPan, numDupP, numSkewed, numUnprocessed;
 	
@@ -605,7 +640,7 @@ public:
 	const Vector<int> &GetSelNodes() const		{return selNodes;}
 	
 	void AddNode(Point3D &p);
-	int FindNode(Point3D &p);
+	int FindNode(const Point3D &p);
 	
 	void AddFlatPanel(double lenX, double lenY, double panelWidth);
 	void AddRevolution(Vector<Pointf> &points, double panelWidth);
