@@ -100,7 +100,7 @@ void SurfaceX::GetTransformFast(MatrixXd &mat, double dx, double dy, double dz, 
     mat(1,3) = dy;
     mat(2,3) = dz;
     
-    if (sq_o1o2o3 != 0)	// If True, the rotation matrix has a division by 0 (means no rotation happened)
+    if (sq_o1o2o3 != 0)	// If true, the rotation matrix has a division by 0 (means no rotation happened)
         mat *= rotMat;
 }
 

@@ -160,7 +160,10 @@ typedef Value3D Point3D;
 
 void GetTransform(Affine3d &aff, double ax, double ay, double az, double cx, double cy, double cz);
 void GetTransform(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz);	
+void GetTransform000(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az);
 
+void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos);
+	
 class Value6D {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW

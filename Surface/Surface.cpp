@@ -122,6 +122,11 @@ void TransRot(const Value3D &pos, const Value3D &ref, VectorXd &x, VectorXd &y, 
 	}
 }
 
+void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos) {
+	npos = clone(pos);
+	npos.TransRot(aff);
+}
+
 bool TransRotChangeRef(const Value3D &ref, const VectorXd &transf, const Value3D &nref, VectorXd &ntransf) {
 	int nump = 4;
 	
@@ -173,6 +178,14 @@ void GetTransform(Affine3d &aff, double dx, double dy, double dz, double ax, dou
 		  AngleAxisd(ay, Vector3d::UnitY()) *
 		  AngleAxisd(az, Vector3d::UnitZ()) *
 		  Translation3d(-c);
+}
+
+void GetTransform000(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az) {
+	Vector3d d(dx, dy, dz);	
+	aff = Translation3d(d) *
+		  AngleAxisd(ax, Vector3d::UnitX()) *
+		  AngleAxisd(ay, Vector3d::UnitY()) *
+		  AngleAxisd(az, Vector3d::UnitZ());
 }
 
 Point3D Segment3D::IntersectionPlaneX(double x) {
