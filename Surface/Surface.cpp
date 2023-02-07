@@ -308,6 +308,8 @@ Surface::Surface(const Surface &orig, int) {
 	volumey = orig.volumey;
 	volumez = orig.volumez;
 	
+	lines = clone(orig.lines);
+	
 	//pos = clone(orig.pos);
 	//angle = clone(orig.angle);
 	
@@ -602,6 +604,10 @@ void Surface::AnalyseSegments(double zTolerance) {
 	}
 }
 
+void Surface::AddLine(const Vector<Point3D> &points3D) {
+	lines << clone(points3D);
+}
+	
 bool Surface::GetLowest(int &iLowSeg, int &iLowPanel) {	// Get the lowest panel with normal non horizontal
 	iLowSeg = iLowPanel = Null;
 	double zLowSeg = DBL_MAX;
@@ -873,7 +879,7 @@ void Surface::Orient() {
 }		
 		
 void Surface::Image(int axis) {
-	for (int i = 0; i < nodes.GetCount(); ++i) {
+	for (int i = 0; i < nodes.size(); ++i) {
 		Point3D &node = nodes[i];
 		if (axis == 0)
 			node.x = -node.x;
@@ -882,21 +888,32 @@ void Surface::Image(int axis) {
 		else
 			node.z = -node.z;
 	}
-	for (int i = 0; i < panels.GetCount(); ++i) 
+	for (int i = 0; i < panels.size(); ++i) 
 		ReorientPanel(i);
 }
 	
 const VolumeEnvelope &Surface::GetEnvelope() {
 	env.maxX = env.maxY = env.maxZ = -DBL_MAX; 
 	env.minX = env.minY = env.minZ = DBL_MAX;
-	for (int i = 0; i < nodes.GetCount(); ++i) {
-		env.maxX = max(env.maxX, nodes[i].x);
-		env.minX = min(env.minX, nodes[i].x);
-		env.maxY = max(env.maxY, nodes[i].y);
-		env.minY = min(env.minY, nodes[i].y);
-		env.maxZ = max(env.maxZ, nodes[i].z);
-		env.minZ = min(env.minZ, nodes[i].z);
+	for (const auto &p : nodes) {
+		env.maxX = max(env.maxX, p.x);
+		env.minX = min(env.minX, p.x);
+		env.maxY = max(env.maxY, p.y);
+		env.minY = min(env.minY, p.y);
+		env.maxZ = max(env.maxZ, p.z);
+		env.minZ = min(env.minZ, p.z);
 	}
+	for (const auto &line : lines) {
+		for (const auto &p : line) {	
+			env.maxX = max(env.maxX, p.x);
+			env.minX = min(env.minX, p.x);
+			env.maxY = max(env.maxY, p.y);
+			env.minY = min(env.minY, p.y);
+			env.maxZ = max(env.maxZ, p.z);
+			env.minZ = min(env.minZ, p.z);
+		}
+	}
+	
 	return env;
 }
 
@@ -975,7 +992,7 @@ String Surface::CheckErrors() const {
 				return Format(t_("Node %d [%d] in panel %d does not exist"), panel.id[i]+1, i+1, ip+1);
 		}
 	}
-	if (IsEmpty())
+	if (IsEmpty() && lines.IsEmpty())
 		return t_("Model is empty");
 	return Null;
 }
@@ -1477,7 +1494,7 @@ Force6D Surface::GetMassForce(const Point3D &c0, const Point3D &cg, const double
 	
 	f.Reset();
 	
-	if (mass == 0)
+	if (IsNull(mass) || mass == 0)
 		return f;
 		
 	f.AddLinear(Direction3D(0, 0, -mass*g), cg, c0);
@@ -1889,7 +1906,7 @@ void Surface::CutY(const Surface &orig, int factor) {
 	}
 }
 
-void Surface::Join(const Surface &orig) {
+void Surface::Append(const Surface &orig) {
 	int num = nodes.size();
 	int numOrig = orig.nodes.size();
 	nodes.SetCount(num + numOrig);
@@ -2192,10 +2209,9 @@ void VolumeEnvelope::MixEnvelope(VolumeEnvelope &env) {
 	minZ = minNotNull(env.minZ, minZ);
 }
 
-void Surface::AddNode(Point3D &p) {
-	double similThres = EPS_LEN;
-	for (int i = 0; i < nodes.GetCount(); ++i) {
-		if (nodes[i].IsSimilar(p, similThres))
+void Surface::AddNode(const Point3D &p) {
+	for (const auto &node : nodes) {
+		if (node.IsSimilar(p, EPS_LEN))
 			return;
 	}
 	nodes << p;
@@ -2233,10 +2249,11 @@ void Surface::AddFlatPanel(double lenX, double lenY, double panelWidth) {
 	SetPanelPoints(pans);
 }
 
-void Surface::AddRevolution(Vector<Pointf> &points, double panelWidth) {
-	if (points.GetCount() < 2)
-		throw Exc(t_("Point nimver has to be higher than 2"));
+void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
+	if (_points.size() < 2)
+		throw Exc(t_("Point number has to be higher than 2"));
 	
+	Vector<Pointf> points = clone(_points);
 	for (int i = points.GetCount()-2; i >= 0; --i) {
 		double len = sqrt(sqr(points[i].x-points[i+1].x) + sqr(points[i].y-points[i+1].y)); 
 		int num = int(round(len/panelWidth));
@@ -2333,22 +2350,39 @@ void Surface::AddRevolution(Vector<Pointf> &points, double panelWidth) {
 	SetPanelPoints(pans);
 }
 
-void Surface::SetPanelPoints(Array<PanelPoints> &pans) {
-	for (int i = 0; i < pans.GetCount(); ++i) {
-		PanelPoints &pan = pans[i];
-		for (int j = 0; j < 4; ++j) {
-			Point3D p(pan.data[j].x, pan.data[j].y, pan.data[j].z);
+void Surface::SetPanelPoints(const Array<PanelPoints> &pans) {
+	for (const PanelPoints &pan : pans) {
+		for (auto &data : pan.data) {
+			Point3D p(data.x, data.y, data.z);
 			AddNode(p);
 		}
 	}
-	for (int i = 0; i < pans.GetCount(); ++i) {
-		PanelPoints &pan = pans[i];
+	for (const PanelPoints &pan : pans) {
 		Panel &panel = panels.Add();
 		for (int j = 0; j < 4; ++j) {
 			Point3D p(pan.data[j].x, pan.data[j].y, pan.data[j].z);
 			int id = FindNode(p);
 			if (id < 0)
 				throw Exc("Node not found in SetPanelPoints()");
+			panel.id[j] = id;
+		}
+	}
+}
+
+void Surface::SetPanelPoints2D(const Array<PanelPoints2D> &pans) {
+	for (const PanelPoints2D &pan : pans) {
+		for (auto &data : pan.data) {
+			Point3D p(data.x, data.y, 0);
+			AddNode(p);
+		}
+	}
+	for (const PanelPoints2D &pan : pans) {
+		Panel &panel = panels.Add();
+		for (int j = 0; j < 4; ++j) {
+			Point3D p(pan.data[j].x, pan.data[j].y, 0);
+			int id = FindNode(p);
+			if (id < 0)
+				throw Exc("Node not found in SetPanelPoints2D()");
 			panel.id[j] = id;
 		}
 	}
@@ -2389,15 +2423,23 @@ Vector<double> GetPolyAngles(const Array<Pointf> &bound) {
 		angles[i] = ToDeg(Angle(bound[i], bound[i+1]));
 	angles[i] = ToDeg(Angle(bound[i], bound[0]));
 	return angles;
+}	
+
+static int ContainsPoint(const Vector<Pointf>& polygon, Pointf pt) {
+	Array<Pointf> poly;
+	Copy(polygon, poly);
+	return ContainsPoint(poly, pt);
 }
 
-void Surface::AddPolygonalPanel2(Array<Pointf> &bound, double width, bool adjustSize) {
-	ASSERT(bound.GetCount() >= 2);
+void Surface::AddPolygonalPanel2(const Vector<Pointf> &_bound, double width, bool adjustSize) {
+	ASSERT(_bound.size() >= 2);
+	
+	Vector<Pointf> bound = clone(_bound);
 	
 	if (bound[0] != bound[bound.size()-1])
 		bound << bound[0];
 	
-	Array<Pointf> points = clone(bound);
+	Vector<Pointf> points = clone(bound);
 	
 	if (adjustSize) {
 		for (int i = points.GetCount()-2; i >= 0; --i) {
@@ -2498,8 +2540,17 @@ void Surface::AddPolygonalPanel2(Array<Pointf> &bound, double width, bool adjust
 	SetPanelPoints(pans);
 }
 
-void Surface::AddPolygonalPanel(Vector<Pointf> &bound, double panelWidth, bool adjustSize) {
-	ASSERT(bound.GetCount() >= 2);
+void TrianglesToQuads(Array<Surface::PanelPoints2D> &pans) {
+	
+
+
+
+}
+
+void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize) {
+	ASSERT(_bound.GetCount() >= 2);
+	
+	Vector<Pointf> bound = clone(_bound);
 	
 	if (bound[0] != bound[bound.size()-1])
 		bound << bound[0];
@@ -2576,19 +2627,20 @@ void Surface::AddPolygonalPanel(Vector<Pointf> &bound, double panelWidth, bool a
 		delp << Pointf(Avg(delp[del[maxid][maxid3]].x, delp[del[maxid][maxid33]].x), Avg(delp[del[maxid][maxid3]].y, delp[del[maxid][maxid33]].y));	
 	}
 	
-	Array<PanelPoints> pans;
+	Array<PanelPoints2D> pans;
 	for (int i = 0; i < del.GetCount(); ++i) {
 		const Delaunay::Triangle &tri = del[i];
 		if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0)  
 			continue;
 
-		PanelPoints &pan = pans.Add();
-		pan.data[0].x = delp[tri[0]].x;		pan.data[0].y = delp[tri[0]].y;		pan.data[0].z = 0;
-		pan.data[1].x = delp[tri[1]].x;		pan.data[1].y = delp[tri[1]].y;		pan.data[1].z = 0;
-		pan.data[2].x = delp[tri[2]].x;		pan.data[2].y = delp[tri[2]].y;		pan.data[2].z = 0;
-		pan.data[3].x = delp[tri[2]].x;		pan.data[3].y = delp[tri[2]].y;		pan.data[3].z = 0;
+		PanelPoints2D &pan = pans.Add();
+		pan.data[0].x = delp[tri[0]].x;		pan.data[0].y = delp[tri[0]].y;
+		pan.data[1].x = delp[tri[1]].x;		pan.data[1].y = delp[tri[1]].y;
+		pan.data[2].x = delp[tri[2]].x;		pan.data[2].y = delp[tri[2]].y;
+		pan.data[3].x = delp[tri[2]].x;		pan.data[3].y = delp[tri[2]].y;
 	}
-	SetPanelPoints(pans);
+	TrianglesToQuads(pans);
+	SetPanelPoints2D(pans);
 }
 
 Vector<Point3D> Surface::GetClosedPolygons(Vector<Segment3D> &segs) {
@@ -2627,8 +2679,8 @@ Vector<Point3D> Surface::GetClosedPolygons(Vector<Segment3D> &segs) {
 	}
 }
 		
-Array<Pointf> Surface::Point3dto2D(const Vector<Point3D> &bound) {
-	Array<Pointf> ret;
+Vector<Pointf> Surface::Point3dto2D(const Vector<Point3D> &bound) {
+	Vector<Pointf> ret;
 	for (const auto &d: bound)
 		ret << Pointf(d.x, d.y);
 	return ret;
@@ -2730,7 +2782,7 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c) {
 			Vector<Point3D> bound = GetClosedPolygons(segs);
 			if (bound.IsEmpty())
 				break;
-			Array<Pointf> bound2D = Point3dto2D(bound);
+			Vector<Pointf> bound2D = Point3dto2D(bound);
 			if (bound2D.size() > 2)
 				AddPolygonalPanel2(bound2D, panelWidth*1.2, false);
 		}

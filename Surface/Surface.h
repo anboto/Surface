@@ -481,9 +481,10 @@ public:
 		return false;
 	}
 	inline void Swap() {
-		if (IsTriangle())
+		if (IsTriangle()) {
 			Upp::Swap(id[1], id[2]);
-		else
+			id[3] = id[2];
+		} else
 			Upp::Swap(id[1], id[3]);
 	}
 	inline bool IsTriangle() const	{return id[0] == id[1] || id[0] == id[2] || id[0] == id[3] || 
@@ -560,6 +561,7 @@ public:
 	Vector<Point3D> nodes;
 	Vector<Panel> panels;
 	Vector<Segment> segments;
+	Array<Vector<Point3D>> lines;
 	
 	int GetNumNodes() const		{return nodes.size();}
 	int GetNumPanels() const	{return panels.size();}
@@ -570,6 +572,8 @@ public:
 	
 	VolumeEnvelope env;
 	
+	void AddLine(const Vector<Point3D> &points3D);
+		
 	String Heal(bool basic, Function <bool(String, int pos)> Status = Null);
 	void Orient();
 	void Image(int axis);
@@ -601,7 +605,7 @@ public:
 						Function<double(double x, double y, double z, double et)> GetPress) const;
 	double GetWaterPlaneArea() const;
 	static Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
-	static Array<Pointf> Point3dto2D(const Vector<Point3D> &bound);
+	static Vector<Pointf> Point3dto2D(const Vector<Point3D> &bound);
 	void AddWaterSurface(Surface &surf, const Surface &under, char c);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane);
@@ -611,7 +615,7 @@ public:
 	void CutY(const Surface &orig, int factor = 1);
 	void CutZ(const Surface &orig, int factor = 1);
 	
-	void Join(const Surface &orig);
+	void Append(const Surface &orig);
 	Vector<Vector<int>> GetPanelSets(Function <bool(String, int pos)> Status);
 	
 	void TriangleToQuad(int ip);
@@ -642,13 +646,13 @@ public:
 	const Vector<int> &GetSelPanels() const		{return selPanels;}
 	const Vector<int> &GetSelNodes() const		{return selNodes;}
 	
-	void AddNode(Point3D &p);
+	void AddNode(const Point3D &p);
 	int FindNode(const Point3D &p);
 	
 	void AddFlatPanel(double lenX, double lenY, double panelWidth);
-	void AddRevolution(Vector<Pointf> &points, double panelWidth);
-	void AddPolygonalPanel(Vector<Pointf> &bound, double panelWidth, bool adjustSize);
-	void AddPolygonalPanel2(Array<Pointf> &poly, double panelWidth, bool adjustSize);
+	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
+	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
+	void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 		
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
 	static int RemoveTinyPanels(Vector<Panel> &_panels);
@@ -662,14 +666,20 @@ public:
 		json
 			("nodes", nodes)
 			("panels", panels)
+			("lines", lines)
 		;
 	}
 	
-protected:
 	struct PanelPoints {
 		Point3D data[4];
 	};
-	void SetPanelPoints(Array<PanelPoints> &pans);
+	struct PanelPoints2D {
+		Pointf data[4];
+	};
+	
+protected:
+	void SetPanelPoints(const Array<PanelPoints> &pans);
+	void SetPanelPoints2D(const Array<PanelPoints2D> &pans);
 	
 private:
 	inline bool CheckId(int id) {return id >= 0 && id < nodes.GetCount()-1;}
@@ -760,6 +770,8 @@ void LoadTDynMsh(String fileName, Surface &surf);
 void LoadMesh(String fileName, Surface &surf, double &mass, Point3D &cg);
 void SaveMesh(String fileName, const Surface &surf, double mass, const Point3D &cg);
 	
-}
+void TrianglesToQuads(Surface::PanelPoints2D &pans);
 
+}
+	
 #endif
