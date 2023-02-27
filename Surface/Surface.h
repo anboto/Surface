@@ -57,7 +57,7 @@ public:
 	void SetNull() 				{x = Null; y = 0;}
 	bool IsNullInstance() const	{return IsNull(x);}
 	
-	void Reset() 			{x = y = z = 0;}
+	void Zero() 			{x = y = z = 0;}
 	
 	Value3D(bool positive)	{x = Null; y = positive ? 1 : -1;}
 	bool IsPosInf()			{return IsNull(x) && y == 1;}
@@ -99,6 +99,7 @@ public:
 
 	inline void operator+=(const Value3D& a) {x += a.x; y += a.y; z += a.z;}
 	inline void operator-=(const Value3D& a) {x -= a.x; y -= a.y; z -= a.z;}
+	inline void operator/=(double a) 		 {x /= a; y /= a; z /= a;}
 
 	double& operator[](int id) {
 		ASSERT(id >= 0 && id < 3);
@@ -114,7 +115,7 @@ public:
 		double length = Length();
 		
 		if (length < 1e-10) 
-			Reset();
+			Zero();
 		else {
 		    x = x/length;
 		    y = y/length;
@@ -195,7 +196,7 @@ public:
 	void Set(double v0, double v1, double v2, double v3, double v4, double v5) {
 		t.x = v0;	t.y = v1;	t.z = v2;	r.x = v3;	r.y = v4;	r.z = v5;
 	}
-	void Reset() {t.Reset();	r.Reset();}
+	void Zero() {t.Zero();	r.Zero();}
 	
 	void operator+=(const Value6D &v) 	{t.x += v.t.x;	t.y += v.t.y;	t.z += v.t.z;	r.x += v.r.x;	r.y += v.r.y;	r.z += v.r.z;}
 	void operator*=(double v) 			{t.x *= v;		t.y *= v;		t.z *= v;		r.x *= v;		r.y *= v;		r.z *= v;}
@@ -238,8 +239,6 @@ public:
 		v[3] = T(r.x);	v[4] = T(r.y);	v[5] = T(r.z);
 	}
 	
-	static Value6D Zero() {return Value6D(0, 0, 0, 0, 0, 0);}
-	
 	Value3D t, r;
 };
 
@@ -254,12 +253,6 @@ public:
 	void AddLinear(const Direction3D &dir, const Point3D &point, const Point3D &c0);	
 	void Add(const Force6D &force, const Point3D &point, const Point3D &c0);
 	void Add(const ForceVector &force, const Point3D &c0);
-	
-	static Force6D Zero() {
-		Force6D f;
-		f.Zero();
-		return f;
-	}
 };
 
 class ForceVector {
@@ -516,10 +509,10 @@ public:
 	}
 };
 
-class Segment : public MoveableAndDeepCopyOption<Segment> {
+class LineSegment : public MoveableAndDeepCopyOption<LineSegment> {
 public:
-	Segment() {}
-	Segment(const Segment &orig, int) {
+	LineSegment() {}
+	LineSegment(const LineSegment &orig, int) {
 		inode0 = orig.inode0;
 		inode1 = orig.inode1;
 		panels = clone(orig.panels);
@@ -558,9 +551,12 @@ public:
 	void Clear();
 	bool IsEmpty() const;
 	
+	void Load(String fileName);
+	void Save(String fileName);
+
 	Vector<Point3D> nodes;
 	Vector<Panel> panels;
-	Vector<Segment> segments;
+	Vector<LineSegment> segments;
 	Array<Vector<Point3D>> lines;
 	
 	int GetNumNodes() const		{return nodes.size();}
@@ -573,9 +569,11 @@ public:
 	VolumeEnvelope env;
 	
 	void AddLine(const Vector<Point3D> &points3D);
+	void AddLine(const Vector<Pointf> &points);
 		
 	String Heal(bool basic, Function <bool(String, int pos)> Status = Null);
-	void Orient();
+	Surface &Orient();
+	Surface &OrientFlat();
 	void Image(int axis);
 	const VolumeEnvelope &GetEnvelope(); 
 	void GetPanelParams();
@@ -586,12 +584,15 @@ public:
 	double GetAreaZProjection(bool positive, bool negative) const;
 	Pointf GetAreaZProjectionCG() const;
 	void GetSegments();
+	void GetNormals();
 	double GetAvgLenSegment()	{return avgLenSegment;}
 	void GetVolume();
 	int VolumeMatch(double ratioWarning, double ratioError) const;
-	Point3D GetCenterOfBuoyancy() const;
-	void GetInertia33(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
-	void GetInertia66(MatrixXd &inertia, const Point3D &cg, bool refine) const;
+	Point3D GetCentreOfBuoyancy() const;
+	Point3D GetCentreOfGravity_Surface() const;
+	void GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
+	void GetInertia33_Surface(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
+	void GetInertia66(MatrixXd &inertia, const MatrixXd &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const;
 	static void TranslateInertia33(Matrix3d &inertia, double m, const Value3D &delta);
 	static void TranslateInertia66(MatrixXd &inertia, const Value3D &delta);
 	Force6D GetHydrostaticForce(const Point3D &c0, double rho, double g) const;
@@ -611,19 +612,23 @@ public:
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane);
 	char IsWaterPlaneMesh() const; 
 	
+	void TrianglesToQuadsFlat();
+		
 	void CutX(const Surface &orig, int factor = 1);
 	void CutY(const Surface &orig, int factor = 1);
 	void CutZ(const Surface &orig, int factor = 1);
 	
-	void Append(const Surface &orig);
+	Surface &Append(const Surface &orig);
+	Surface &operator<<(const Surface &orig) {return Append(orig);}
+	
 	Vector<Vector<int>> GetPanelSets(Function <bool(String, int pos)> Status);
 	
 	void TriangleToQuad(int ip);
 	void TriangleToQuad(Panel &pan);
 		
-	void Translate(double dx, double dy, double dz);
-	void Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
-	void TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
+	Surface &Translate(double dx, double dy, double dz);
+	Surface &Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
+	Surface &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	
 	bool TranslateArchimede(double mass, double rho, double &dz, Surface &under);
 	bool Archimede(double mass, Point3D &cg, const Point3D &c0, double rho, double g, double &dz, double &droll, double &dpitch, Surface &under);
@@ -649,7 +654,7 @@ public:
 	void AddNode(const Point3D &p);
 	int FindNode(const Point3D &p);
 	
-	void AddFlatPanel(double lenX, double lenY, double panelWidth);
+	void AddFlatRectangle(double lenX, double lenY, double panelWidth);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 	void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
@@ -669,17 +674,12 @@ public:
 			("lines", lines)
 		;
 	}
-	
+		
+protected:
 	struct PanelPoints {
 		Point3D data[4];
 	};
-	struct PanelPoints2D {
-		Pointf data[4];
-	};
-	
-protected:
 	void SetPanelPoints(const Array<PanelPoints> &pans);
-	void SetPanelPoints2D(const Array<PanelPoints2D> &pans);
 	
 private:
 	inline bool CheckId(int id) {return id >= 0 && id < nodes.GetCount()-1;}
@@ -761,17 +761,39 @@ public:
 	MatrixXd normals;	// (panels, 3)
 };
 
+template<class Range>
+void Translate(Range &r, double dx, double dy, double dz) {
+	for (Value3D &p : r)
+		p.Translate(dx, dy, dz);
+}
+
+template<class Range>
+void TransRot(Range &r, const Affine3d &quat) {
+	for (Value3D &p : r)
+		p.TransRot(quat);
+}
+
+template<class Range>
+void TransRot(Range &r, double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
+	for (Value3D &p : r)
+		p.TransRot(dx, dy, dz, ax, ay, az, cx, cy, cz);
+}
+
+template<class Range>
+void Rotate(Range &r, double ax, double ay, double az, double cx, double cy, double cz) {
+	for (Value3D &p : r)
+		p.Rotate(ax, ay, az, cx, cy, cz);
+}
+	
 void LoadStl(String fileName, Surface &surf, bool &isText, String &header);
 void SaveStlTxt(String fileName, const Surface &surf, double factor);
 void SaveStlBin(String fileName, const Surface &surf, double factor);
 
 void LoadTDynMsh(String fileName, Surface &surf);
 
-void LoadMesh(String fileName, Surface &surf, double &mass, Point3D &cg);
-void SaveMesh(String fileName, const Surface &surf, double mass, const Point3D &cg);
+//void LoadMesh(String fileName, Surface &surf, double &mass, Point3D &cg);
+//void SaveMesh(String fileName, const Surface &surf, double mass, const Point3D &cg);
 	
-void TrianglesToQuads(Surface::PanelPoints2D &pans);
-
 }
 	
 #endif

@@ -49,7 +49,7 @@ void TestSurfaceX_Calc() {
 	UppLog() << Format("\nSurface: %.3f", under.surface);	
 	UppLog() << Format("\nVolume:  %.3f", under.volume);
 	UppLog() << Format("\nSeconds: %.8f", t.Seconds());
-	Point3D cb = under.GetCenterOfBuoyancy();
+	Point3D cb = under.GetCentreOfBuoyancy();
 	UppLog() << Format("\nCB:      %s %s %s", FDS(cb.x, 10, true), FDS(cb.y, 10, true), FDS(cb.z, 10, true));
 
 	Point3D c0(0, 0, 0);
@@ -129,6 +129,85 @@ void TestSurfaceX_TransRot() {
 	}
 }
 
+
+void TestMesh() {
+	UppLog() << "\n\nMeshing functions demo";
+	
+	UVector<Pointf> bound = {
+		{78.282032,	1.732051},
+		{79.282032,	0},
+		{78.282032,	-1.732051},
+		{77.282032,	-3.464102},
+		{76.282032,	-5.196152},
+		{75.282032,	-6.928203},
+		{74.282032,	-8.660254},
+		{72.282032,	-8.660254},
+		{70.282032,	-8.660254},
+		{68.282032,	-8.660254},
+		{66.282032,	-8.660254},
+		{64.282032,	-8.660254},
+		{63.282032,	-6.928203},
+		{62.282032,	-5.196152},
+		{61.282032,	-3.464102},
+		{60.282032,	-1.732051},
+		{59.282032,	0},
+		{60.282032,	1.732051},
+		{61.282032,	3.464102},
+		{62.282032,	5.196152},
+		{63.282032,	6.928203},
+		{64.282032,	8.660254},
+		{66.282032,	8.660254},
+		{68.282032,	8.660254},
+		{70.282032,	8.660254},
+		{72.282032,	8.660254},
+		{74.282032,	8.660254},
+		{75.282032,	6.928203},
+		{76.282032,	5.196152},
+		{77.282032,	3.464102},
+		{78.282032,	1.732051}};
+
+	Surface s;
+	
+	for (double msh = 1; msh <= 2; msh += 1) {
+		
+		double deltax = (msh - 1)*15;
+		
+		Surface s1;
+		s1.AddPolygonalPanel(bound, msh, true);
+		s1.Translate(-70+deltax, 0, 0);
+		
+		for (auto &p : bound) 	
+			p.x -= 70;
+	
+		Surface s2;
+		s2.AddPolygonalPanel(bound, msh, true);
+		s2.Translate(deltax, 20, 0);
+		
+		
+		UVector<Pointf> bound3 = {
+			{0,0},
+			{10,0},
+			{6,5},
+			{6,10},
+			{10,15},
+			{0,15},
+			{4,10},
+			{4,5},
+			{0,0}};
+	
+		Surface s3;
+		s3.AddPolygonalPanel2(bound3, msh, true);
+		s3.Translate(deltax, -30, 0);	
+	
+		s << s1 << s2 << s3;
+	}
+	
+	String file = "MeshDemo.stl";
+	UppLog() << "\nSaving " << file;
+	SaveStlBin(AppendFileNameX(GetDesktopFolder(), file), s, 1);
+	
+}
+
 CONSOLE_APP_MAIN 
 {
 	StdLogSetup(LOG_COUT|LOG_FILE);
@@ -139,7 +218,9 @@ CONSOLE_APP_MAIN
 	try {
 		bool test = CommandLine().size() > 0 && CommandLine()[0] == "-test";
 		
-		TestSurfaceX_Calc();
+		TestMesh();
+		
+		//TestSurfaceX_Calc();
 		//TestSurfaceX_TransRot();
 		
 	  
