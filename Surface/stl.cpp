@@ -18,7 +18,7 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
 	
 	String line;
-	FieldSplit f(in);	
+	LineParser f(in);	
 	f.IsSeparator = [](int c)->int {return c == '\t' || c == ' ' || c == '!';};
 	
 	line = ToLower(TrimBoth(in.GetLine()));

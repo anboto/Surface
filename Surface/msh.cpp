@@ -18,7 +18,7 @@ void LoadTDynMsh(String fileName, Surface &surf) {
 	
 	try {
 		String line;
-		FieldSplit f(in);	
+		LineParser f(in);	
 		f.IsSeparator = [](int c)->int {return c == '\t' || c == ' ' || c == '!';};
 			
 		f.GetLine(2);
