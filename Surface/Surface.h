@@ -11,7 +11,7 @@ using namespace Eigen;
 
 const double EPS_LEN = 0.001,
 			 EPS_VOL = EPS_LEN*EPS_LEN*EPS_LEN;
-
+			 
 template<class T>
 inline T avg(T a, T b) 			{return T(a+b)/2;}
 template<class T>

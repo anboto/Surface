@@ -1062,14 +1062,22 @@ void Surface::GetPanelParams(Panel &panel) const {
 		panel.centroid1 = Centroid(p2, p3, p0);
 		panel.normal1   = Normal(p2, p3, p0);
 		double surf = panel.surface0 + panel.surface1;
-		if (surf == 0)
-			throw Exc(t_("Panel with zero surface"));
-		panel.centroidPaint.x = (panel.centroid0.x*panel.surface0 + panel.centroid1.x*panel.surface1)/surf;
-		panel.centroidPaint.y = (panel.centroid0.y*panel.surface0 + panel.centroid1.y*panel.surface1)/surf;
-		panel.centroidPaint.z = (panel.centroid0.z*panel.surface0 + panel.centroid1.z*panel.surface1)/surf;
-		panel.normalPaint.x = (panel.normal0.x*panel.surface0 + panel.normal1.x*panel.surface1)/surf;
-		panel.normalPaint.y = (panel.normal0.y*panel.surface0 + panel.normal1.y*panel.surface1)/surf;
-		panel.normalPaint.z = (panel.normal0.z*panel.surface0 + panel.normal1.z*panel.surface1)/surf;
+		if (surf == 0) {
+//			throw Exc(t_("Panel with zero surface"));
+			panel.centroidPaint.x = (panel.centroid0.x + panel.centroid1.x)/2;
+			panel.centroidPaint.y = (panel.centroid0.y + panel.centroid1.y)/2;
+			panel.centroidPaint.z = (panel.centroid0.z + panel.centroid1.z)/2;
+			panel.normalPaint.x = (panel.normal0.x + panel.normal1.x)/2;
+			panel.normalPaint.y = (panel.normal0.y + panel.normal1.y)/2;
+			panel.normalPaint.z = (panel.normal0.z + panel.normal1.z)/2;
+		} else {
+			panel.centroidPaint.x = (panel.centroid0.x*panel.surface0 + panel.centroid1.x*panel.surface1)/surf;
+			panel.centroidPaint.y = (panel.centroid0.y*panel.surface0 + panel.centroid1.y*panel.surface1)/surf;
+			panel.centroidPaint.z = (panel.centroid0.z*panel.surface0 + panel.centroid1.z*panel.surface1)/surf;
+			panel.normalPaint.x = (panel.normal0.x*panel.surface0 + panel.normal1.x*panel.surface1)/surf;
+			panel.normalPaint.y = (panel.normal0.y*panel.surface0 + panel.normal1.y*panel.surface1)/surf;
+			panel.normalPaint.z = (panel.normal0.z*panel.surface0 + panel.normal1.z*panel.surface1)/surf;
+		}
 		panel.normalPaint.Normalize();
 	} else {
 		panel.surface1 = 0;
@@ -1715,7 +1723,7 @@ void Surface::GetHydrostaticStiffness(MatrixXd &c, const Point3D &c0, const Poin
 	}	
 	c.setConstant(6, 6, 0);
 	
-	if (IsNull(mass))
+	if (mass == 0)
 		mass = rho*volume;
 		
 	for (int ip = 0; ip < panels.size(); ++ip) {	
@@ -1804,23 +1812,23 @@ void Surface::CutZ(const Surface &orig, int factor) {
 					if (abs(from.z) <= EPS_LEN && abs(to.z) <= EPS_LEN) {
 						segWL.from = from;
 						segWL.to = to;	
-					} else if ((from.z)*factor <= 0 && (to.z)*factor <= 0) {
+					} else if ((from.z)*factor <= EPS_LEN && (to.z)*factor <= EPS_LEN) {
 						nodeFrom << origPanelid[ids[i]];
 						nodeTo << origPanelid[ids[i+1]];
-					} else if ((from.z)*factor >= 0 && (to.z)*factor >= 0) 
+					} else if ((from.z)*factor >= EPS_LEN && (to.z)*factor >= EPS_LEN) 
 						;
 					else {
 						Segment3D seg(from, to);
 						Point3D inter = seg.IntersectionPlaneZ(0);
 						if (!IsNull(inter)) {
-							if ((from.z)*factor < 0) {
+							if ((from.z)*factor < EPS_LEN) {
 								nodeFrom << origPanelid[ids[i]];
 								nodes << inter;
-								nodeTo << nodes.GetCount() - 1;
+								nodeTo << nodes.size() - 1;
 							} else {
 								nodeTo << origPanelid[ids[i+1]];
 								nodes << inter;
-								nodeFrom << nodes.GetCount() - 1;
+								nodeFrom << nodes.size() - 1;
 							}
 						}
 						if (IsNull(segWL.from))
@@ -1834,9 +1842,9 @@ void Surface::CutZ(const Surface &orig, int factor) {
 				segWaterlevel << segWL;
 			
 			int pos = -1, nFrom, nTo;
-			for (int i = 0; i < nodeFrom.GetCount(); ++i) {
+			for (int i = 0; i < nodeFrom.size(); ++i) {
 				int i_1 = i + 1;
-				if (i_1 >= nodeFrom.GetCount())
+				if (i_1 >= nodeFrom.size())
 					i_1 = 0;
 				if (nodeTo[i] != nodeFrom[i_1]) {
 					pos = i+1;
@@ -1883,118 +1891,16 @@ void Surface::CutZ(const Surface &orig, int factor) {
 	}
 	DeleteVoidSegments(segWaterlevel);
 	DeleteDuplicatedSegments(segWaterlevel);
-	for (Point3D &node : nodes) 
-		node.z = min(node.z, 0.);	// No tolerance -> max z is 0
-}
-
-void Surface::CutX(const Surface &orig, int factor) {
-	nodes = clone(orig.nodes);
-	panels.Clear();
-	
-	factor *= -1;
-	
-	for (int ip = 0; ip < orig.panels.GetCount(); ++ip) {
-		const int &id0 = orig.panels[ip].id[0];
-		const int &id1 = orig.panels[ip].id[1];
-		const int &id2 = orig.panels[ip].id[2];
-		const int &id3 = orig.panels[ip].id[3];
-		const Point3D &p0 = nodes[id0];
-		const Point3D &p1 = nodes[id1];
-		const Point3D &p2 = nodes[id2];
-		const Point3D &p3 = nodes[id3];	
-		
-		if ((p0.x)*factor >= 0 && (p1.x)*factor >= 0 && (p2.x)*factor >= 0 && (p3.x)*factor >= 0) 
-			;
-		else if ((p0.x)*factor <= 0 && (p1.x)*factor <= 0 && (p2.x)*factor <= 0 && (p3.x)*factor <= 0) 
-			panels << Panel(orig.panels[ip]);
-		else {
-			const int *origPanelid = orig.panels[ip].id;
-			Vector<int> nodeFrom, nodeTo;
-
-			const int ids[] = {0, 1, 2, 3, 0};
-			for (int i = 0; i < 4; ++i) {
-				if (origPanelid[ids[i]] == origPanelid[ids[i+1]])
-					;
-				else {
-					const Point3D &from = nodes[origPanelid[ids[i]]];
-					const Point3D &to   = nodes[origPanelid[ids[i+1]]];
-					Segment3D seg(from, to);
-					if (abs(from.x) <= EPS_LEN && abs(to.x) <= EPS_LEN) {
-						nodeFrom << origPanelid[ids[i]];
-						nodeTo << origPanelid[ids[i+1]];
-					} else if ((from.x)*factor <= 0 && (to.x)*factor <= 0) {
-						nodeFrom << origPanelid[ids[i]];
-						nodeTo << origPanelid[ids[i+1]];
-					} else if ((from.x)*factor >= 0 && (to.x)*factor >= 0) 
-						;
-					else {
-						Point3D inter = seg.IntersectionPlaneX(0);
-						if (!IsNull(inter)) {
-							if ((from.x)*factor < 0) {
-								nodeFrom << origPanelid[ids[i]];
-								nodes << inter;
-								nodeTo << nodes.GetCount() - 1;
-							} else {
-								nodeTo << origPanelid[ids[i+1]];
-								nodes << inter;
-								nodeFrom << nodes.GetCount() - 1;
-							}
-						}
-					}
-				}
-			}
-			
-			int pos = -1, nFrom, nTo;
-			for (int i = 0; i < nodeFrom.GetCount(); ++i) {
-				int i_1 = i + 1;
-				if (i_1 >= nodeFrom.GetCount())
-					i_1 = 0;
-				if (nodeTo[i] != nodeFrom[i_1]) {
-					pos = i+1;
-					nFrom = nodeTo[i];
-					nTo = nodeFrom[i_1];
-					break;
-				}
-			}
-			if (pos == nodeTo.size()) {
-				nodeFrom << nFrom;
-				nodeTo << nTo;
-			} else if (pos >= 0) {
-				nodeFrom.Insert(pos, nFrom);		
-				nodeTo.Insert(pos, nTo);
-			}
-			
-			Panel panel;
-			if (nodeFrom.size() == 3) {
-				panel.id[0] = nodeFrom[0];
-				panel.id[1] = nodeFrom[1];
-				panel.id[2] = nodeFrom[2];
-				panel.id[3] = nodeFrom[2];
-			} else if (nodeFrom.size() == 4) {
-				panel.id[0] = nodeFrom[0];
-				panel.id[1] = nodeFrom[1];
-				panel.id[2] = nodeFrom[2];
-				panel.id[3] = nodeFrom[3];
-			} else if (nodeFrom.size() == 5) {
-				panel.id[0] = nodeFrom[0];
-				panel.id[1] = nodeFrom[1];
-				panel.id[2] = nodeFrom[2];
-				panel.id[3] = nodeFrom[3];
-				Panel panel2;
-				panel2.id[0] = nodeFrom[0];
-				panel2.id[1] = nodeFrom[3];
-				panel2.id[2] = nodeFrom[4];
-				panel2.id[3] = nodeFrom[4];
-				//TriangleToQuad(panel2); 
-				panels << panel2;
-			}
-			//TriangleToQuad(panel);
-			panels << panel;
-		}
+	if (factor > 0) {						// No tolerance -> max/min is 0
+		for (Point3D &node : nodes) 
+			node.z = min(node.z, 0.);	
+	} else {
+		for (Point3D &node : nodes) 
+			node.z = max(node.z, 0.);	
 	}
 }
 
-void Surface::CutY(const Surface &orig, int factor) {
+void Surface::CutX(const Surface &orig, int factor) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
@@ -2010,10 +1916,14 @@ void Surface::CutY(const Surface &orig, int factor) {
 		const Point3D &p2 = nodes[id2];
 		const Point3D &p3 = nodes[id3];	
 		
-		if ((p0.y)*factor >= 0 && (p1.y)*factor >= 0 && (p2.y)*factor >= 0 && (p3.y)*factor >= 0) 
-			;
-		else if ((p0.y)*factor <= 0 && (p1.y)*factor <= 0 && (p2.y)*factor <= 0 && (p3.y)*factor <= 0) 
-			panels << Panel(orig.panels[ip]);
+		if ((p0.x)*factor <= EPS_LEN && (p1.x)*factor <= EPS_LEN && 
+				 (p2.x)*factor <= EPS_LEN && (p3.x)*factor <= EPS_LEN) {
+			if (!((p0.x)*factor >= -EPS_LEN && (p1.x)*factor >= -EPS_LEN && // Rejects waterplane
+				(p2.x)*factor >= -EPS_LEN && (p3.x)*factor >= -EPS_LEN))		     
+				panels << Panel(orig.panels[ip]);			// Gets the panels that comply
+		} else if ((p0.x)*factor >= -EPS_LEN && (p1.x)*factor >= -EPS_LEN && 
+			(p2.x)*factor >= -EPS_LEN && (p3.x)*factor >= -EPS_LEN) 
+			;											// Refuses the panels that don't
 		else {
 			const int *origPanelid = orig.panels[ip].id;
 			Vector<int> nodeFrom, nodeTo;
@@ -2025,16 +1935,18 @@ void Surface::CutY(const Surface &orig, int factor) {
 				else {
 					const Point3D &from = nodes[origPanelid[ids[i]]];
 					const Point3D &to   = nodes[origPanelid[ids[i+1]]];
-					if ((from.y)*factor <= 0 && (to.y)*factor <= 0) {
+					if (abs(from.x) <= EPS_LEN && abs(to.x) <= EPS_LEN) 
+						;
+					else if ((from.x)*factor <= EPS_LEN && (to.x)*factor <= EPS_LEN) {
 						nodeFrom << origPanelid[ids[i]];
 						nodeTo << origPanelid[ids[i+1]];
-					} else if ((from.y)*factor >= 0 && (to.y)*factor >= 0) 
+					} else if ((from.x)*factor >= EPS_LEN && (to.x)*factor >= EPS_LEN) 
 						;
 					else {
 						Segment3D seg(from, to);
-						Point3D inter = seg.IntersectionPlaneY(0);
+						Point3D inter = seg.IntersectionPlaneX(0);
 						if (!IsNull(inter)) {
-							if ((from.y)*factor < 0) {
+							if ((from.x)*factor < EPS_LEN) {
 								nodeFrom << origPanelid[ids[i]];
 								nodes << inter;
 								nodeTo << nodes.size() - 1;
@@ -2096,28 +2008,152 @@ void Surface::CutY(const Surface &orig, int factor) {
 			panels << panel;
 		}
 	}
+	if (factor > 0) {						// No tolerance -> max/min is 0
+		for (Point3D &node : nodes) 
+			node.x = min(node.x, 0.);	
+	} else {
+		for (Point3D &node : nodes) 
+			node.x = max(node.x, 0.);	
+	}
 }
 
-Surface &Surface::Append(const Surface &orig) {
+void Surface::CutY(const Surface &orig, int factor) {
+	nodes = clone(orig.nodes);
+	panels.Clear();
+	
+	factor *= -1;
+	
+	for (int ip = 0; ip < orig.panels.size(); ++ip) {
+		const int &id0 = orig.panels[ip].id[0];
+		const int &id1 = orig.panels[ip].id[1];
+		const int &id2 = orig.panels[ip].id[2];
+		const int &id3 = orig.panels[ip].id[3];
+		const Point3D &p0 = nodes[id0];
+		const Point3D &p1 = nodes[id1];
+		const Point3D &p2 = nodes[id2];
+		const Point3D &p3 = nodes[id3];	
+		
+		if ((p0.y)*factor <= EPS_LEN && (p1.y)*factor <= EPS_LEN && 
+				 (p2.y)*factor <= EPS_LEN && (p3.y)*factor <= EPS_LEN) {
+			if (!((p0.y)*factor >= -EPS_LEN && (p1.y)*factor >= -EPS_LEN && // Rejects waterplane
+				(p2.y)*factor >= -EPS_LEN && (p3.y)*factor >= -EPS_LEN))		     
+				panels << Panel(orig.panels[ip]);			// Gets the panels that comply
+		} else if ((p0.y)*factor >= -EPS_LEN && (p1.y)*factor >= -EPS_LEN && 
+			(p2.y)*factor >= -EPS_LEN && (p3.y)*factor >= -EPS_LEN) 
+			;											// Refuses the panels that don't
+		else {
+			const int *origPanelid = orig.panels[ip].id;
+			Vector<int> nodeFrom, nodeTo;
+			
+			const int ids[] = {0, 1, 2, 3, 0};
+			for (int i = 0; i < 4; ++i) {
+				if (origPanelid[ids[i]] == origPanelid[ids[i+1]])
+					;
+				else {
+					const Point3D &from = nodes[origPanelid[ids[i]]];
+					const Point3D &to   = nodes[origPanelid[ids[i+1]]];
+					if (abs(from.y) <= EPS_LEN && abs(to.y) <= EPS_LEN) 
+						;
+					else if ((from.y)*factor <= EPS_LEN && (to.y)*factor <= EPS_LEN) {
+						nodeFrom << origPanelid[ids[i]];
+						nodeTo << origPanelid[ids[i+1]];
+					} else if ((from.y)*factor >= EPS_LEN && (to.y)*factor >= EPS_LEN) 
+						;
+					else {
+						Segment3D seg(from, to);
+						Point3D inter = seg.IntersectionPlaneY(0);
+						if (!IsNull(inter)) {
+							if ((from.y)*factor < EPS_LEN) {
+								nodeFrom << origPanelid[ids[i]];
+								nodes << inter;
+								nodeTo << nodes.size() - 1;
+							} else {
+								nodeTo << origPanelid[ids[i+1]];
+								nodes << inter;
+								nodeFrom << nodes.size() - 1;
+							}
+						}
+					}
+				}
+			}
+			
+			int pos = -1, nFrom, nTo;
+			for (int i = 0; i < nodeFrom.size(); ++i) {
+				int i_1 = i + 1;
+				if (i_1 >= nodeFrom.size())
+					i_1 = 0;
+				if (nodeTo[i] != nodeFrom[i_1]) {
+					pos = i+1;
+					nFrom = nodeTo[i];
+					nTo = nodeFrom[i_1];
+					break;
+				}
+			}
+			if (pos == nodeTo.size()) {
+				nodeFrom << nFrom;
+				nodeTo << nTo;
+			} else if (pos >= 0) {
+				nodeFrom.Insert(pos, nFrom);		
+				nodeTo.Insert(pos, nTo);
+			}
+			
+			Panel panel;
+			if (nodeFrom.size() == 3) {
+				panel.id[0] = nodeFrom[0];
+				panel.id[1] = nodeFrom[1];
+				panel.id[2] = nodeFrom[2];
+				panel.id[3] = nodeFrom[2];
+			} else if (nodeFrom.size() == 4) {
+				panel.id[0] = nodeFrom[0];
+				panel.id[1] = nodeFrom[1];
+				panel.id[2] = nodeFrom[2];
+				panel.id[3] = nodeFrom[3];
+			} else if (nodeFrom.size() == 5) {
+				panel.id[0] = nodeFrom[0];
+				panel.id[1] = nodeFrom[1];
+				panel.id[2] = nodeFrom[2];
+				panel.id[3] = nodeFrom[3];
+				Panel panel2;
+				panel2.id[0] = nodeFrom[0];
+				panel2.id[1] = nodeFrom[3];
+				panel2.id[2] = nodeFrom[4];
+				panel2.id[3] = nodeFrom[4];
+				//TriangleToQuad(panel2); 
+				panels << panel2;
+			}
+			//TriangleToQuad(panel);
+			panels << panel;
+		}
+	}
+	if (factor > 0) {						// No tolerance -> max/min is 0
+		for (Point3D &node : nodes) 
+			node.y = min(node.y, 0.);	
+	} else {
+		for (Point3D &node : nodes) 
+			node.y = max(node.y, 0.);	
+	}
+}
+
+Surface &Surface::Append(const Surface &appended) {
 	int num = nodes.size();
-	int numOrig = orig.nodes.size();
+	int numOrig = appended.nodes.size();
 	nodes.SetCount(num + numOrig);
 	for (int i = 0; i < numOrig; ++i)
-		nodes[num+i] = orig.nodes[i];
+		nodes[num+i] = appended.nodes[i];
 	
 	int numPan = panels.size();
-	int numPanOrig = orig.panels.size();
+	int numPanOrig = appended.panels.size();
 	panels.SetCount(numPan + numPanOrig);
 	for (int i = 0; i < numPanOrig; ++i) {
 		Panel &pan = panels[numPan+i];
-		const Panel &panOrig = orig.panels[i];
+		const Panel &panToApp = appended.panels[i];
 		
 		for (int ii = 0; ii < 4; ++ii)
-			pan.id[ii] = panOrig.id[ii] + num;
+			pan.id[ii] = panToApp.id[ii] + num;
 		
 		GetPanelParams(pan);
 	}
-	
+	Surface::RemoveTinyPanels(panels);	
 	Surface::RemoveDuplicatedPanels(panels);
 	Surface::RemoveDuplicatedPointsAndRenumber(panels, nodes);
 	Surface::RemoveDuplicatedPanels(panels);
