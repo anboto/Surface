@@ -450,7 +450,7 @@ int Surface::RemoveTinyPanels(Vector<Panel> &_panels) {
 	for (int i = 0; i < _panels.GetCount(); ++i) 
 		avgsurface += _panels[i].surface0 + _panels[i].surface1;
 	avgsurface /= _panels.GetCount();
-	double tiny = avgsurface/1000000;
+	double tiny = avgsurface*EPS_SURF;
 			
 	for (int i = _panels.GetCount()-1; i >= 0; --i) {
 		double surface = _panels[i].surface0 + _panels[i].surface1;
