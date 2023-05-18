@@ -2316,6 +2316,21 @@ bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho,
 	
 	int nIter = 0;	
 	
+	// Test if only Z translation is enough
+	double ndz = dz;
+	base = clone(*this);
+	basecg = clone(cg);
+	if (base.TranslateArchimede(mass, rho, ndz, under))
+		dz = ndz;
+	Point3D cb = under.GetCentreOfBuoyancy();
+	basecg.Translate(0, 0, dz);
+	if (abs(cb.x - basecg.x) < 0.001 && abs(cb.y - basecg.y) < 0.001) {
+		droll = dpitch = 0;
+		TransRot(0, 0, dz, ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
+		cg.TransRot(0, 0, dz, ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
+		return true;
+	}
+	
 	VectorXd x(2);
 	x[0] = droll;
 	x[1] = dpitch;
@@ -2527,7 +2542,7 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 	int n = 0;
 	for (int i = 0; i < points.GetCount()-1; ++i) {
 		if (points[i].x == 0) {
-			for (int j = 0; j < numSlices; j += 2) {
+			for (int j = 0; j < numSlices; j++) {
 				pans[n].data[0].x = 0;	
 				pans[n].data[0].y = 0;
 				pans[n].data[0].z = points[i].y;
@@ -2536,18 +2551,14 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 				pans[n].data[1].y = points[i+1].x*sin((2*M_PI*j)/numSlices);
 				pans[n].data[1].z = points[i+1].y;
 	
-				pans[n].data[2].x = points[i+1].x*cos((2*M_PI*(j+1))/numSlices);	
-				pans[n].data[2].y = points[i+1].x*sin((2*M_PI*(j+1))/numSlices);
-				pans[n].data[2].z = points[i+1].y;
-											
-				pans[n].data[3].x = points[i+1].x*cos((2*M_PI*(j+2))/numSlices);	
-				pans[n].data[3].y = points[i+1].x*sin((2*M_PI*(j+2))/numSlices);
-				pans[n].data[3].z = points[i+1].y;
+				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos((2*M_PI*(j+1))/numSlices);	
+				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin((2*M_PI*(j+1))/numSlices);
+				pans[n].data[2].z = pans[n].data[3].z = points[i+1].y;
 				
 				n++;
 			}
 		} else if (points[i+1].x == 0) {
-			for (int j = 0; j < numSlices; j += 2) {
+			for (int j = 0; j < numSlices; j++) {
 				pans[n].data[0].x = points[i].x*cos((2*M_PI*j)/numSlices);	
 				pans[n].data[0].y = points[i].x*sin((2*M_PI*j)/numSlices);
 				pans[n].data[0].z = points[i].y;
@@ -2556,13 +2567,9 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 				pans[n].data[1].y = points[i].x*sin((2*M_PI*(j+1))/numSlices);
 				pans[n].data[1].z = points[i].y;
 											
-				pans[n].data[2].x = points[i].x*cos((2*M_PI*(j+2))/numSlices);	
-				pans[n].data[2].y = points[i].x*sin((2*M_PI*(j+2))/numSlices);
-				pans[n].data[2].z = points[i].y;
-
-				pans[n].data[3].x = 0;	
-				pans[n].data[3].y = 0;
-				pans[n].data[3].z = points[i+1].y;
+				pans[n].data[2].x = pans[n].data[3].x = 0;	
+				pans[n].data[2].y = pans[n].data[3].y = 0;
+				pans[n].data[2].z = pans[n].data[3].z = points[i+1].y;
 								
 				n++;
 			}
