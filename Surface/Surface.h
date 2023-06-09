@@ -351,7 +351,7 @@ public:
 		to = Point3D(from.x + length*normal.x, from.y + length*normal.y, from.z + length*normal.z);
 	}
 	void SetNull() 				{from = Null;}
-	bool IsNullInstance() const	{return IsNull(from);}
+	bool IsNullInstance() const	{return IsNull(from) || IsNull(to);}
 		
 	void Set(const Point3D &_from, const Point3D &_to) {
 		from.Set(_from);

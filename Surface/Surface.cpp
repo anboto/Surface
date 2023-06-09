@@ -1833,7 +1833,7 @@ void Surface::CutZ(const Surface &orig, int factor) {
 						}
 						if (IsNull(segWL.from))
 							segWL.from = inter;
-						else if (IsNull(segWL.to))
+						if (IsNull(segWL.to))
 							segWL.to = inter;
 					}
 				}
