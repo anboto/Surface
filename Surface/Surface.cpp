@@ -294,7 +294,7 @@ Surface::Surface(const Surface &orig, int) {
 	numDupPan = orig.numDupPan;
 	numDupP = orig.numDupP;
 	numSkewed = orig.numSkewed;
-	numUnprocessed = orig.numUnprocessed;
+	//numUnprocessed = orig.numUnprocessed;
 	
 	panels = clone(orig.panels);
 	nodes = clone(orig.nodes);
@@ -581,10 +581,14 @@ void Surface::GetSegments() {
 			AddSegment(id3, id0, i);
 		}
 	}
-	avgLenSegment = 0;
-	for (const auto &s : segments)
-		avgLenSegment += Distance(nodes[s.inode0], nodes[s.inode1]);
-	avgLenSegment /= segments.GetCount();
+	if (segments.size() == 0)
+		avgLenSegment = -1;
+	else {
+		avgLenSegment = 0;
+		for (const auto &s : segments)
+			avgLenSegment += Distance(nodes[s.inode0], nodes[s.inode1]);
+		avgLenSegment /= segments.size();
+	}
 }
 
 void Surface::GetNormals() {
@@ -1219,11 +1223,10 @@ Pointf Surface::GetAreaZProjectionCG() const {
 	return ret;
 }
 	
-	
 void Surface::GetVolume() {
 	volumex = volumey = volumez = 0;
 	
-	for (int ip = 0; ip < panels.GetCount(); ++ip) {
+	for (int ip = 0; ip < panels.size(); ++ip) {
 		const Panel &panel = panels[ip];
 		
 		volumex += panel.surface0*panel.normal0.x*panel.centroid0.x;

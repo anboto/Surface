@@ -586,7 +586,7 @@ public:
 	Pointf GetAreaZProjectionCG() const;
 	void GetSegments();
 	void GetNormals();
-	double GetAvgLenSegment()	{return avgLenSegment;}
+	double GetAvgLenSegment() const {return avgLenSegment;}
 	void GetVolume();
 	int VolumeMatch(double ratioWarning, double ratioError) const;
 	Point3D GetCentreOfBuoyancy() const;
@@ -594,6 +594,7 @@ public:
 	void GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
 	void GetInertia33_Surface(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
 	void GetInertia66(MatrixXd &inertia, const MatrixXd &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const;
+	
 	static void TranslateInertia33(Matrix3d &inertia, double m, const Value3D &delta);
 	static void TranslateInertia66(MatrixXd &inertia, const Value3D &delta);
 	Force6D GetHydrostaticForce(const Point3D &c0, double rho, double g) const;
@@ -639,7 +640,7 @@ public:
 	bool healing{false};
 	int numTriangles, numBiQuads, numMonoQuads;
 	double avgLenSegment = -1;
-	int numDupPan, numDupP, numSkewed, numUnprocessed;
+	int numDupPan, numDupP, numSkewed;
 	
 	double surface = -1, volume = -1, volumex = -1, volumey = -1, volumez = -1;
 	double avgFacetSideLen;
