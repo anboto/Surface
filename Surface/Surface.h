@@ -572,7 +572,7 @@ public:
 	void AddLine(const Vector<Point3D> &points3D);
 	void AddLine(const Vector<Pointf> &points);
 		
-	String Heal(bool basic, Function <bool(String, int pos)> Status = Null);
+	String Heal(bool basic, double grid, double eps, Function <bool(String, int pos)> Status = Null);
 	Surface &Orient();
 	Surface &OrientFlat();
 	void Image(int axis);
@@ -609,9 +609,9 @@ public:
 	double GetWaterPlaneArea() const;
 	static Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
 	static Vector<Pointf> Point3dto2D(const Vector<Point3D> &bound);
-	void AddWaterSurface(Surface &surf, const Surface &under, char c);
+	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
-	bool GetDryPanels(const Surface &surf, bool onlywaterplane);
+	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	char IsWaterPlaneMesh() const; 
 	
 	void TrianglesToQuadsFlat();
@@ -660,7 +660,8 @@ public:
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 	void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
-		
+	
+	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
 	static int RemoveTinyPanels(Vector<Panel> &_panels);
 	static int RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes);

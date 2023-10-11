@@ -430,6 +430,17 @@ void Surface::TriangleToQuad(int ipanel) {
 	Panel &pan2 = panels.Add();	pan2.id[0] = id012;	pan2.id[1] = id12;	pan2.id[2] = id2;	pan2.id[3] = id20;
 }
 
+
+void Surface::RoundClosest(Vector<Point3D> &_nodes, double grid, double eps) {
+	if (IsNull(grid) || IsNull(eps))
+		return;
+	for (int i = 0; i < _nodes.size(); ++i) {
+		_nodes[i].x = Upp::RoundClosest(_nodes[i].x, grid, eps);
+		_nodes[i].y = Upp::RoundClosest(_nodes[i].y, grid, eps);
+		_nodes[i].z = Upp::RoundClosest(_nodes[i].z, grid, eps);
+	}
+}
+
 int Surface::RemoveDuplicatedPanels(Vector<Panel> &_panels) {		
 	int num = 0;
 	for (int i = 0; i < _panels.size()-1; ++i) {
@@ -894,14 +905,17 @@ bool Surface::SameOrderPanel(int ip0, int ip1, int in0, int in1) {
 	return first0in0 != first1in0;
 }
 
-String Surface::Heal(bool basic, Function <bool(String, int pos)> Status) {
+String Surface::Heal(bool basic, double grid, double eps, Function <bool(String, int pos)> Status) {
 	String ret;
 	
 	if (basic) {
+		Status(t_("Rounding points location"), 5);
+		RoundClosest(nodes, grid, eps);
+		
 		Status(t_("Removing duplicated panels (pass 1)"), 25);
 		numDupPan = RemoveDuplicatedPanels(panels);
 		
-		Status(t_("Removing duplicated points"), 50);
+		Status(t_("Removing duplicated points"), 45);
 		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes);
 		if (numDupP > 0) 
 			ret << "\n" << Format(t_("Removed %d duplicated points"), numDupP);	
@@ -2987,7 +3001,7 @@ void DeleteDuplicatedSegments(Vector<Segment3D> &segs) {
 	}
 }
 
-bool Surface::GetDryPanels(const Surface &orig, bool onlywaterplane) {
+bool Surface::GetDryPanels(const Surface &orig, bool onlywaterplane, double grid, double eps) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
@@ -3006,7 +3020,7 @@ bool Surface::GetDryPanels(const Surface &orig, bool onlywaterplane) {
 				panels << clone(pan);
 		}
 	}
-	Heal(true);	
+	Heal(true, grid, eps);	
 	
 	return !panels.IsEmpty();
 }
@@ -3036,7 +3050,7 @@ Vector<Segment3D> Surface::GetWaterLineSegments(const Surface &orig) {
 	return ret;
 }
 
-void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c) {
+void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps) {
 	if (c == 'f') {				// Takes the underwater limit from under and fills inside it
 		if (surf.surface == 0)
 			return;
@@ -3063,10 +3077,10 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c) {
 		panels = clone(under.panels);
 		nodes = clone(under.nodes);
 	} else if (c == 'e') { 		// Copies only the dry and waterline side
-		if (!GetDryPanels(surf, false))
+		if (!GetDryPanels(surf, false, grid, eps))
 			throw Exc(t_("There is no mesh in and above the water surface"));		
 	} else if (c == 'w') { 		// Copies only the waterline side
-		if (!GetDryPanels(surf, true))
+		if (!GetDryPanels(surf, true, grid, eps))
 			throw Exc(t_("There is no mesh in the water surface"));		
 	}
 }
