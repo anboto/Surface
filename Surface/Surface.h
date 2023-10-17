@@ -609,7 +609,7 @@ public:
 	double GetWaterPlaneArea() const;
 	static Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
 	static Vector<Pointf> Point3dto2D(const Vector<Point3D> &bound);
-	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps);
+	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	char IsWaterPlaneMesh() const; 
