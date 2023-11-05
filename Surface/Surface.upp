@@ -1,9 +1,9 @@
 description "Basic 3D primitives and its handling\377B44,169,203";
 
 uses
-	Geom,
 	Eigen,
-	STEM4U;
+	STEM4U,
+	Geom;
 
 file
 	Surface.cpp,
