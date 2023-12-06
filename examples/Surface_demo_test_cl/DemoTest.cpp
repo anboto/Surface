@@ -206,6 +206,46 @@ void TestMesh() {
 	UppLog() << "\nSaving " << file;
 	SaveStlBin(AppendFileNameX(GetDesktopFolder(), file), s, 1);
 	
+	
+	// Testing inertia translation
+	MatrixXd mat0(6, 6), mat1(6, 6), mat2(6, 6), m;
+	Point3D cg(100, 100, 15);
+	
+	Point3D c00(20, 20, 30);
+	mat0 <<	37688.79,	0,			0,			0,			-565331,	-3015103,
+			0,			37688.79,	0,			565331,		0,			3015103,
+			0,			0,			37688.79,	3015103,	-3015103,	0,
+			0,			565331,		3015103,	2.5628E8,	-2.412E8,	45226501,
+			-565331	,	0,			-3015103,	-2.412E8,	2.5628E8,	45226497,
+			-3015103,	3015103,	0,			45226501,	45226497,	4.8995E8;
+
+	Point3D c01(100, 100, 15);
+	mat1 <<	37688.79,	0,			0,			0,			0,			0,
+			0,			37688.79,	0,			0,			0,			0,
+			0,			0,			37688.79,	0,			0,			0,
+			0,			0,			0,			6594687,	0,			0,
+			0,			0,			0,			0,			6594688,	0,
+			0,			0,			0,			0,			0,			7535693;
+
+	Point3D c02(0, 0, 0);
+	mat2<< 	37688.79,	0,			0,			0,			565332.4,	-3768879,
+			0,			37688.79,	0,			-565332,	0,			3768879,
+			0,			0,			37688.79,	3768879	,	-3768879,	0,
+			0,			-565332,	3768879,	3.9196E8,	-3.769E8,	-5.653E7,
+			565332.4,	0,			-3768879,	-3.769E8,	3.9196E8,	-5.653E7,
+			-3768879,	3768879,	0,			-5.653E7,	-5.653E7,	7.6131E8;
+	
+	m = mat0;
+	Surface::TranslateInertia66(m, cg, c00, c01);
+	VERIFY(CompareRatio(m.array(), mat1.array(), 0.001, 10000));
+	
+	m = mat1;
+	Surface::TranslateInertia66(m, cg, c01, c02);
+	VERIFY(CompareRatio(m.array(), mat2.array(), 0.001, 10000));
+	
+	m = mat0;
+	Surface::TranslateInertia66(m, cg, c00, c02);
+	VERIFY(CompareRatio(m.array(), mat2.array(), 0.001, 10000));
 }
 
 CONSOLE_APP_MAIN 

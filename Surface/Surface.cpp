@@ -1383,6 +1383,7 @@ void Surface::GetInertia33_Volume(Matrix3d &inertia, const Point3D &c0, bool ref
 	}
 }
 
+// Unitary matrix. It needs to be multiplied by the mass
 void Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool refine) const {
 	inertia = MatrixXd::Zero(3,3);
 	double total = 0;
@@ -1420,36 +1421,40 @@ void Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool re
 	}
 }
 
-/*void Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool refine) const {
-	auto CalcPoint = [&](Matrix3d &inertia, double &total, const Panel &panel) {
-		Point3D r0 = nodes[panel.id[0]] - c0;		// 0, 1, 2		0, 2, 3
-		Point3D r1 = nodes[panel.id[1]] - c0;
-		Point3D r2 = nodes[panel.id[2]] - c0;
-		Point3D r3 = nodes[panel.id[3]] - c0;		
-		
-		inertia(0, 0) += panel.surface0*(sqr(r0.x)/2 + r0.x*(r1.x + r2.x)/3 + (sqr(r1.x) + r1.x*r2.x + sqr(r2.x))/12);
-		inertia(1, 1) += panel.surface0*(sqr(r0.y)/2 + r0.y*(r1.y + r2.y)/3 + (sqr(r1.y) + r1.y*r2.y + sqr(r2.y))/12);
-		inertia(2, 2) += panel.surface0*(sqr(r0.z)/2 + r0.x*(r1.z + r2.z)/3 + (sqr(r1.z) + r1.z*r2.z + sqr(r2.z))/12);
+void Surface::GetInertia33(Matrix3d &inertia, const Point3D &c0, bool volume, bool refine) const {
+	if (volume)
+		GetInertia33_Volume(inertia, c0, refine);
+	else
+		GetInertia33_Surface(inertia, c0, refine);
+}
 
-		inertia(0, 0) += panel.surface1*(sqr(r0.x)/2 + r0.x*(r2.x + r3.x)/3 + (sqr(r2.x) + r2.x*r3.x + sqr(r3.x))/12);
-		inertia(1, 1) += panel.surface1*(sqr(r0.y)/2 + r0.y*(r2.y + r3.y)/3 + (sqr(r2.y) + r2.y*r3.y + sqr(r3.y))/12);
-		inertia(2, 2) += panel.surface1*(sqr(r0.z)/2 + r0.x*(r2.z + r3.z)/3 + (sqr(r2.z) + r2.z*r3.z + sqr(r3.z))/12);
-		
-		total += panel.surface0 + panel.surface1;
-	};
+void Surface::GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool volume, bool refine) const {
+	if (volume)
+		GetInertia33_Volume(inertia, c0, refine);
+	else
+		GetInertia33_Surface(inertia, c0, refine);
+	GetInertia33_Radii(inertia);
+}
+
+void Surface::GetInertia33_Radii(Matrix3d &inertia) {
+	inertia = inertia.unaryExpr([&](double v){
+		int sign = Sign(v);
+		return sign*sqrt(abs(v));
+	});
+}	
+
+void Surface::FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3D &c0) {
+	Point3D c = cg - c0;
+	c *= inertia(0, 0);
+	inertia(1, 5) = inertia(5, 1) =  c.x;
+	inertia(2, 4) = inertia(4, 2) = -c.x;
+	inertia(2, 3) = inertia(3, 2) =  c.y;
+	inertia(0, 5) = inertia(5, 0) = -c.y;
+	inertia(0, 4) = inertia(4, 0) =  c.z;
+	inertia(1, 3) = inertia(3, 1) = -c.z;
+}
 	
-	inertia = MatrixXd::Zero(3,3);
-	double surf = 0;
-	for (const Panel &panel : panels) 
-		CalcPoint(inertia, surf, panel);
-	inertia.array() /= surf;
-	if (refine) {
-		double mx = inertia.cwiseAbs().maxCoeff();	
-		inertia = inertia.unaryExpr([&](double v){return abs(mx/v) > 1E5 ? 0 : v;});
-	}
-}*/
-	
-void Surface::GetInertia66(MatrixXd &inertia, const MatrixXd &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const {
+void Surface::GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const {
 	inertia = MatrixXd::Zero(6,6);	
 	inertia.bottomRightCorner<3,3>() = inertia33;
 	inertia(0, 0) = inertia(1, 1) = inertia(2, 2) = 1;
@@ -1465,59 +1470,47 @@ void Surface::GetInertia66(MatrixXd &inertia, const MatrixXd &inertia33, const P
 		if (abs(c.z) < 1E-10 || abs(c.z/mx) > 1E-6)
 			c.z = 0;		
 	} 
-	inertia(1, 5) = inertia(5, 1) =  c.x;
-	inertia(2, 4) = inertia(4, 2) = -c.x;
-	inertia(2, 3) = inertia(3, 2) =  c.y;
-	inertia(0, 5) = inertia(5, 0) = -c.y;
-	inertia(0, 4) = inertia(4, 0) =  c.z;
-	inertia(1, 3) = inertia(3, 1) = -c.z;
-	
-	inertia(3, 3) += sqr(c.y) + sqr(c.z);
-	inertia(4, 4) += sqr(c.x) + sqr(c.z);
-	inertia(5, 5) += sqr(c.x) + sqr(c.y);
-	inertia(3, 4) -= c.x*c.y;
-	inertia(4, 3) -= c.x*c.y;
-	inertia(3, 5) -= c.x*c.z;
-	inertia(5, 3) -= c.x*c.z;
-	inertia(4, 5) -= c.y*c.z;
-	inertia(5, 4) -= c.y*c.z;
+	FillInertia66mc(inertia, cg, c0);
 }	
 
-void Surface::TranslateInertia33(Matrix3d &inertia, double m, const Value3D &delta) {
-	inertia(0, 0) += m*(sqr(delta.y) + sqr(delta.z));
-	inertia(1, 1) += m*(sqr(delta.x) + sqr(delta.z));
-	inertia(2, 2) += m*(sqr(delta.x) + sqr(delta.y));
-	double mxy = m*delta.x*delta.y;
-	double mxz = m*delta.x*delta.z;
-	double myz = m*delta.y*delta.z;
-	inertia(0, 1) -= mxy;
-	inertia(1, 0) -= mxy;
-	inertia(0, 2) -= mxz;
-	inertia(2, 0) -= mxz;
-	inertia(1, 2) -= myz;
-	inertia(2, 1) -= myz;
+void Surface::TranslateInertia33(Matrix3d &inertia, double mass, const Point3D &cg, const Point3D &c0, const Point3D &nc0) {
+	auto Translate = [](Matrix3d &in, double m, const Value3D &delta, int sign) {
+		m *= sign;
+		in(0, 0) += m*(sqr(delta.y) + sqr(delta.z));
+		in(1, 1) += m*(sqr(delta.x) + sqr(delta.z));
+		in(2, 2) += m*(sqr(delta.x) + sqr(delta.y));
+		double mxy = m*delta.x*delta.y;
+		double mxz = m*delta.x*delta.z;
+		double myz = m*delta.y*delta.z;
+		in(0, 1) -= mxy;
+		in(1, 0) -= mxy;
+		in(0, 2) -= mxz;
+		in(2, 0) -= mxz;
+		in(1, 2) -= myz;
+		in(2, 1) -= myz;
+	};
+	Translate(inertia, mass, cg-c0, -1);		// Back to cg from c0
+	Translate(inertia, mass, nc0-cg, 1);		// Translate from cg to nc0
 }
 
-void Surface::TranslateInertia66(MatrixXd &inertia, const Value3D &delta) {
+void Surface::TranslateInertia66(MatrixXd &inertia, const Point3D &cg, const Point3D &c0, const Point3D &nc0) {
 	double m = inertia(0, 0);
 	Matrix3d inertia3 = inertia.bottomRightCorner<3,3>();
-	TranslateInertia33(inertia3, m, delta);
+	TranslateInertia33(inertia3, m, cg, c0, nc0);
+	
+	inertia = MatrixXd::Zero(6, 6);
+	inertia(0, 0) = inertia(1, 1) = inertia(2, 2) = m;
 	inertia.bottomRightCorner<3,3>() = inertia3;
+	Value3D delta = cg - nc0;
 	double mdx = m*delta.x;
 	double mdy = m*delta.y;
 	double mdz = m*delta.z;
-	inertia(1, 5) += mdx;
-	inertia(5, 1) += mdx;
-	inertia(2, 4) -= mdx;
-	inertia(4, 2) -= mdx;
-	inertia(2, 3) += mdy;
-	inertia(3, 2) += mdy;
-	inertia(0, 5) -= mdy;
-	inertia(5, 0) -= mdy;
-	inertia(0, 4) += mdz;
-	inertia(4, 0) += mdz;
-	inertia(1, 3) -= mdz;
-	inertia(3, 1) -= mdz;
+	inertia(1, 5) = inertia(5, 1) = mdx;
+	inertia(2, 4) = inertia(4, 2) = -mdx;
+	inertia(2, 3) = inertia(3, 2) = mdy;
+	inertia(0, 5) = inertia(5, 0) = -mdy;
+	inertia(0, 4) = inertia(4, 0) = mdz;
+	inertia(1, 3) = inertia(3, 1) = -mdz;
 }
 
 Force6D Surface::GetHydrostaticForce(const Point3D &c0, double rho, double g) const {
@@ -1794,7 +1787,9 @@ void Surface::CutZ(const Surface &orig, int factor) {
 	segWaterlevel.Clear();
 	factor *= -1;
 	
-	for (int ip = 0; ip < orig.panels.GetCount(); ++ip) {
+	for (int ip = 0; ip < orig.panels.size(); ++ip) {
+		if (ip == 586)
+			int kk = 1;
 		const int &id0 = orig.panels[ip].id[0];
 		const int &id1 = orig.panels[ip].id[1];
 		const int &id2 = orig.panels[ip].id[2];
@@ -1824,19 +1819,21 @@ void Surface::CutZ(const Surface &orig, int factor) {
 				if (origPanelid[ids[i]] == origPanelid[ids[i+1]])
 					;
 				else {
+					Point3D inter = Null;
 					const Point3D &from = nodes[origPanelid[ids[i]]];
 					const Point3D &to   = nodes[origPanelid[ids[i+1]]];
-					if (abs(from.z) <= EPS_LEN && abs(to.z) <= EPS_LEN) {
-						segWL.from = from;
-						segWL.to = to;	
-					} else if ((from.z)*factor <= EPS_LEN && (to.z)*factor <= EPS_LEN) {
+					if (abs(from.z) <= EPS_LEN && abs(to.z) <= EPS_LEN)
+						segWaterlevel << Segment3D(from, to);
+					else if (abs(from.z) <= EPS_LEN) 
+						inter = clone(from);
+					else if ((from.z)*factor <= EPS_LEN && (to.z)*factor <= EPS_LEN) {
 						nodeFrom << origPanelid[ids[i]];
 						nodeTo << origPanelid[ids[i+1]];
 					} else if ((from.z)*factor >= EPS_LEN && (to.z)*factor >= EPS_LEN) 
 						;
 					else {
 						Segment3D seg(from, to);
-						Point3D inter = seg.IntersectionPlaneZ(0);
+						inter = seg.IntersectionPlaneZ(0);
 						if (!IsNull(inter)) {
 							if ((from.z)*factor < EPS_LEN) {
 								nodeFrom << origPanelid[ids[i]];
@@ -1848,14 +1845,18 @@ void Surface::CutZ(const Surface &orig, int factor) {
 								nodeFrom << nodes.size() - 1;
 							}
 						}
+					}
+					if (!IsNull(inter)) {
 						if (IsNull(segWL.from))
 							segWL.from = inter;
-						if (IsNull(segWL.to))
+						else if (IsNull(segWL.to) && Distance(segWL.from, inter) > EPS_LEN)
 							segWL.to = inter;
+						else
+							int kk = 1;
 					}
 				}
 			}
-			if (!IsNull(segWL))
+			if (!IsNull(segWL.from) && !IsNull(segWL.to))
 				segWaterlevel << segWL;
 			
 			int pos = -1, nFrom, nTo;
@@ -1884,16 +1885,19 @@ void Surface::CutZ(const Surface &orig, int factor) {
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[2];
+				panels << panel;
 			} else if (nodeFrom.GetCount() == 4) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[3];
+				panels << panel;
 			} else if (nodeFrom.GetCount() == 5) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[3];
+				panels << panel;
 				Panel panel2;
 				panel2.id[0] = nodeFrom[0];
 				panel2.id[1] = nodeFrom[3];
@@ -1903,7 +1907,6 @@ void Surface::CutZ(const Surface &orig, int factor) {
 				panels << panel2;
 			}
 			//TriangleToQuad(panel);
-			panels << panel;
 		}
 	}
 	DeleteVoidSegments(segWaterlevel);
@@ -2266,13 +2269,15 @@ bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &u
 
 	VectorXd x(1);
 	x[0] = dz;
-	if (SolveNonLinearEquations(x, [&](const VectorXd &x, VectorXd &residual)->int {
+	if (SolveNonLinearEquations(x, [&](const VectorXd &xx, VectorXd &residual)->int {
 		nIter++;
-		residual[0] = Residual(x[0]);		// ∑ Fheave = 0
+		residual[0] = Residual(xx[0]);		// ∑ Fheave = 0
 		if (IsNull(residual[0]))
 			residual[0] = mass;
-		if (abs(residual[0]) < 0.1)
-			return -1;
+		if (abs(residual[0]) < 0.1) {
+			x[0] = xx[0];
+			return -1;		// When returning -1, x[] has to be forced
+		}
 		return 0;
 	}))
 		dz = x[0];
@@ -2352,10 +2357,10 @@ bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho,
 	x[0] = droll;
 	x[1] = dpitch;
 	try {
-		if (!SolveNonLinearEquations(x, [&](const VectorXd &x, VectorXd &residual)->int {
+		if (!SolveNonLinearEquations(x, [&](const VectorXd &xx, VectorXd &residual)->int {
 			nIter++;
 			
-			double droll = x[0], dpitch = x[1];
+			double droll = xx[0], dpitch = xx[1];
 			
 			base = clone(*this);
 			basecg = clone(cg);
@@ -2368,9 +2373,11 @@ bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho,
 			Point3D cb = under.GetCentreOfBuoyancy();
 			basecg.Translate(0, 0, dz);
 			
-			if (dz < 0.01 && Distance(cb, basecg) < 0.01)
+			if (dz < 0.01 && Distance(cb, basecg) < 0.01) {
+				x[0] = droll;
+				x[1] = dpitch;				// When return -1, x[] has to be forced
 				return -1;
-		
+			}
 			Force6D fcb;
 			Force6D fcg = GetMassForce(c0, basecg, mass, g);
 			double rho;
@@ -2383,8 +2390,11 @@ bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho,
 			residual[0] = fcb.r.x + fcg.r.x;		// ∑ Froll = 0
 			residual[1] = fcb.r.y + fcg.r.y;		// ∑ Fpitch = 0
 			
-			if (abs(residual[0]) < 0.01 && abs(residual[1]) < 0.01)
+			if (abs(residual[0]) < 0.01 && abs(residual[1]) < 0.01) {
+				x[0] = droll;
+				x[1] = dpitch;				// When return -1, x[] has to be forced
 				return -1;
+			}
 			return 0;
 			}))
 			return false;
@@ -2499,12 +2509,12 @@ int Surface::FindNode(const Point3D &p) {
 	return -1;
 }
 	
-void Surface::AddFlatRectangle(double lenX, double lenY, double panelWidth) {
+void Surface::AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight) {
 	int numX = int(round(lenX/panelWidth));
 	ASSERT(numX > 0);
 	double widthX = lenX/numX;	
 	
-	int numY = int(round(lenY/panelWidth));
+	int numY = int(round(lenY/panelHeight));
 	ASSERT(numY > 0);
 	double widthY = lenY/numY;	
 	

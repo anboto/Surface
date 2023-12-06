@@ -100,6 +100,7 @@ public:
 
 	inline void operator+=(const Value3D& a) {x += a.x; y += a.y; z += a.z;}
 	inline void operator-=(const Value3D& a) {x -= a.x; y -= a.y; z -= a.z;}
+	inline void operator*=(double a) 		 {x *= a; y *= a; z *= a;}
 	inline void operator/=(double a) 		 {x /= a; y /= a; z /= a;}
 
 	double& operator[](int id) {
@@ -593,10 +594,14 @@ public:
 	Point3D GetCentreOfGravity_Surface() const;
 	void GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
 	void GetInertia33_Surface(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
-	void GetInertia66(MatrixXd &inertia, const MatrixXd &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const;
-	
-	static void TranslateInertia33(Matrix3d &inertia, double m, const Value3D &delta);
-	static void TranslateInertia66(MatrixXd &inertia, const Value3D &delta);
+	void GetInertia33(Matrix3d &inertia, const Point3D &cg, bool volume, bool refine = false) const;
+	void GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const;
+	static void GetInertia33_Radii(Matrix3d &inertia);
+	void GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool volume, bool refine) const;
+	static void FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3D &c0);
+		
+	static void TranslateInertia33(Matrix3d &inertia, double m, const Point3D &cg, const Point3D &c0, const Point3D &nc0);
+	static void TranslateInertia66(MatrixXd &inertia, const Point3D &cg, const Point3D &c0, const Point3D &nc0);
 	Force6D GetHydrostaticForce(const Point3D &c0, double rho, double g) const;
 	Force6D GetHydrostaticForceNormalized(const Point3D &c0) const;
 	Force6D GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double rho, double g) const;
@@ -656,7 +661,7 @@ public:
 	void AddNode(const Point3D &p);
 	int FindNode(const Point3D &p);
 	
-	void AddFlatRectangle(double lenX, double lenY, double panelWidth);
+	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 	void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
