@@ -1726,15 +1726,20 @@ double Surface::GetWaterPlaneArea() const {
 }
 
 void Surface::GetHydrostaticStiffness(MatrixXd &c, const Point3D &c0, const Point3D &cg, 
-				const Point3D &cb, double rho, double g, double mass) {
-	if (volume < EPS_VOL) {
-		c.resize(0, 0);
-		return;	
-	}	
-	c.setConstant(6, 6, 0);
+				const Point3D &cb, double rho, double g, double mass, bool massBuoy) {
+	double vol;
+	if (massBuoy) {
+		vol = volume;
+		if (vol < EPS_VOL) {
+			c.resize(0, 0);
+			return;	
+		}	
+		if (mass == 0)
+			mass = rho*vol;	
+	} else
+		mass = vol = 0;
 	
-	if (mass == 0)
-		mass = rho*volume;
+	c.setConstant(6, 6, 0);
 		
 	for (int ip = 0; ip < panels.size(); ++ip) {	
 		const Panel &panel = panels[ip];
@@ -1757,11 +1762,11 @@ void Surface::GetHydrostaticStiffness(MatrixXd &c, const Point3D &c0, const Poin
 /*33*/c(2, 2) = -rho_g*  c(2, 2);									
 /*34*/c(2, 3) = -rho_g*  c(2, 3);
 /*35*/c(2, 4) =  rho_g*  c(2, 4);
-/*44*/c(3, 3) =  rho_g*(-c(3, 3) + volume*(cb.z - c0.z)) - mass*g*(cg.z - c0.z);
+/*44*/c(3, 3) =  rho_g*(-c(3, 3) + vol*(cb.z - c0.z)) - mass*g*(cg.z - c0.z);
 /*45*/c(3, 4) =  rho_g*  c(3, 4);
-/*46*/c(3, 5) = 			-rho_g*volume*(cb.x - c0.x)  + mass*g*(cg.x - c0.x);
-/*55*/c(4, 4) =  rho_g*(-c(4, 4) + volume*(cb.z - c0.z)) - mass*g*(cg.z - c0.z);
-/*56*/c(4, 5) = 			-rho_g*volume*(cb.y - c0.y)  + mass*g*(cg.y - c0.y);
+/*46*/c(3, 5) = 			-rho_g*vol*(cb.x - c0.x)  + mass*g*(cg.x - c0.x);
+/*55*/c(4, 4) =  rho_g*(-c(4, 4) + vol*(cb.z - c0.z)) - mass*g*(cg.z - c0.z);
+/*56*/c(4, 5) = 			-rho_g*vol*(cb.y - c0.y)  + mass*g*(cg.y - c0.y);
 			 
 	c(3, 2) = c(2, 3);
 	c(4, 2) = c(2, 4);

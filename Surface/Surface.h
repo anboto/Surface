@@ -608,7 +608,7 @@ public:
 	Force6D GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3D &cb) const;
 	static Force6D GetMassForce(const Point3D &c0, const Point3D &cg, const double mass, const double g);
 	void GetHydrostaticStiffness(MatrixXd &c, const Point3D &c0, const Point3D &cg, 
-				const Point3D &cb, double rho, double g, double mass);
+				const Point3D &cb, double rho, double g, double mass, bool massBuoy);
 	Force6D GetHydrodynamicForce(const Point3D &c0, bool clip, Function<double(double x, double y)> GetZSurf,
 						Function<double(double x, double y, double z, double et)> GetPress) const;
 	double GetWaterPlaneArea() const;
