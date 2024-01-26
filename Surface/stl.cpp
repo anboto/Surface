@@ -126,42 +126,42 @@ static void LoadStlBin(String fileName, Surface &surf, String &header) {
 		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
 	
 	StringBuffer headerB(80);
-	in.ReadB(headerB, 80);
+	in.Read(headerB, 80);
 	header = headerB;
 	
 	if (header.StartsWith("solid"))
 		throw Exc(t_("Binary stl must not begin with 'solid' text"));
 	
-	/*int32 numFacets =*/ in.ReadB<int32>();
+	/*int32 numFacets =*/ in.Read<int32>();
 	
 	while (!in.IsEof()) {
     	Direction3D normal;
-    	normal.x = double(in.ReadB<float>());
-    	normal.y = double(in.ReadB<float>());
-    	normal.z = double(in.ReadB<float>());
+    	normal.x = double(in.Read<float>());
+    	normal.y = double(in.Read<float>());
+    	normal.z = double(in.Read<float>());
 
 		Panel &panel = surf.panels.Add();
 
 		Point3D &node0 = surf.nodes.Add();
-		node0.x = double(in.ReadB<float>());
-		node0.y = double(in.ReadB<float>());
-		node0.z = double(in.ReadB<float>());
+		node0.x = double(in.Read<float>());
+		node0.y = double(in.Read<float>());
+		node0.z = double(in.Read<float>());
 		panel.id[0] = surf.nodes.GetCount()-1;
 		
 		Point3D &node1 = surf.nodes.Add();
-		node1.x = double(in.ReadB<float>());
-		node1.y = double(in.ReadB<float>());
-		node1.z = double(in.ReadB<float>());
+		node1.x = double(in.Read<float>());
+		node1.y = double(in.Read<float>());
+		node1.z = double(in.Read<float>());
 		panel.id[1] = surf.nodes.GetCount()-1;
 		
 		Point3D &node2 = surf.nodes.Add();			
-		node2.x = double(in.ReadB<float>());
-		node2.y = double(in.ReadB<float>());
-		node2.z = double(in.ReadB<float>());
+		node2.x = double(in.Read<float>());
+		node2.y = double(in.Read<float>());
+		node2.z = double(in.Read<float>());
 		panel.id[2] = surf.nodes.GetCount()-1;
 		panel.id[3] = panel.id[0];		
 				
-		/*int16 attributeByteCount =*/ in.ReadB<int16>();
+		/*int16 attributeByteCount =*/ in.Read<int16>();
 	}
 }
 
@@ -181,7 +181,7 @@ void SaveStlBin(String fileName, const Surface &surf, double factor) {
 	
 	String header = "U++ STL mesh export";
 	header << String(' ', 80 - header.GetCount());
-	out.Put64(header, 80);
+	out.Write(header, 80);
 	
 	out.Write(int32(panels.GetCount()));
 	
