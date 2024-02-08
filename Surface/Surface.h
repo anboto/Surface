@@ -337,7 +337,10 @@ Value3D Middle(const Value3D &a, const Value3D &b);
 Value3D WeightedMean(const Value3D &a, double va, const Value3D &b, double vb);
 Value3D Centroid(const Value3D &a, const Value3D &b, const Value3D &c);
 Direction3D Normal(const Value3D &a, const Value3D &b, const Value3D &c);
+bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c);
 double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2);
+
+double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
 
 class Segment3D : public Moveable<Segment3D> {
 public:
@@ -417,11 +420,12 @@ Point3D Intersection(const Direction3D &lineVector, const Point3D &linePoint, co
 
 void TranslateForce(const Point3D &from, const VectorXd &ffrom, Point3D &to, VectorXd &fto);
 	
+bool PointInSegment(const Point3D &p, const Point3D &from, const Point3D &to);
 bool PointInSegment(const Point3D &p, const Segment3D &seg);
+bool PointInSegment(const Pointf &p, const Pointf &from, const Pointf &to);
+	
 bool SegmentInSegment(const Segment3D &in, double in_len, const Segment3D &seg);
 bool SegmentInSegment(const Segment3D &in, const Segment3D &seg);
-
-Vector<double> GetPolyAngles(const Array<Pointf> &bound);
 
 template <typename T>
 inline T const& maxNotNull(T const& a, T const& b) {
@@ -535,6 +539,7 @@ public:
 		maxZ = orig.maxZ;
 		minZ = orig.minZ;
 	}	
+	void Set(const Vector<Point3D> &points);
 	
 	void MixEnvelope(VolumeEnvelope &env);
 	double Max()	{return max(max(max(abs(maxX), abs(minX)), max(abs(maxY), abs(minY))), max(abs(maxZ), abs(minZ)));}
@@ -612,8 +617,7 @@ public:
 	Force6D GetHydrodynamicForce(const Point3D &c0, bool clip, Function<double(double x, double y)> GetZSurf,
 						Function<double(double x, double y, double z, double et)> GetPress) const;
 	double GetWaterPlaneArea() const;
-	static Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
-	static Vector<Pointf> Point3dto2D(const Vector<Point3D> &bound);
+	
 	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
@@ -799,8 +803,27 @@ void SaveStlBin(String fileName, const Surface &surf, double factor);
 
 void LoadTDynMsh(String fileName, Surface &surf);
 
-//void LoadMesh(String fileName, Surface &surf, double &mass, Point3D &cg);
-//void SaveMesh(String fileName, const Surface &surf, double mass, const Point3D &cg);
+
+enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
+ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
+ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt);
+
+Point3D Centroid(const UVector<Point3D> &p);
+double Area(const UVector<Point3D> &p);
+
+Pointf Centroid(const UVector<Pointf> &p);
+double Area(const UVector<Pointf> &p);
+
+Vector<Pointf>  Point3Dto2D_XY(const Vector<Point3D> &bound);
+Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf>  &bound);
+Vector<Pointf>  Point3Dto2D_XZ(const Vector<Point3D> &bound);
+Vector<Point3D> Point2Dto3D_XZ(const Vector<Pointf>  &bound);
+Vector<Pointf>  Point3Dto2D_YZ(const Vector<Point3D> &bound);
+Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound);
+
+Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
+
+bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy);
 	
 }
 	

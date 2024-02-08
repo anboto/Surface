@@ -7,6 +7,7 @@ uses
 
 file
 	Surface.cpp,
+	Polygons.cpp,
 	SurfaceX.cpp,
 	Surface.h,
 	stl.cpp,

@@ -248,6 +248,104 @@ void TestMesh() {
 	VERIFY(CompareRatio(m.array(), mat2.array(), 0.001, 10000));
 }
 
+void TestPoly() {
+	UppLog() << "\nTesting 2D and 3D ContainsPoint()";
+	
+	UVector<Point3D> polygon = {
+        Point3D(0, 0, 1),
+        Point3D(0, 3.784, 1),
+        Point3D(2.663, 3.784, 2.065),
+        Point3D(2.663, 0, 2.065)
+    };
+    
+	ContainsPointRes ret;
+	 
+	VERIFY(ContainsPointRes::POLY_IN  == ContainsPoint(polygon, Point3D(1.332, 1.829, 1.533), 0.1, ToRad(2.)));
+    VERIFY(ContainsPointRes::POLY_OUT == ContainsPoint(polygon, Point3D(3.832, 1.892, 2.533), 0.1, ToRad(2.)));
+	
+    UVector<Pointf> pol_2 = {	// Convex polygon
+        Pointf(-1, 0),
+        Pointf(2, 0),
+        Pointf(1.5, 1),
+        Pointf(1.5, 2),
+        Pointf(3, 3),
+        Pointf(0, 3),
+        Pointf(0.5, 2),
+        Pointf(0.5, 1)
+    };	
+    
+    Pointf pin_2 = Pointf(1,   2);
+	Pointf ppo_2 = Pointf(1.5, 1.00001);	// In point + error
+	Pointf pl1_2 = Pointf(1,   0.00001);	// In line + error
+	Pointf pl2_2 = Pointf(1.5, 1.50001);	// In line + error
+	Pointf pot_2 = Pointf(0,   1.5);
+	Pointf cen_2 = Pointf(1,   1.5);		// Centroid
+    
+	VERIFY(ContainsPointRes::POLY_IN   == ContainsPoint(pol_2, pin_2));
+	VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol_2, ppo_2));	
+	VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol_2, pl1_2));	
+	VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol_2, pl2_2));	
+	VERIFY(ContainsPointRes::POLY_OUT  == ContainsPoint(pol_2, pot_2));	
+	
+	VERIFY(5 == Area(pol_2));
+	VERIFY(cen_2 == Centroid(pol_2));	
+		
+	Point3D pin, pin_no, ppo, pl1, pl2, pot, cen;
+	UVector<Point3D> pol;
+	
+	auto assign = [&]() {
+		pin = Point3D(pin_2.x, pin_2.y, 0);
+		pin_no = Point3D(pin_2.x, pin_2.y, .5);		// "Inside", but not in the same plane
+		ppo = Point3D(ppo_2.x, ppo_2.y, 0);
+		pl1 = Point3D(pl1_2.x, pl1_2.y, 0);
+		pl2 = Point3D(pl2_2.x, pl2_2.y, 0);
+		pot = Point3D(pot_2.x, pot_2.y, 0);	
+		cen = Point3D(cen_2.x, cen_2.y, 0);	
+		
+		pol = Point2Dto3D_XY(pol_2);
+	};
+	auto rotate = [&](double roll, double pitch, double yaw) {
+		pin.Rotate(roll, pitch, yaw, 0, 0, 0);
+		pin_no.Rotate(roll, pitch, yaw, 0, 0, 0);
+		ppo.Rotate(roll, pitch, yaw, 0, 0, 0);
+		pl1.Rotate(roll, pitch, yaw, 0, 0, 0);
+		pl2.Rotate(roll, pitch, yaw, 0, 0, 0);
+		pot.Rotate(roll, pitch, yaw, 0, 0, 0);
+		cen.Rotate(roll, pitch, yaw, 0, 0, 0);
+		Rotate(pol, roll, pitch, yaw, 0, 0, 0);
+	};
+	auto test = [&]() {
+		VERIFY(ContainsPointRes::POLY_IN   == ContainsPoint(pol, pin, 0.1, ToRad(2.)));
+		VERIFY(ContainsPointRes::POLY_FAR  == ContainsPoint(pol, pin_no, 0.1, ToRad(2.)));
+		VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol, ppo, 0.1, ToRad(2.)));	
+		VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol, pl1, 0.1, ToRad(2.)));	
+		VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol, pl2, 0.1, ToRad(2.)));	
+		VERIFY(ContainsPointRes::POLY_OUT  == ContainsPoint(pol, pot, 0.1, ToRad(2.)));	
+		
+		VERIFY(EqualRatio(5., Area(pol), .0001));
+		Point3D c = Centroid(pol);
+		VERIFY(EqualRatio(cen.x, c.x, 0.0001) && EqualRatio(cen.y, c.y, 0.0001) && EqualRatio(cen.z, c.z, 0.0001));
+	};
+	
+	for (double roll = 0; roll <= M_PI; roll += M_PI/4)				// Rotates to check that this works in any position in the space
+		for (double pitch = 0; pitch <= M_PI; pitch += M_PI/4)
+			for (double yaw = 0; yaw <= M_PI; yaw += M_PI/4) {
+				for (int i = 0; i < pol_2.size(); ++i) {
+					assign();
+					Rotate(pol, i); 			// Circular rotation of the polynomial
+					rotate(roll, pitch, yaw);
+					test();
+				}
+				for (int i = 0; i < pol_2.size(); ++i) {
+					assign();
+					ReverseX(pol);				// Reverse of the polynomial... to check that the order doesn't matter
+					Rotate(pol, i); 			// Circular rotation of the polynomial
+					rotate(roll, pitch, yaw);
+					test();
+				}
+			}
+}
+
 CONSOLE_APP_MAIN 
 {
 	StdLogSetup(LOG_COUT|LOG_FILE);
@@ -258,11 +356,11 @@ CONSOLE_APP_MAIN
 	try {
 		bool test = CommandLine().size() > 0 && CommandLine()[0] == "-test";
 		
+		TestPoly();
 		TestMesh();
-		
-		//TestSurfaceX_Calc();
-		//TestSurfaceX_TransRot();
-		
+
+		TestSurfaceX_Calc();
+		TestSurfaceX_TransRot();
 	  
 	    UppLog() << "\n\nAll tests passed\n";
    	} catch (Exc e) {

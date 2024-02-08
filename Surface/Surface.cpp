@@ -26,17 +26,34 @@ Value3D Centroid(const Value3D &a, const Value3D &b, const Value3D &c) {
 	return Value3D(avg(a.x, b.x, c.x), avg(a.y, b.y, c.y), avg(a.z, b.z, c.z));	
 }
 
+// The normal of three collinear points may be misleading. Check collinearity before.
 Direction3D Normal(const Value3D &a, const Value3D &b, const Value3D &c) {
 	return Direction3D((a - b) % (b - c)).Normalize();
 }
 
-double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2) {
+bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c) {
+	return Direction3D((a - b) % (b - c)).Length() < 0.0001;
+}
+
+bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c) {
+	return Length(Pointf((a - b) % (b - c))) < 0.001;
+}
+
+/*double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2) {
 	double l01 = Distance(p0, p1);
 	double l12 = Distance(p1, p2);
 	double l02 = Distance(p0, p2);
 
 	double s = (l01 + l12 + l02)/2;
 	return sqrt(max(s*(s - l01)*(s - l12)*(s - l02), 0.)); 
+}*/
+
+double Area(const Value3D &a, const Value3D &b, const Value3D &c) {
+    return 0.5*((b - a)%(c - a)).Length();
+}
+
+double Area(const Pointf &a, const Pointf &b, const Pointf &c) {
+    return 0.5*Length(Pointf((b - a)%(c - a)));
 }
 
 Point3D Intersection(const Direction3D &lineVector, const Point3D &linePoint, const Point3D &planePoint, const Direction3D &planeNormal) {
@@ -245,11 +262,22 @@ bool Segment3D::SegmentIn(const Segment3D &in, double in_len) const {
 	return SegmentInSegment(in, in_len, *this);
 }
 
+bool PointInSegment(const Point3D &p, const Point3D &from, const Point3D &to) {
+	double dpa = Distance(p, from);
+	double dpb = Distance(p, to);
+	double dab = Distance(from, to);
+	
+	return abs(dpa + dpb - dab) < EPS_LEN;
+}
 
 bool PointInSegment(const Point3D &p, const Segment3D &seg) {
-	double dpa = Distance(p, seg.from);
-	double dpb = Distance(p, seg.to);
-	double dab = seg.Length();
+	return PointInSegment(p, seg.from, seg.to);
+}
+
+bool PointInSegment(const Pointf &p, const Pointf &from, const Pointf &to) {
+	double dpa = Distance(p, from);
+	double dpb = Distance(p, to);
+	double dab = Distance(from, to);
 	
 	return abs(dpa + dpb - dab) < EPS_LEN;
 }
@@ -1025,6 +1053,20 @@ const VolumeEnvelope &Surface::GetEnvelope() {
 	}
 	
 	return env;
+}
+
+void VolumeEnvelope::Set(const Vector<Point3D> &points) {
+	maxX = maxY = maxZ = -DBL_MAX; 
+	minX = minY = minZ = DBL_MAX;
+	
+	for (const Point3D &p : points) {
+		maxX = max(maxX, p.x);
+		maxY = max(maxY, p.y);
+		maxZ = max(maxZ, p.z);
+		minX = min(minX, p.x);
+		minY = min(minY, p.y);
+		minZ = min(minZ, p.z);
+	}
 }
 
 void Surface::JointTriangularPanels(int ip0, int ip1, int inode0, int inode1) {
@@ -2677,22 +2719,6 @@ bool Surface::FindMatchingPanels(const Array<PanelPoints> &pans, double x, doubl
 	return false;
 }
 
-
-Vector<double> GetPolyAngles(const Array<Pointf> &bound) {
-	Vector<double> angles(bound.size());
-	int i;
-	for (i = 0; i < angles.size()-1; ++i) 
-		angles[i] = ToDeg(Angle(bound[i], bound[i+1]));
-	angles[i] = ToDeg(Angle(bound[i], bound[0]));
-	return angles;
-}	
-
-static int ContainsPoint(const Vector<Pointf>& polygon, Pointf pt) {
-	Array<Pointf> poly;
-	Copy(polygon, poly);
-	return ContainsPoint(poly, pt);
-}
-
 void Surface::AddPolygonalPanel2(const Vector<Pointf> &_bound, double width, bool adjustSize) {
 	ASSERT(_bound.size() >= 2);
 	
@@ -2746,7 +2772,7 @@ void Surface::AddPolygonalPanel2(const Vector<Pointf> &_bound, double width, boo
 					addPoint = false;
 					break;
 				}
-			if (addPoint && ContainsPoint(points, pt) != CMP_OUT)
+			if (addPoint && ContainsPoint(points, pt) >= 0)
 				poly << pt;
 		}
 	}
@@ -2775,15 +2801,15 @@ void Surface::AddPolygonalPanel2(const Vector<Pointf> &_bound, double width, boo
 		// Para los que no tocan contorno, mira si estan fuera del contorno, y los borra
 		bool t01 = idp0 >= 0 && idp1 >= 0 && abs(idp0 - idp1) == 1;	
 		if (!t01)
-			t01 = ContainsPoint(bound, Middle(p0, p1)) != CMP_OUT;
+			t01 = ContainsPoint(bound, Middle(p0, p1)) >= 0;
 
 		bool t12 = idp1 >= 0 && idp2 >= 0 && abs(idp1 - idp2) == 1;
 		if (!t12)
-			t12 = ContainsPoint(bound, Middle(p1, p2)) != CMP_OUT;
+			t12 = ContainsPoint(bound, Middle(p1, p2)) >= 0;
 			
 		bool t20 = idp2 >= 0 && idp0 >= 0 && abs(idp2 - idp0) == 1;
 		if (!t20)
-			t20 = ContainsPoint(bound, Middle(p2, p0)) != CMP_OUT;		
+			t20 = ContainsPoint(bound, Middle(p2, p0)) >= 0;		
 		
 		if (t01 && t12 && t20) {
 			PanelPoints &pan = pans.Add();
@@ -2942,7 +2968,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	Append(s);
 }
 
-Vector<Point3D> Surface::GetClosedPolygons(Vector<Segment3D> &segs) {
+Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs) {
 	Vector<Point3D> ret;
 	
 	if (segs.IsEmpty())
@@ -2978,13 +3004,6 @@ Vector<Point3D> Surface::GetClosedPolygons(Vector<Segment3D> &segs) {
 	}
 }
 		
-Vector<Pointf> Surface::Point3dto2D(const Vector<Point3D> &bound) {
-	Vector<Pointf> ret;
-	for (const auto &d: bound)
-		ret << Pointf(d.x, d.y);
-	return ret;
-}
-
 int Find(Vector<Segment3D> &segs, const Point3D &from, const Point3D &to) {
 	for (int is = 0; is < segs.size(); ++is) {
 		if (segs[is].from == from && segs[is].to == to)
@@ -3081,7 +3100,7 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 			Vector<Point3D> bound = GetClosedPolygons(segs);
 			if (bound.IsEmpty())
 				break;
-			Vector<Pointf> bound2D = Point3dto2D(bound);
+			Vector<Pointf> bound2D = Point3Dto2D_XY(bound);
 			if (bound2D.size() > 2)
 				AddPolygonalPanel2(bound2D, panelWidth*1.1, true);
 		}
