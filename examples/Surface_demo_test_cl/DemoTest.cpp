@@ -19,9 +19,9 @@ void TestSurfaceX_Calc() {
 	RealTimeStop t;
 	String strfile = String(Model, Model_length);
 	
-	String folder = AppendFileNameX(GetTempDirectory(), "Surface");
+	String folder = AFX(GetTempDirectory(), "Surface");
 	DirectoryCreate(folder);
-	String file = AppendFileNameX(folder, "demo.stl");
+	String file = AFX(folder, "demo.stl");
 	SaveFile(file, strfile);
 	
 	Surface mesh, under;
@@ -169,7 +169,6 @@ void TestMesh() {
 	Surface s;
 	
 	for (double msh = 1; msh <= 2; msh += 1) {
-		
 		double deltax = (msh - 1)*15;
 		
 		Surface s1;
@@ -183,7 +182,6 @@ void TestMesh() {
 		s2.AddPolygonalPanel(bound, msh, true);
 		s2.Translate(deltax, 20, 0);
 		
-		
 		UVector<Pointf> bound3 = {
 			{0,0},
 			{10,0},
@@ -196,7 +194,7 @@ void TestMesh() {
 			{0,0}};
 	
 		Surface s3;
-		s3.AddPolygonalPanel2(bound3, msh, true);
+		s3.AddPolygonalPanel(bound3, msh, true);
 		s3.Translate(deltax, -30, 0);	
 	
 		s << s1 << s2 << s3;
@@ -204,8 +202,7 @@ void TestMesh() {
 	
 	String file = "MeshDemo.stl";
 	UppLog() << "\nSaving " << file;
-	SaveStlBin(AppendFileNameX(GetDesktopFolder(), file), s, 1);
-	
+	SaveStlBin(AFX(GetTempDirectory(), file), s, 1);
 	
 	// Testing inertia translation
 	MatrixXd mat0(6, 6), mat1(6, 6), mat2(6, 6), m;
@@ -259,7 +256,8 @@ void TestPoly() {
     };
     
 	ContainsPointRes ret;
-	 
+	
+	UppLog() << "\nTesting ContainsPoint() with a 3D polygon";
 	VERIFY(ContainsPointRes::POLY_IN  == ContainsPoint(polygon, Point3D(1.332, 1.829, 1.533), 0.1, ToRad(2.)));
     VERIFY(ContainsPointRes::POLY_OUT == ContainsPoint(polygon, Point3D(3.832, 1.892, 2.533), 0.1, ToRad(2.)));
 	
@@ -274,6 +272,8 @@ void TestPoly() {
         Pointf(0.5, 1)
     };	
     
+    VERIFY(5 == Area(pol_2));
+    
     Pointf pin_2 = Pointf(1,   2);
 	Pointf ppo_2 = Pointf(1.5, 1.00001);	// In point + error
 	Pointf pl1_2 = Pointf(1,   0.00001);	// In line + error
@@ -281,14 +281,14 @@ void TestPoly() {
 	Pointf pot_2 = Pointf(0,   1.5);
 	Pointf cen_2 = Pointf(1,   1.5);		// Centroid
     
+    VERIFY(cen_2 == Centroid(pol_2));
+    
+    UppLog() << "\nTesting ContainsPoint() with a 3D polygon with different angles in the space, and different points inside, in the boundary, and outside";
 	VERIFY(ContainsPointRes::POLY_IN   == ContainsPoint(pol_2, pin_2));
 	VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol_2, ppo_2));	
 	VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol_2, pl1_2));	
 	VERIFY(ContainsPointRes::POLY_SECT == ContainsPoint(pol_2, pl2_2));	
-	VERIFY(ContainsPointRes::POLY_OUT  == ContainsPoint(pol_2, pot_2));	
-	
-	VERIFY(5 == Area(pol_2));
-	VERIFY(cen_2 == Centroid(pol_2));	
+	VERIFY(ContainsPointRes::POLY_OUT  == ContainsPoint(pol_2, pot_2));		
 		
 	Point3D pin, pin_no, ppo, pl1, pl2, pot, cen;
 	UVector<Point3D> pol;
@@ -344,6 +344,25 @@ void TestPoly() {
 					test();
 				}
 			}
+	
+ 	UppLog() << "\nTesting Surface::AddPolygonalPanel(), at scale 1 and 100, with different mesh sizes, comparing areas";
+	Surface s;
+    UVector<double> sizes = {0.05, 0.1, 0.2, 0.5, 1};
+    
+    for (int n = 0; n < 1; ++n) {
+	    for (int i = 0; i < sizes.size(); ++i) {
+	        s.Clear();
+			s.AddPolygonalPanel(pol_2, sizes[i], true);
+			double area = 0;
+			for (int i = 0; i < s.panels.size(); ++i)
+				area += s.panels[i].surface0;
+			VERIFY(EqualRatio(Area(pol_2), area, 0.00001));
+	    }
+	    for (int i = 0; i < sizes.size(); ++i) 
+	        sizes[i] *= 100;
+	    for (int i = 0; i < pol_2.size(); ++i) 
+	        pol_2[i] *= 100;
+    }	
 }
 
 CONSOLE_APP_MAIN 

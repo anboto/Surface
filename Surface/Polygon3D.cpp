@@ -1,43 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2021 - 2024, the Anboto author and contributors
 #include <Core/Core.h>
-
-#include <Eigen/Eigen.h>
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
-#include <Functions4U/Functions4U.h>
-#include <numeric> 
-#include <STEM4U/Rootfinding.h>
 
 namespace Upp {
 using namespace Eigen;
 
 
-// Valid for concave shapes, no order required
-ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt) {
-	if (PointInPoly(polygon, pt))
-		return POLY_SECT;
-	Array<Pointf> poly;
-	Copy(polygon, poly);
-	return static_cast<ContainsPointRes>(ContainsPoint(poly, pt));
-}
-
-bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy) {
-	for (int i = 0; i < xy.size()-1; ++i) {
-		if (PointInSegment(pxy, xy[i], xy[i+1]))
-			return true;
-	}
-	return false;
-}
-
-// Valid for concave shapes, no order required
 ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &point, double distanceTol, double angleNormalTol) {
     if (_polygon.size() < 3) 
         return POLY_3;
     
-    UVector<Point3D> polygon = clone(_polygon);
-    if (First(polygon) != Last(polygon))
-        polygon << First(polygon);
+    UVector<Point3D> polygon2;
+    if (First(_polygon) != Last(_polygon)) {
+        polygon2 = clone(_polygon);
+        polygon2 << First(polygon2);
+    }
+    const UVector<Point3D> &polygon = polygon2.size() > 0 ? polygon2 : _polygon;
     
 	UVector<Direction3D> normals;
 	Direction3D normal;
@@ -96,34 +76,7 @@ ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &
 	return POLY_SECT;
 }
 
-bool IsClockwise(const UVector<Pointf> &p) {
-    int n = p.size();
-    double area = 0;
-
-    for (int i = 0; i < n; i++) {
-        const Pointf &curr = p[i];
-        const Pointf &next = p[(i + 1) % n];
-
-        area += (next.x - curr.x) * (next.y + curr.y);
-    }
-	return area < 0;
-}
-
-double Area(const UVector<Pointf> &p) {		// Valid for concave shapes, no order required
-	int n = p.size();
-    double area = 0.0;
-
-	if (Last(p) == First(p))
-		--n;
-	ASSERT(n > 2);
-	
-    for (int i = 0; i < n; i++) 
-        area += (p[i]%p[(i + 1) % n]);
-  
-    return 0.5*abs(area);
-}
-
-double Area(const UVector<Point3D> &p) {	// Valid for concave shapes, no order required
+double Area(const UVector<Point3D> &p) {
 	int n = p.size();
     Value3D area;
     area.Zero();
@@ -138,18 +91,7 @@ double Area(const UVector<Point3D> &p) {	// Valid for concave shapes, no order r
     return 0.5*area.Length();
 }
 
-Pointf Centroid(const UVector<Pointf> &p) {	// Valid for concave shapes, no order required
-	int n = p.size();
-    Pointf ret(0, 0);
-	
-	for (int i = 0; i < n; ++i) 
-		ret += p[i];
-	ret /= n;
-	
-	return ret;
-}
-
-Point3D Centroid(const UVector<Point3D> &p) {	// Valid for concave shapes, no order required
+Point3D Centroid(const UVector<Point3D> &p) {
 	int n = p.size();
     Point3D ret;
     ret.Zero();

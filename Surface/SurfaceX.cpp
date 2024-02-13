@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2021 - 2022, the Anboto author and contributors
 #include <Core/Core.h>
-
-#include <Eigen/Eigen.h>
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
-#include <Functions4U/Functions4U.h>
-#include <numeric> 
 
 namespace Upp {
 using namespace Eigen;

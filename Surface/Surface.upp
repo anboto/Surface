@@ -7,10 +7,14 @@ uses
 
 file
 	Surface.cpp,
-	Polygons.cpp,
+	Polygon2D.cpp,
+	Polygon3D.cpp,
+	Value3D.cpp,
 	SurfaceX.cpp,
+	ForceVector.cpp,
 	Surface.h,
 	stl.cpp,
-	msh.cpp;
+	msh.cpp,
+	src.tpp;
 
  spellcheck_comments "EN-GB"

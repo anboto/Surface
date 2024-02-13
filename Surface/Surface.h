@@ -89,7 +89,7 @@ public:
 	void Rotate(double ax, double ay, double az, double cx, double cy, double cz);	
 		
 	// Dot product or scalar product
-	double dot(const Value3D& a) const {return x*a.x + y*a.y + z*a.z;}
+	inline double dot(const Value3D& a) const {return x*a.x + y*a.y + z*a.z;}
 	
 	// Cross product or vector product X (or wedge product ∧ in 3D) 
 	inline friend Value3D operator%(const Value3D& a, const Value3D& b) {return Value3D(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);}
@@ -97,6 +97,7 @@ public:
 	inline friend Value3D operator+(const Value3D& a, const Value3D& b) {return Value3D(a.x+b.x, a.y+b.y, a.z+b.z);}
 	inline friend Value3D operator-(const Value3D& a, const Value3D& b) {return Value3D(a.x-b.x, a.y-b.y, a.z-b.z);}
 	inline friend Value3D operator*(const Value3D& a, double b) 		{return Value3D(a.x*b, a.y*b, a.z*b);}
+	inline friend Value3D operator/(const Value3D& a, double b) 		{return Value3D(a.x/b, a.y/b, a.z/b);}
 
 	inline void operator+=(const Value3D& a) {x += a.x; y += a.y; z += a.z;}
 	inline void operator-=(const Value3D& a) {x -= a.x; y -= a.y; z -= a.z;}
@@ -112,7 +113,8 @@ public:
 		}
 	}
 	
-	double Length() const {return ::sqrt(x*x + y*y + z*z);}
+	inline double Length()  const {return ::sqrt(Length2());}
+	inline double Length2() const {return x*x + y*y + z*z;}
 	Value3D &Normalize() {
 		double length = Length();
 		
@@ -668,7 +670,7 @@ public:
 	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
-	void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
+	//void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 	
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
