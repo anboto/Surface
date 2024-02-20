@@ -32,7 +32,7 @@ bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c) {
 }
 
 bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c) {
-	return Length(Pointf((a - b) % (b - c))) < 0.001;
+	return Area(a, b, c) < 0.001;
 }
 
 /*double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2) {
@@ -49,7 +49,7 @@ double Area(const Value3D &a, const Value3D &b, const Value3D &c) {
 }
 
 double Area(const Pointf &a, const Pointf &b, const Pointf &c) {
-    return 0.5*Length(Pointf((b - a)%(c - a)));
+    return 0.5*((b - a)%(c - a));
 }
 
 Point3D Intersection(const Direction3D &lineVector, const Point3D &linePoint, const Point3D &planePoint, const Direction3D &planeNormal) {
