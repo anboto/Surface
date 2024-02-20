@@ -10,7 +10,6 @@ topic "";
 [b42;2 $$9,9#13035079074754324216151401829390:normal]
 [2 $$0,0#00000000000000000000000000000000:Default]
 [{_} 
-[s0;*@7;4%% &]
 [ {{10000@(113.42.0) [s0;%% [*@7;4 Polygon3D]]}}&]
 [s0; &]
 [s0; Functions for 3D Point3D concave and convex flat polygons. No 

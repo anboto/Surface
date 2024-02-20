@@ -92,7 +92,7 @@ void SaveStlTxt(String fileName, const Surface &surf, double factor) {
 	
 	bool forceTriangles = true;
 	
-	out << "Anboto STL mesh export" << "\n";
+	out << Format("solid '%s' saved by U++ Anboto\n", RemoveAccents(GetFileTitle(fileName)));
 
 	for (int i = 0; i < panels.GetCount(); ++i) {
 		const Panel &panel = panels[i];
@@ -114,7 +114,7 @@ void SaveStlTxt(String fileName, const Surface &surf, double factor) {
 			}
 		}
 	}
-	out << "endsolid U++ STL mesh export" << "\n";
+	out << "endsolid" << "\n";
 }
 
 static void LoadStlBin(String fileName, Surface &surf, String &header) {
@@ -176,7 +176,7 @@ void SaveStlBin(String fileName, const Surface &surf, double factor) {
 	const Vector<Panel> &panels = surf.panels;
 	const Vector<Point3D> &nodes = surf.nodes;
 	
-	String header = "U++ STL mesh export";
+	String header = Format("File '%s' saved by U++ Anboto", RemoveAccents(GetFileTitle(fileName)));
 	header << String(' ', 80 - header.GetCount());
 	out.Write(header, 80);
 	
