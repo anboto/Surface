@@ -800,6 +800,7 @@ void Rotate(Range &r, double ax, double ay, double az, double cx, double cy, dou
 }
 	
 void LoadStl(String fileName, Surface &surf, bool &isText, String &header);
+void LoadStl(String fileName, Surface &surf);
 void SaveStlTxt(String fileName, const Surface &surf, double factor);
 void SaveStlBin(String fileName, const Surface &surf, double factor);
 

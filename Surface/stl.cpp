@@ -205,12 +205,12 @@ void SaveStlBin(String fileName, const Surface &surf, double factor) {
 	}
 }
 
-void LoadStl(String file, Surface &surf, bool &isText, String &header) {
+void LoadStl(String fileName, Surface &surf, bool &isText, String &header) {
 	try {
-		LoadStlTxt(file, surf, isText);
+		LoadStlTxt(fileName, surf, isText);
 	} catch(Exc e) {
 		if (!isText) 
-			LoadStlBin(file, surf, header);
+			LoadStlBin(fileName, surf, header);
 		else
 			throw std::move(e);
 	}
@@ -234,5 +234,10 @@ void LoadStl(String file, Surface &surf, bool &isText, String &header) {
 	}
 }
 
+void LoadStl(String fileName, Surface &surf) {
+	bool isText;
+	String header;
+	LoadStl(fileName, surf, isText, header);
+}
 
 }
