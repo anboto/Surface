@@ -82,10 +82,29 @@ static void STLFacetTxtOut(FileOut &out, const Point3D &p0, const Point3D &p1, c
 	out << "endfacet" << "\n";
 }
 
-void SaveStlTxt(String fileName, const Surface &surf, double factor) {
+static double GetFactor(const Surface &surf) {
+	double mx = 0;
+	for (int i = 0; i < surf.nodes.size(); ++i) {
+		const auto &p = surf.nodes[i];
+		if (abs(p.x) > mx)
+			mx = abs(p.x);
+		if (abs(p.y) > mx)
+			mx = abs(p.y);
+		if (abs(p.z) > mx)
+			mx = abs(p.z);
+	}
+	if (mx > 500) 	// It's guessed to be in mm. Convert to m
+		return 1000;
+	return 1;
+}
+	
+void SaveStlTxt(String fileName, const Surface &surf) {
 	FileOut out(fileName);
 	if (!out.IsOpen())
 		throw Exc(Format(t_("Impossible to open '%s'\n"), fileName));	
+	
+	
+	double factor = GetFactor(surf);
 	
 	const Vector<Panel> &panels = surf.panels;
 	const Vector<Point3D> &nodes = surf.nodes;
@@ -168,10 +187,12 @@ static void STLFacetBinNodeOut(FileOutBinary &out, const Point3D &node) {
 	out.Write(float(node.z));	
 }
 
-void SaveStlBin(String fileName, const Surface &surf, double factor) {
+void SaveStlBin(String fileName, const Surface &surf) {
 	FileOutBinary out(fileName);
 	if (!out.IsOpen())
 		throw Exc(Format(t_("Impossible to open '%s'\n"), fileName));	
+
+	double factor = GetFactor(surf);
 
 	const Vector<Panel> &panels = surf.panels;
 	const Vector<Point3D> &nodes = surf.nodes;
@@ -214,22 +235,13 @@ void LoadStl(String fileName, Surface &surf, bool &isText, String &header) {
 		else
 			throw std::move(e);
 	}
-	double mx = 0;
-	for (int i = 0; i < surf.nodes.size(); ++i) {
-		const auto &p = surf.nodes[i];
-		if (abs(p.x) > mx)
-			mx = abs(p.x);
-		if (abs(p.y) > mx)
-			mx = abs(p.y);
-		if (abs(p.z) > mx)
-			mx = abs(p.z);
-	}
-	if (mx > 500) {		// It's guessed to be in mm. Convert to m
+	double factor = GetFactor(surf);
+	if (factor != 1) {		// It's guessed to be in mm. Convert to m
 		for (int i = 0; i < surf.nodes.size(); ++i) {
 			auto &p = surf.nodes[i];
-			p.x /= 1000;
-			p.y /= 1000;
-			p.z /= 1000;
+			p.x /= factor;
+			p.y /= factor;
+			p.z /= factor;
 		}
 	}
 }

@@ -202,7 +202,7 @@ void TestMesh() {
 	
 	String file = "MeshDemo.stl";
 	UppLog() << "\nSaving " << file;
-	SaveStlBin(AFX(GetTempDirectory(), file), s, 1);
+	SaveStlBin(AFX(GetTempDirectory(), file), s);
 	
 	// Testing inertia translation
 	MatrixXd mat0(6, 6), mat1(6, 6), mat2(6, 6), m;
