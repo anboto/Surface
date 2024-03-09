@@ -10,7 +10,9 @@ using namespace Eigen;
 
 void Surface::Clear() {
 	nodes.Clear();
+	nodesIDs.Clear();
 	panels.Clear();
+	panelsIDs.Clear();
 	skewed.Clear();
 	segWaterlevel.Clear();
 	segTo1panel.Clear();
@@ -32,6 +34,8 @@ Surface::Surface(const Surface &orig, int) {
 	
 	panels = clone(orig.panels);
 	nodes = clone(orig.nodes);
+	panelsIDs = clone(orig.panelsIDs);
+	nodesIDs = clone(orig.nodesIDs);
 	skewed = clone(orig.skewed);
 	segWaterlevel = clone(orig.segWaterlevel);
 	segTo1panel = clone(orig.segTo1panel);
@@ -1004,18 +1008,22 @@ void Surface::GetVolume() {
 	volume = avg(volumex, volumey, volumez);
 }
 
-int Surface::VolumeMatch(double ratioWarning, double ratioError) const {
+double Surface::VolumeRatio() const {
 	if (volumex < 0 || volumey < 0 || volumez < 0)
-		return -2;
+		return Null;
 	if (volumex == 0 || volumey == 0 || volumez == 0)
 		return 0;
-	if (!Between(volume/volumex, 1-ratioError, 1+ratioError) ||
-		!Between(volume/volumey, 1-ratioError, 1+ratioError) ||
-		!Between(volume/volumez, 1-ratioError, 1+ratioError))
+	return max(abs(1 - volume/volumex), max(abs(1 - volume/volumey), abs(1 - volume/volumez)));
+}
+
+int Surface::VolumeMatch(double ratioWarning, double ratioError) const {
+	double ratio = VolumeRatio();
+	if (IsNull(ratio))
 		return -2;
-	if (!Between(volume/volumex, 1-ratioWarning, 1+ratioWarning) ||
-		!Between(volume/volumey, 1-ratioWarning, 1+ratioWarning) ||
-		!Between(volume/volumez, 1-ratioWarning, 1+ratioWarning))
+		return 0;
+	if (ratio >= ratioError)
+		return -2;
+	if (ratio >= ratioWarning)
 		return -1;
 	return 0;
 }
@@ -1541,8 +1549,6 @@ void Surface::CutZ(const Surface &orig, int factor) {
 	factor *= -1;
 	
 	for (int ip = 0; ip < orig.panels.size(); ++ip) {
-		if (ip == 586)
-			int kk = 1;
 		const int &id0 = orig.panels[ip].id[0];
 		const int &id1 = orig.panels[ip].id[1];
 		const int &id2 = orig.panels[ip].id[2];
@@ -1604,8 +1610,6 @@ void Surface::CutZ(const Surface &orig, int factor) {
 							segWL.from = inter;
 						else if (IsNull(segWL.to) && Distance(segWL.from, inter) > EPS_LEN)
 							segWL.to = inter;
-						else
-							int kk = 1;
 					}
 				}
 			}
@@ -1624,7 +1628,7 @@ void Surface::CutZ(const Surface &orig, int factor) {
 					break;
 				}
 			}
-			if (pos == nodeTo.GetCount()) {
+			if (pos == nodeTo.size()) {
 				nodeFrom << nFrom;
 				nodeTo << nTo;
 			} else if (pos >= 0) {
@@ -1633,7 +1637,7 @@ void Surface::CutZ(const Surface &orig, int factor) {
 			}
 			
 			Panel panel;
-			if (nodeFrom.GetCount() == 3) {
+			if (nodeFrom.size() == 3) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
@@ -1677,6 +1681,7 @@ void Surface::CutX(const Surface &orig, int factor) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
+	
 	factor *= -1;
 	
 	for (int ip = 0; ip < orig.panels.size(); ++ip) {
@@ -1689,6 +1694,8 @@ void Surface::CutX(const Surface &orig, int factor) {
 		const Point3D &p2 = nodes[id2];
 		const Point3D &p3 = nodes[id3];	
 		
+		
+
 		if ((p0.x)*factor <= EPS_LEN && (p1.x)*factor <= EPS_LEN && 
 				 (p2.x)*factor <= EPS_LEN && (p3.x)*factor <= EPS_LEN) {
 			if (!((p0.x)*factor >= -EPS_LEN && (p1.x)*factor >= -EPS_LEN && // Rejects waterplane
@@ -1697,19 +1704,23 @@ void Surface::CutX(const Surface &orig, int factor) {
 		} else if ((p0.x)*factor >= -EPS_LEN && (p1.x)*factor >= -EPS_LEN && 
 			(p2.x)*factor >= -EPS_LEN && (p3.x)*factor >= -EPS_LEN) 
 			;											// Refuses the panels that don't
-		else {
+		else {											// Process the intermediate
 			const int *origPanelid = orig.panels[ip].id;
 			Vector<int> nodeFrom, nodeTo;
+
 
 			const int ids[] = {0, 1, 2, 3, 0};
 			for (int i = 0; i < 4; ++i) {
 				if (origPanelid[ids[i]] == origPanelid[ids[i+1]])
 					;
 				else {
+					Point3D inter = Null;
 					const Point3D &from = nodes[origPanelid[ids[i]]];
 					const Point3D &to   = nodes[origPanelid[ids[i+1]]];
 					if (abs(from.x) <= EPS_LEN && abs(to.x) <= EPS_LEN) 
 						;
+					else if (abs(from.x) <= EPS_LEN) 
+						inter = clone(from);
 					else if ((from.x)*factor <= EPS_LEN && (to.x)*factor <= EPS_LEN) {
 						nodeFrom << origPanelid[ids[i]];
 						nodeTo << origPanelid[ids[i+1]];
@@ -1717,7 +1728,7 @@ void Surface::CutX(const Surface &orig, int factor) {
 						;
 					else {
 						Segment3D seg(from, to);
-						Point3D inter = seg.IntersectionPlaneX(0);
+						inter = seg.IntersectionPlaneX(0);
 						if (!IsNull(inter)) {
 							if ((from.x)*factor < EPS_LEN) {
 								nodeFrom << origPanelid[ids[i]];
@@ -1732,6 +1743,8 @@ void Surface::CutX(const Surface &orig, int factor) {
 					}
 				}
 			}
+
+
 			
 			int pos = -1, nFrom, nTo;
 			for (int i = 0; i < nodeFrom.size(); ++i) {
@@ -1759,16 +1772,19 @@ void Surface::CutX(const Surface &orig, int factor) {
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[2];
-			} else if (nodeFrom.size() == 4) {
+				panels << panel;
+			} else if (nodeFrom.GetCount() == 4) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[3];
-			} else if (nodeFrom.size() == 5) {
+				panels << panel;
+			} else if (nodeFrom.GetCount() == 5) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[3];
+				panels << panel;
 				Panel panel2;
 				panel2.id[0] = nodeFrom[0];
 				panel2.id[1] = nodeFrom[3];
@@ -1778,7 +1794,6 @@ void Surface::CutX(const Surface &orig, int factor) {
 				panels << panel2;
 			}
 			//TriangleToQuad(panel);
-			panels << panel;
 		}
 	}
 	if (factor > 0) {						// No tolerance -> max/min is 0
@@ -1794,6 +1809,7 @@ void Surface::CutY(const Surface &orig, int factor) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
+	
 	factor *= -1;
 	
 	for (int ip = 0; ip < orig.panels.size(); ++ip) {
@@ -1806,6 +1822,8 @@ void Surface::CutY(const Surface &orig, int factor) {
 		const Point3D &p2 = nodes[id2];
 		const Point3D &p3 = nodes[id3];	
 		
+		
+
 		if ((p0.y)*factor <= EPS_LEN && (p1.y)*factor <= EPS_LEN && 
 				 (p2.y)*factor <= EPS_LEN && (p3.y)*factor <= EPS_LEN) {
 			if (!((p0.y)*factor >= -EPS_LEN && (p1.y)*factor >= -EPS_LEN && // Rejects waterplane
@@ -1814,19 +1832,23 @@ void Surface::CutY(const Surface &orig, int factor) {
 		} else if ((p0.y)*factor >= -EPS_LEN && (p1.y)*factor >= -EPS_LEN && 
 			(p2.y)*factor >= -EPS_LEN && (p3.y)*factor >= -EPS_LEN) 
 			;											// Refuses the panels that don't
-		else {
+		else {											// Process the intermediate
 			const int *origPanelid = orig.panels[ip].id;
 			Vector<int> nodeFrom, nodeTo;
-			
+
+
 			const int ids[] = {0, 1, 2, 3, 0};
 			for (int i = 0; i < 4; ++i) {
 				if (origPanelid[ids[i]] == origPanelid[ids[i+1]])
 					;
 				else {
+					Point3D inter = Null;
 					const Point3D &from = nodes[origPanelid[ids[i]]];
 					const Point3D &to   = nodes[origPanelid[ids[i+1]]];
 					if (abs(from.y) <= EPS_LEN && abs(to.y) <= EPS_LEN) 
 						;
+					else if (abs(from.y) <= EPS_LEN) 
+						inter = clone(from);
 					else if ((from.y)*factor <= EPS_LEN && (to.y)*factor <= EPS_LEN) {
 						nodeFrom << origPanelid[ids[i]];
 						nodeTo << origPanelid[ids[i+1]];
@@ -1834,7 +1856,7 @@ void Surface::CutY(const Surface &orig, int factor) {
 						;
 					else {
 						Segment3D seg(from, to);
-						Point3D inter = seg.IntersectionPlaneY(0);
+						inter = seg.IntersectionPlaneY(0);
 						if (!IsNull(inter)) {
 							if ((from.y)*factor < EPS_LEN) {
 								nodeFrom << origPanelid[ids[i]];
@@ -1849,6 +1871,8 @@ void Surface::CutY(const Surface &orig, int factor) {
 					}
 				}
 			}
+
+
 			
 			int pos = -1, nFrom, nTo;
 			for (int i = 0; i < nodeFrom.size(); ++i) {
@@ -1876,16 +1900,19 @@ void Surface::CutY(const Surface &orig, int factor) {
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[2];
-			} else if (nodeFrom.size() == 4) {
+				panels << panel;
+			} else if (nodeFrom.GetCount() == 4) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[3];
-			} else if (nodeFrom.size() == 5) {
+				panels << panel;
+			} else if (nodeFrom.GetCount() == 5) {
 				panel.id[0] = nodeFrom[0];
 				panel.id[1] = nodeFrom[1];
 				panel.id[2] = nodeFrom[2];
 				panel.id[3] = nodeFrom[3];
+				panels << panel;
 				Panel panel2;
 				panel2.id[0] = nodeFrom[0];
 				panel2.id[1] = nodeFrom[3];
@@ -1895,7 +1922,6 @@ void Surface::CutY(const Surface &orig, int factor) {
 				panels << panel2;
 			}
 			//TriangleToQuad(panel);
-			panels << panel;
 		}
 	}
 	if (factor > 0) {						// No tolerance -> max/min is 0

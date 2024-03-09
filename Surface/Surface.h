@@ -564,7 +564,9 @@ public:
 	void Save(String fileName);
 
 	Vector<Point3D> nodes;
+	Index<int> nodesIDs;
 	Vector<Panel> panels;
+	Index<int> panelsIDs;
 	Vector<LineSegment> segments;
 	Array<Vector<Point3D>> lines;
 	
@@ -597,6 +599,7 @@ public:
 	double GetAvgLenSegment() const {return avgLenSegment;}
 	void GetVolume();
 	int VolumeMatch(double ratioWarning, double ratioError) const;
+	double VolumeRatio() const;
 	Point3D GetCentreOfBuoyancy() const;
 	Point3D GetCentreOfGravity_Surface() const;
 	void GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
