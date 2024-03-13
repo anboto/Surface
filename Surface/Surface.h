@@ -74,6 +74,8 @@ public:
 	String ToString() const {return Format("x: %s. y: %s. z: %s", FDS(x, 10, true), FDS(y, 10, true), FDS(z, 10, true));}
 	
 	inline bool IsSimilar(const Value3D &p, double similThres) const {
+		if (IsNull(x) && IsNull(p.x))
+			return true;
 		if (abs(p.x - x) < similThres && abs(p.y - y) < similThres && abs(p.z - z) < similThres)
 			return true;
 		return false;
@@ -105,6 +107,14 @@ public:
 	inline void operator/=(double a) 		 {x /= a; y /= a; z /= a;}
 
 	double& operator[](int id) {
+		ASSERT(id >= 0 && id < 3);
+		switch (id) {
+		case 0:	return x;
+		case 1:	return y;
+		default:return z;
+		}
+	}
+	const double& operator[](int id) const {
 		ASSERT(id >= 0 && id < 3);
 		switch (id) {
 		case 0:	return x;
@@ -342,7 +352,9 @@ Direction3D Normal(const Value3D &a, const Value3D &b, const Value3D &c);
 bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c);
 double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2);
 
+bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c);
 double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
+double Direction(const Pointf& a, const Pointf& b);
 
 class Segment3D : public Moveable<Segment3D> {
 public:
@@ -694,7 +706,12 @@ public:
 		
 protected:
 	struct PanelPoints {
-		Point3D data[4];
+		PanelPoints() {data.SetCount(4);}
+		Vector<Point3D> data;
+	};
+	struct TrianglesPoints2D {
+		TrianglesPoints2D() {data.SetCount(3);}
+		Vector<Pointf> data;
 	};
 	void SetPanelPoints(const Array<PanelPoints> &pans);
 	
