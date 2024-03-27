@@ -469,7 +469,7 @@ public:
 	Point3D centroid0, centroid1, centroidPaint;
 	Point3D normal0, normal1, normalPaint;
 	double surface0, surface1;
-
+	
 	Panel() {}
 	Panel(const Panel &orig, int) {
 		memcpy(id, orig.id, sizeof(orig.id));
@@ -555,7 +555,7 @@ public:
 	}	
 	void Set(const Vector<Point3D> &points);
 	
-	void MixEnvelope(VolumeEnvelope &env);
+	void MixEnvelope(const VolumeEnvelope &env);
 	double Max()	{return max(max(max(abs(maxX), abs(minX)), max(abs(maxY), abs(minY))), max(abs(maxZ), abs(minZ)));}
 	double LenRef()	{return max(max(maxX - minX, maxY - minY), maxZ - minZ);}
 	
@@ -576,9 +576,7 @@ public:
 	void Save(String fileName);
 
 	Vector<Point3D> nodes;
-	Index<int> nodesIDs;
 	Vector<Panel> panels;
-	Index<int> panelsIDs;
 	Vector<LineSegment> segments;
 	Array<Vector<Point3D>> lines;
 	
@@ -695,6 +693,8 @@ public:
 	
 	//inline const Point3D &GetPos() const 	{return pos;}
 	//inline const Point3D &GetAngle() const	{return angle;}
+	
+	void GetClosestPanels(int idPanel, UVector<int> &panIDs);
 	
 	void Jsonize(JsonIO &json) {
 		json

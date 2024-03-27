@@ -10,9 +10,7 @@ using namespace Eigen;
 
 void Surface::Clear() {
 	nodes.Clear();
-	nodesIDs.Clear();
 	panels.Clear();
-	panelsIDs.Clear();
 	skewed.Clear();
 	segWaterlevel.Clear();
 	segTo1panel.Clear();
@@ -34,8 +32,6 @@ Surface::Surface(const Surface &orig, int) {
 	
 	panels = clone(orig.panels);
 	nodes = clone(orig.nodes);
-	panelsIDs = clone(orig.panelsIDs);
-	nodesIDs = clone(orig.nodesIDs);
 	skewed = clone(orig.skewed);
 	segWaterlevel = clone(orig.segWaterlevel);
 	segTo1panel = clone(orig.segTo1panel);
@@ -209,6 +205,15 @@ int Surface::RemoveTinyPanels(Vector<Panel> &_panels) {
 		}
 	}
 	return num;
+}
+
+void Surface::GetClosestPanels(int idPanel, UVector<int> &panIDs) {
+	const Point3D &p = panels[idPanel].centroidPaint;
+	UVector<double> dists(panels.size());
+	for (int ip = 0; ip < panels.size(); ++ip) 
+		dists[ip] = Distance(p, panels[ip].centroidPaint);
+	panIDs = GetSortOrderX(dists);
+	panIDs.Remove(0); 	// 0, idPanel itself
 }
 
 int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes) {
@@ -761,7 +766,6 @@ const VolumeEnvelope &Surface::GetEnvelope() {
 			env.minZ = min(env.minZ, p.z);
 		}
 	}
-	
 	return env;
 }
 
@@ -2288,7 +2292,7 @@ void Surface::DeployYSymmetry() {
 	}
 }
 
-void VolumeEnvelope::MixEnvelope(VolumeEnvelope &env) {
+void VolumeEnvelope::MixEnvelope(const VolumeEnvelope &env) {
 	maxX = maxNotNull(env.maxX, maxX);
 	minX = minNotNull(env.minX, minX);
 	maxY = maxNotNull(env.maxY, maxY);
@@ -2532,6 +2536,8 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		if (p.y > maxY)
 			maxY = p.y;
 	}		
+	minX -= 0.3*panelWidth;	// To avoid matching with the boundary
+	minY -= 0.3*panelWidth;
 	// Sets the points inside the boundary
 	Array<Pointf> poly;
 	int nx = 1+int((maxX-minX)/panelWidth);
