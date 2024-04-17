@@ -825,7 +825,7 @@ void SaveStlTxt(String fileName, const Surface &surf);
 void SaveStlBin(String fileName, const Surface &surf);
 
 void LoadTDynMsh(String fileName, Surface &surf);
-
+void LoadGMSH(String fileName, Surface &surf);
 
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);

@@ -898,7 +898,7 @@ double Surface::GetAreaXProjection(bool positive, bool negative) const {
 	for (int ip = 0; ip < panels.size(); ++ip) {
 		const Panel &panel = panels[ip];
 		
-		bool add0;
+		bool add0 = false;
 		if (panel.normal0.x > 0)
 			add0 = positive;
 		else if (panel.normal0.x < 0)
@@ -931,7 +931,7 @@ double Surface::GetAreaYProjection(bool positive, bool negative) const {
 		if (add0)
 			area += -panel.surface0*panel.normal0.y;
 		
-		bool add1;
+		bool add1 = false;
 		if (panel.normal1.y > 0)
 			add1 = positive;
 		else if (panel.normal1.y < 0)
@@ -948,7 +948,7 @@ double Surface::GetAreaZProjection(bool positive, bool negative) const {
 	for (int ip = 0; ip < panels.GetCount(); ++ip) {
 		const Panel &panel = panels[ip];
 		
-		bool add0;
+		bool add0 = false;
 		if (panel.normal0.z > 0)
 			add0 = positive;
 		else if (panel.normal0.z < 0)
@@ -956,7 +956,7 @@ double Surface::GetAreaZProjection(bool positive, bool negative) const {
 		if (add0)
 			area += -panel.surface0*panel.normal0.z;
 		
-		bool add1;
+		bool add1 = false;
 		if (panel.normal1.z > 0)
 			add1 = positive;
 		else if (panel.normal1.z < 0)
@@ -1024,7 +1024,6 @@ int Surface::VolumeMatch(double ratioWarning, double ratioError) const {
 	double ratio = VolumeRatio();
 	if (IsNull(ratio))
 		return -2;
-		return 0;
 	if (ratio >= ratioError)
 		return -2;
 	if (ratio >= ratioWarning)
@@ -2140,7 +2139,7 @@ bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &u
 }
 
 bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho, double g, double &dz, double &droll, double &dpitch, Surface &under) {
-	int maxIter = 50;
+	//int maxIter = 50;
 	Surface base;
 	Point3D basecg;
 	

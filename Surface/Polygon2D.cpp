@@ -32,8 +32,8 @@ bool IsClockwise(const UVector<Pointf> &p) {
 		--n;
 	ASSERT(n > 2);
 	
-    for (int i = 0; i < n; i++) 
-        area += (p[i]%p[(i + 1) % n]);
+	for (int i = 0; i < n; i++) 
+		area += (p[i]%p[(i + 1) % n]);
     
 	return area < 0;
 }
