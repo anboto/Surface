@@ -60,6 +60,8 @@ public:
 	
 	void Zero() 			{x = y = z = 0;}
 	
+	static int size() 		{return 3;}
+	
 	Value3D(bool positive)	{x = Null; y = positive ? 1 : -1;}
 	bool IsPosInf()			{return IsNull(x) && y == 1;}
 	bool IsNegInf()			{return IsNull(x) && y == -1;}
@@ -71,6 +73,13 @@ public:
 	inline Value3D operator=(const Value3D &p)	{Set(p);	return *this;}
 	inline Value3D operator=(const Vector3d &p)	{Set(p);	return *this;}
 	
+    operator Eigen::Vector3d() const {return Eigen::Vector3d(x, y, z);}
+    operator Eigen::MatrixXd() const {
+        Eigen::MatrixXd m(1, 3);
+        m << x, y, z;
+        return m;
+    }
+    
 	String ToString() const {return Format("x: %s. y: %s. z: %s", FDS(x, 10, true), FDS(y, 10, true), FDS(z, 10, true));}
 	
 	inline bool IsSimilar(const Value3D &p, double similThres) const {
@@ -211,6 +220,8 @@ public:
 		t.x = v0;	t.y = v1;	t.z = v2;	r.x = v3;	r.y = v4;	r.z = v5;
 	}
 	void Zero() {t.Zero();	r.Zero();}
+	
+	static int size() 		{return 6;}
 	
 	void operator+=(const Value6D &v) 	{t.x += v.t.x;	t.y += v.t.y;	t.z += v.t.z;	r.x += v.r.x;	r.y += v.r.y;	r.z += v.r.z;}
 	void operator*=(double v) 			{t.x *= v;		t.y *= v;		t.z *= v;		r.x *= v;		r.y *= v;		r.z *= v;}
@@ -827,6 +838,9 @@ void SaveStlBin(String fileName, const Surface &surf);
 void LoadTDynMsh(String fileName, Surface &surf);
 void LoadGMSH(String fileName, Surface &surf);
 
+void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z);
+void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z);
+	
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
 ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt);

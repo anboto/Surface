@@ -14,6 +14,7 @@ file
 	ForceVector.cpp,
 	Surface.h,
 	stl.cpp,
+	grd.cpp,
 	msh.cpp,
 	srcdoc.tpp,
 	src.tpp;
