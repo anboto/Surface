@@ -50,13 +50,13 @@ public:
 	double x, y, z;
 	
 	Value3D() 									{}
-	Value3D(const Nuller&) 						{SetNull();}
 	Value3D(const Value3D &p) 					{Set(p);}
 	Value3D(const Vector3d &p) 					{Set(p);}
 	Value3D(double _x, double _y, double _z) 	{Set(_x, _y, _z);}
 	
-	void SetNull() 				{x = Null; y = 0;}
-	bool IsNullInstance() const	{return IsNull(x);}
+	Value3D(const Nuller&) 		{SetNull();}
+	void SetNull() 				{x = Null;}
+	bool IsNullInstance() const	{return IsNull(x) || IsNull(y) || IsNull(z);}
 	
 	void Zero() 			{x = y = z = 0;}
 	
@@ -199,6 +199,10 @@ public:
 	Value6D(const T *v)			{Set(v);}
 	Value6D(double v0, double v1, double v2, double v3, double v4, double v5) {Set(v0, v1, v2, v3, v4, v5);}
 	
+	Value6D(const Nuller&) 		{SetNull();}
+	void SetNull() 				{t = Null;}
+	bool IsNullInstance() const	{return IsNull(t) || IsNull(r);}
+	
 	void Set(const Value6D &f)	{t.x = f.t.x;	t.y = f.t.y;	t.z = f.t.z;	r.x = f.r.x;	r.y = f.r.y;	r.z = f.r.z;}
 	void Set(const VectorXd &v) {
 		ASSERT(v.size() == 6);
@@ -278,6 +282,8 @@ public:
 	void AddLinear(const Direction3D &dir, const Point3D &point, const Point3D &c0);	
 	void Add(const Force6D &force, const Point3D &point, const Point3D &c0);
 	void Add(const ForceVector &force, const Point3D &c0);
+	
+	Force6D(const Nuller&) 		{SetNull();}
 };
 
 class ForceVector {
@@ -331,6 +337,8 @@ public:
 	void Translate(const Direction3D &rpq) {
 		t += r%rpq;
 	}
+	
+	Velocity6D(const Nuller&) 		{SetNull();}
 };
 
 class Acceleration6D : public Value6D {

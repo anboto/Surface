@@ -1438,6 +1438,9 @@ Force6D Surface::GetHydrodynamicForce(const Point3D &c0, bool clip,
 }
 
 Force6D Surface::GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double rho, double g) const {
+	if (IsNull(cb))
+		return Null;
+
 	Force6D f = GetHydrostaticForceCBNormalized(c0, cb);	
 	
 	f *= rho*g; 
@@ -1463,8 +1466,8 @@ Force6D Surface::GetMassForce(const Point3D &c0, const Point3D &cg, const double
 	
 	f.Zero();
 	
-	if (IsNull(mass) || mass == 0)
-		return f;
+	if (IsNull(cg) || IsNull(mass) || mass == 0)
+		return Null;
 		
 	f.AddLinear(Direction3D(0, 0, -mass*g), cg, c0);
 	
