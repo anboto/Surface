@@ -64,9 +64,7 @@ void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z) {
 		<< Format("\n%d     %d", y0z ? 1 : 0, x0z ? 1 : 0)
 		<< "\n" << panels.size();
 
-	for (int i = 0; i < panels.GetCount(); ++i) {
-		const Panel &panel = surf.panels[i];
-		
+	for (const Panel &panel : panels) {
 		for (int i = 0; i < 4; ++i) {
 			const Point3D &p = nodes[panel.id[i]];
 			out << Format("\n%6.3f %6.3f %6.3f", p.x, p.y, p.z);

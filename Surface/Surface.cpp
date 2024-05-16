@@ -1180,15 +1180,15 @@ void Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool re
 	}
 }
 
-void Surface::GetInertia33(Matrix3d &inertia, const Point3D &c0, bool volume, bool refine) const {
-	if (volume)
+void Surface::GetInertia33(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const {
+	if (byVolume)
 		GetInertia33_Volume(inertia, c0, refine);
 	else
 		GetInertia33_Surface(inertia, c0, refine);
 }
 
-void Surface::GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool volume, bool refine) const {
-	if (volume)
+void Surface::GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const {
+	if (byVolume)
 		GetInertia33_Volume(inertia, c0, refine);
 	else
 		GetInertia33_Surface(inertia, c0, refine);
@@ -1360,10 +1360,10 @@ static void AddTriangleDynPressure(Force6D &f, const Point3D &centroid, const Po
 		else if (pup.size() == 2) {
 			Point3D p00 = WeightedMean(*pdown[0], pup[0]->z - etup[0], *pup[0], etdown[0] - pdown[0]->z);
 			Point3D p01 = WeightedMean(*pdown[0], pup[1]->z - etup[1], *pup[1], etdown[0] - pdown[0]->z);
-			Point3D centroid = Centroid(*pdown[0], p00, p01);
-			double surface =  Area(*pdown[0], p00, p01);
-			AddTriangleDynPressure(f, centroid, normal, surface, c0, *pdown[0], p00, p01, 
-					GetZSurf(centroid.x, centroid.y), etdown[0], p00.z, p01.z, Null, GetPress);		// Inside the water... don't clip
+			Point3D centroid1 = Centroid(*pdown[0], p00, p01);
+			double surface1 =  Area(*pdown[0], p00, p01);
+			AddTriangleDynPressure(f, centroid1, normal, surface1, c0, *pdown[0], p00, p01, 
+					GetZSurf(centroid1.x, centroid1.y), etdown[0], p00.z, p01.z, Null, GetPress);		// Inside the water... don't clip
 			return;
 		} else if (pup.size() == 1) {
 			Point3D p00 = WeightedMean(*pdown[0], pup[0]->z - etup[0], *pup[0], etdown[0] - pdown[0]->z);
@@ -2190,9 +2190,9 @@ bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho,
 			}
 			Force6D fcb;
 			Force6D fcg = GetMassForce(c0, basecg, mass, g);
-			double rho;
+			//double rho;
 			if (under.volume > 0) {
-				rho = mass/under.volume;
+				//rho = mass/under.volume;
 				fcb = under.GetHydrostaticForceCB(c0, cb, rho, g);
 			} else
 				fcb.Zero();
@@ -2620,8 +2620,8 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	// First moves the triangles in the boundaries
 	for (int i = tris.size()-1; i >= 0; --i) {
 		TrianglesPoints2D &t = tris[i];
-		for (int p = 0; p < bound.size(); ++p) {
-			if (t.data[0] == bound[p] || t.data[1] == bound[p] || t.data[2] == bound[p]) {
+		for (int ip = 0; ip < bound.size(); ++ip) {
+			if (t.data[0] == bound[ip] || t.data[1] == bound[ip] || t.data[2] == bound[ip]) {
 				PanelPoints &p = pans.Add();						
 				for (int j = 0; j < 3; ++j) {
 					p.data[j].x = t.data[j].x;		p.data[j].y = t.data[j].y;	p.data[j].z = 0;
