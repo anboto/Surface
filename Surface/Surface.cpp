@@ -641,6 +641,13 @@ void Panel::ShiftNodes(int shift) {
 		throw t_("ShiftNodes value not implemented");
 }
 
+void Panel::NormalExt(Value6D &n, const Point3D &c0) const {
+	n[0] = normalPaint[0];	n[1] = normalPaint[1];	n[2] = normalPaint[2];
+	Value3D r = centroidPaint - c0;
+	Value3D n2 = r%normalPaint;
+	n[3] = n2[0];	n[4] = n2[1];	n[5] = n2[2];	
+}
+
 bool Surface::SameOrderPanel(int ip0, int ip1, int in0, int in1) {
 	bool first0in0 = panels[ip0].FirstNodeIs0(in0, in1);
 	bool first1in0 = panels[ip1].FirstNodeIs0(in0, in1);

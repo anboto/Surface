@@ -546,6 +546,8 @@ public:
 			id[3] = ids[3];
 		}
 	}
+	
+	void NormalExt(Value6D &n, const Point3D &c0) const;
 };
 
 class LineSegment : public MoveableAndDeepCopyOption<LineSegment> {
