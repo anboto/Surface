@@ -50,6 +50,7 @@ public:
 	double x, y, z;
 	
 	Value3D() 									{}
+	Value3D(const Value3D &p, int)				{Set(p);}
 	Value3D(const Value3D &p) 					{Set(p);}
 	Value3D(const Vector3d &p) 					{Set(p);}
 	Value3D(double _x, double _y, double _z) 	{Set(_x, _y, _z);}
@@ -58,7 +59,8 @@ public:
 	void SetNull() 				{x = Null;}
 	bool IsNullInstance() const	{return IsNull(x) || IsNull(y) || IsNull(z);}
 	
-	void Zero() 			{x = y = z = 0;}
+	void SetZero()				{x = y = z = 0;}
+	static Value3D Zero() 		{return Value3D(0, 0, 0);}
 	
 	static int size() 		{return 3;}
 	
@@ -138,7 +140,7 @@ public:
 		double length = Length();
 		
 		if (length < 1e-10) 
-			Zero();
+			SetZero();
 		else {
 		    x = x/length;
 		    y = y/length;
@@ -164,13 +166,9 @@ public:
 		SimY();
 		SimZ();
 	}
-	void Jsonize(JsonIO &json) {
-		json
-			("x", x)
-			("y", y)
-			("z", z)
-		;
-	}
+	void Jsonize(JsonIO &json)  {json("x", x)("y", y)("z", z);}
+	void Serialize(Stream& s)	{s % x % y % z;}
+    void Xmlize(XmlIO& xio)     {xio("x", x)("y", y)("z", z);}
 };
 
 void TransRot(const Value3D &pos, const Value3D &ref, const VectorXd &transf, Value3D &npos);
@@ -188,9 +186,11 @@ void GetTransform000(Affine3d &aff, double dx, double dy, double dz, double ax, 
 
 void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos);
 	
-class Value6D {
+class Value6D : public Moveable<Value6D> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+	
+	Value3D t, r;
 	
 	Value6D() {}
 	Value6D(const Value6D &f)	{Set(f);}
@@ -223,7 +223,9 @@ public:
 	void Set(double v0, double v1, double v2, double v3, double v4, double v5) {
 		t.x = v0;	t.y = v1;	t.z = v2;	r.x = v3;	r.y = v4;	r.z = v5;
 	}
-	void Zero() {t.Zero();	r.Zero();}
+	
+	void SetZero() 			{t.SetZero();	r.SetZero();}
+	static Value6D Zero() 	{return Value6D(0, 0, 0, 0, 0, 0);}
 	
 	static int size() 		{return 6;}
 	
@@ -268,17 +270,21 @@ public:
 		v[3] = T(r.x);	v[4] = T(r.y);	v[5] = T(r.z);
 	}
 	
-	Value3D t, r;
+	void Jsonize(JsonIO &json)  {json("t", t)("r", r);}
+	void Serialize(Stream& s)	{s % t % r;}
+    void Xmlize(XmlIO& xio)     {xio("t", t)("r", r);}
 };
 
 class ForceVector;
 
 class Force6D : public Value6D {
 public:
-	Force6D() {}
+	Force6D() : Value6D() {}
 	Force6D(const VectorXd &v) : Value6D(v) {}
 	Force6D(double v0, double v1, double v2, double v3, double v4, double v5) : Value6D(v0, v1, v2, v3, v4, v5) {}
 	
+	static Force6D Zero() 	{return Force6D(0, 0, 0, 0, 0, 0);}
+		
 	void AddLinear(const Direction3D &dir, const Point3D &point, const Point3D &c0);	
 	void Add(const Force6D &force, const Point3D &point, const Point3D &c0);
 	void Add(const ForceVector &force, const Point3D &c0);
@@ -480,7 +486,7 @@ inline T const& minNotNull(T const& a, T const& b) {
     	return a < b ? a : b;
 }
 
-class Panel : public MoveableAndDeepCopyOption<Panel> {
+class Panel : public Moveable<Panel> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
@@ -550,10 +556,12 @@ public:
 	void NormalExt(Value6D &n, const Point3D &c0) const;
 };
 
-class LineSegment : public MoveableAndDeepCopyOption<LineSegment> {
+class LineSegment : public Moveable<LineSegment> {
 public:
 	LineSegment() {}
-	LineSegment(const LineSegment &orig, int) {
+	LineSegment(const LineSegment &orig, int) {Copy(orig);}
+	LineSegment(const LineSegment &orig) {Copy(orig);}
+	void Copy(const LineSegment &orig) {
 		inode0 = orig.inode0;
 		inode1 = orig.inode1;
 		panels = clone(orig.panels);
@@ -562,7 +570,7 @@ public:
 	Upp::Index<int> panels;
 };
 
-class VolumeEnvelope : MoveableAndDeepCopyOption<VolumeEnvelope> {
+class VolumeEnvelope : public Moveable<VolumeEnvelope> {
 public:
 	VolumeEnvelope() {Reset();}
 	void Reset() 	 {maxX = minX = maxY = minY = maxZ = minZ = Null;}
@@ -645,8 +653,8 @@ public:
 	static void TranslateInertia66(MatrixXd &inertia, const Point3D &cg, const Point3D &c0, const Point3D &nc0);
 	Force6D GetHydrostaticForce(const Point3D &c0, double rho, double g) const;
 	Force6D GetHydrostaticForceNormalized(const Point3D &c0) const;
-	Force6D GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double rho, double g) const;
-	Force6D GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3D &cb) const;
+	static Force6D GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double volume, double rho, double g);
+	static Force6D GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3D &cb, double volume);
 	static Force6D GetMassForce(const Point3D &c0, const Point3D &cg, const double mass, const double g);
 	void GetHydrostaticStiffness(MatrixXd &c, const Point3D &c0, const Point3D &cg, 
 				const Point3D &cb, double rho, double g, double mass, bool massBuoy);
@@ -678,8 +686,9 @@ public:
 	Surface &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	
 	bool TranslateArchimede(double mass, double rho, double &dz, Surface &under);
-	bool Archimede(double mass, Point3D &cg, const Point3D &c0, double rho, double g, double &dz, double &droll, double &dpitch, Surface &under);
 	
+	bool PrincipalComponents(Value3D &ax1, Value3D &ax2, Value3D &ax3);
+		
 	void Scale(double rx, double ry, double rz, const Point3D &c0);
 	
 	bool healing{false};
@@ -779,7 +788,7 @@ public:
 	}	
 };
 
-class SurfaceX : DeepCopyOption<SurfaceX> {
+class SurfaceX : public Moveable<SurfaceX> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	

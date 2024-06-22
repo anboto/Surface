@@ -20,8 +20,8 @@ ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &
     const UVector<Point3D> &polygon = polygon2.size() > 0 ? polygon2 : _polygon;
     
 	UVector<Direction3D> normals;
-	Direction3D normal;
-	normal.Zero();
+	Direction3D normal = Direction3D::Zero();
+	
 	for (int i = 0; i < polygon.size()-2; ++i) {
 		if (!Collinear(polygon[i], polygon[i+1], polygon[i+2])) {
 			normals << Normal(polygon[i], polygon[i+1], polygon[i+2]);
@@ -78,8 +78,7 @@ ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &
 
 double Area(const UVector<Point3D> &p) {
 	int n = p.size();
-    Value3D area;
-    area.Zero();
+    Value3D area = Value3D::Zero();
 
 	if (Last(p) == First(p))
 		--n;
@@ -93,9 +92,8 @@ double Area(const UVector<Point3D> &p) {
 
 Point3D Centroid(const UVector<Point3D> &p) {
 	int n = p.size();
-    Point3D ret;
-    ret.Zero();
-	
+    Point3D ret = Point3D::Zero();
+    	
 	for (int i = 0; i < n; ++i) 
 		ret += p[i];
 	ret /= n;

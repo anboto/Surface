@@ -1071,8 +1071,7 @@ Point3D Surface::GetCentreOfGravity_Surface() const {
 	if (panels.size() == 0)
 		return Null;
 	
-	Point3D cg;
-	cg.Zero();
+	Point3D cg = Value3D::Zero();
 	double total = 0;
 	
 	auto CalcPoint = [&](double surf, const Point3D &centre) {
@@ -1310,9 +1309,7 @@ static void AddTrianglePressure(Force6D &f, const Point3D &centroid, const Point
 }
 
 Force6D Surface::GetHydrostaticForceNormalized(const Point3D &c0) const {
-	Force6D f;
-	
-	f.Zero();				
+	Force6D f = Force6D::Zero();
 	
 	for (int ip = 0; ip < panels.size(); ++ip) {	
 		const Panel &panel = panels[ip];
@@ -1407,9 +1404,7 @@ static void AddTriangleDynPressure(Force6D &f, const Point3D &centroid, const Po
 Force6D Surface::GetHydrodynamicForce(const Point3D &c0, bool clip,
 						Function<double(double x, double y)> GetZSurf,
 						Function<double(double x, double y, double z, double et)> GetPress) const {
-	Force6D f;
-
-	f.Zero();				
+	Force6D f = Force6D::Zero();
 
 	VectorXd et(nodes.size());
 	for (int ip = 0; ip < nodes.size(); ++ip) 
@@ -1444,21 +1439,19 @@ Force6D Surface::GetHydrodynamicForce(const Point3D &c0, bool clip,
 	return f;
 }
 
-Force6D Surface::GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double rho, double g) const {
+Force6D Surface::GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double volume, double rho, double g) {
 	if (IsNull(cb))
 		return Null;
 
-	Force6D f = GetHydrostaticForceCBNormalized(c0, cb);	
+	Force6D f = GetHydrostaticForceCBNormalized(c0, cb, volume);	
 	
 	f *= rho*g; 
 	
 	return f;
 }
 
-Force6D Surface::GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3D &cb) const {
-	Force6D f;
-	
-	f.Zero();
+Force6D Surface::GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3D &cb, double volume) {
+	Force6D f = Force6D::Zero();
 	
 	if (volume < EPS_LEN)
 		return f;
@@ -1469,9 +1462,7 @@ Force6D Surface::GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3
 }	
 
 Force6D Surface::GetMassForce(const Point3D &c0, const Point3D &cg, const double mass, const double g) {
-	Force6D f;
-	
-	f.Zero();
+	Force6D f = Force6D::Zero();
 	
 	if (IsNull(cg) || IsNull(mass) || mass == 0)
 		return Null;
@@ -2064,165 +2055,76 @@ Surface &Surface::TransRot(double dx, double dy, double dz, double ax, double ay
 
 
 bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &under) {
-	if (IsEmpty())
+	if (IsEmpty() || mass == 0)
 		return false;
 	Surface base;
 	
-	if (env.minZ  > 0)
-		dz = env.minZ;
-
-	auto Residual = [&](const double dz)->double {
+	auto Residual = [&](const double ddz)->double {
 		base = clone(*this);
-		base.Translate(0, 0, dz);
+		base.Translate(0, 0, ddz);
 		under.CutZ(base, -1);
 		under.GetPanelParams();
 		under.GetVolume();
-		if (under.volume == 0 || under.volume == volume)
-			return Null;		
-		return under.volume*rho - mass;		// ∑ Fheave = 0
+		if (under.volume == 0)
+			return std::numeric_limits<double>::max();		// Totally out
+		else if (under.volume == volume)
+			return std::numeric_limits<double>::lowest();	// Totally submerged
+		else
+			return under.volume*rho - mass;					// ∑ Fheave = 0
 	};
-
-	int nIter = 0;	
-
-	VectorXd x(1);
-	x[0] = dz;
-	if (SolveNonLinearEquations(x, [&](const VectorXd &xx, VectorXd &residual)->int {
-		nIter++;
-		residual[0] = Residual(xx[0]);		// ∑ Fheave = 0
-		if (IsNull(residual[0]))
-			residual[0] = mass;
-		if (abs(residual[0]) < 0.1) {
-			x[0] = xx[0];
-			return -1;		// When returning -1, x[] has to be forced
-		}
-		return 0;
-	}))
-		dz = x[0];
-	else {
-		// Slow, but more robust...
-		double ndz, mn = mass*10;
-		for (double dz2 = 0; dz2 < 50; dz2 += 0.5) {
-			double res = Residual(dz+dz2);
-			if (IsNull(res))
-				break;
-			res = abs(res);
-			if (res < mn) {
-				mn = res;
-				ndz = dz2;
-			}
-		}
-		for (double dz2 = -0.5; dz2 > -50; dz2 -= 0.5) {
-			double res = Residual(dz+dz2);
-			if (IsNull(res))
-				break;
-			res = abs(res);
-			if (res < mn) {
-				mn = res;
-				ndz = dz2;
-			}
-		}
-		for (double dz2 = ndz-0.7; dz2 <= ndz+0.7; dz2 += 0.1) {
-			double res = Residual(dz+dz2);
-			if (IsNull(res))
-				return false;
-			res = abs(res);
-			if (res < mn) {
-				mn = res;
-				ndz = dz2;
-			}
-		}
-		for (double dz2 = ndz-0.07; dz2 <= ndz+0.07; dz2 += 0.01) {
-			double res = Residual(dz+dz2);
-			if (IsNull(res))
-				return false;
-			res = abs(res);
-			if (res < mn) {
-				mn = res;
-				ndz = dz2;
-			}
-		}
-		dz += ndz;
+	
+	// Scales initial delta z (ddz)
+	double minZ = DBL_MAX, maxZ = -DBL_MAX;
+	for (const auto &p : nodes) {
+		minZ = min(minZ, p.z);
+		maxZ = max(maxZ, p.z);
 	}
+	double ddz = (maxZ - minZ)/10;
+	
+	// First it floats it
+	double res = Residual(dz);
+	if (res == std::numeric_limits<double>::max() || res == std::numeric_limits<double>::lowest()) {
+		dz = -minZ - 0.01;	// Just slightly touching the water
+		res = Residual(dz);
+	}
+	
+	int nIter = 0;	
+	int maxIter = 100;
+	char cond = 'i';
+	for (; nIter < maxIter; ++nIter) {
+		if (abs(res) < mass/100000) {
+			cond = 'm';
+			break;
+		} else if (abs(ddz) < 0.0005) {
+			cond = 'd';
+			break;
+		}
+		if (res > 0)
+			dz += ddz;
+		else
+			dz -= ddz;
+		double nres = Residual(dz);
+		if (nres == std::numeric_limits<double>::max() || nres == std::numeric_limits<double>::lowest()) {
+			ddz = -ddz/2;
+			dz += ddz;
+			res = Residual(dz);
+		} else if (Sign(res) != Sign(nres)) {
+			if (abs(nres) < abs(res)) 
+				res = nres;
+			else {
+				if (res > 0)
+					dz -= ddz;
+				else
+					dz += ddz;
+			}
+			ddz = ddz/2;
+		}
+	}
+	
+	LOG(Format("TranslateArchimede NumIter: %d (%c)", nIter, cond));
 	
 	Translate(0, 0, dz);
-	return true;
-}
-
-bool Surface::Archimede(double mass, Point3D &cg, const Point3D &c0, double rho, double g, double &dz, double &droll, double &dpitch, Surface &under) {
-	//int maxIter = 50;
-	Surface base;
-	Point3D basecg;
 	
-	int nIter = 0;	
-	
-	// Test if only Z translation is enough
-	double ndz = dz;
-	base = clone(*this);
-	basecg = clone(cg);
-	if (base.TranslateArchimede(mass, rho, ndz, under))
-		dz = ndz;
-	Point3D cb = under.GetCentreOfBuoyancy();
-	basecg.Translate(0, 0, dz);
-	if (abs(cb.x - basecg.x) < 0.001 && abs(cb.y - basecg.y) < 0.001) {
-		droll = dpitch = 0;
-		TransRot(0, 0, dz, ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
-		cg.TransRot(0, 0, dz, ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
-		return true;
-	}
-	
-	VectorXd x(2);
-	x[0] = droll;
-	x[1] = dpitch;
-	try {
-		if (!SolveNonLinearEquations(x, [&](const VectorXd &xx, VectorXd &residual)->int {
-			nIter++;
-			
-			double droll = xx[0], dpitch = xx[1];
-			
-			base = clone(*this);
-			basecg = clone(cg);
-	
-			base.Rotate(ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
-			basecg.Rotate(ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
-			
-			if (!base.TranslateArchimede(mass, rho, dz, under))
-				throw Exc("");
-			Point3D cb = under.GetCentreOfBuoyancy();
-			basecg.Translate(0, 0, dz);
-			
-			if (dz < 0.01 && Distance(cb, basecg) < 0.01) {
-				x[0] = droll;
-				x[1] = dpitch;				// When return -1, x[] has to be forced
-				return -1;
-			}
-			Force6D fcb;
-			Force6D fcg = GetMassForce(c0, basecg, mass, g);
-			//double rho;
-			if (under.volume > 0) {
-				//rho = mass/under.volume;
-				fcb = under.GetHydrostaticForceCB(c0, cb, rho, g);
-			} else
-				fcb.Zero();
-		
-			residual[0] = fcb.r.x + fcg.r.x;		// ∑ Froll = 0
-			residual[1] = fcb.r.y + fcg.r.y;		// ∑ Fpitch = 0
-			
-			if (abs(residual[0]) < 0.01 && abs(residual[1]) < 0.01) {
-				x[0] = droll;
-				x[1] = dpitch;				// When return -1, x[] has to be forced
-				return -1;
-			}
-			return 0;
-			}))
-			return false;
-	} catch (...) {
-		return false;	
-	}
-	droll = x[0];
-	dpitch = x[1];
-	
-	TransRot(0, 0, dz, ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
-	cg.TransRot(0, 0, dz, ToRad(droll), ToRad(dpitch), 0, c0.x, c0.y, c0.z);
 	return true;
 }
 
@@ -3034,6 +2936,53 @@ char Surface::IsWaterPlaneMesh() const {
 	else
 		return 'x';	
 }
+
+bool Surface::PrincipalComponents(Value3D &ax1, Value3D &ax2, Value3D &ax3) {
+	Eigen::Matrix3d principalAxes;
+	Eigen::Vector3d eigenvalues;
+	
+    // Ensure weights are normalized
+	double totalWeight = 0;
+    int npanels = panels.size();
+    Eigen::MatrixXd X(npanels, 3);
+
+    // Compute the weighted mean
+    Value3D weightedSum = Value3D::Zero();
+    for (int i = 0; i < npanels; ++i) {
+        X(i, 0) = panels[i].centroidPaint.x;
+        X(i, 1) = panels[i].centroidPaint.y;
+        X(i, 2) = panels[i].centroidPaint.z;
+        totalWeight += panels[i].surface0 + panels[i].surface1;
+        weightedSum += panels[i].centroidPaint * (panels[i].surface0 + panels[i].surface1);
+    }
+    Eigen::Vector3d centre = weightedSum / totalWeight;
+
+    // Center the data
+    Eigen::MatrixXd X_centered = X.rowwise() - centre.transpose();
+
+    // Compute the weighted covariance matrix
+    Eigen::Matrix3d cova = Eigen::Matrix3d::Zero();
+    for (int i = 0; i < npanels; ++i) 
+        cova += (panels[i].surface0 + panels[i].surface1) * X_centered.row(i).transpose() * X_centered.row(i);
+    
+    cova /= totalWeight;
+
+    // Eigenvalue decomposition
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> eigensolver(cova);
+    if (eigensolver.info() != Eigen::Success) 
+        return false;		// Eigenvalue decomposition failed
+    
+    // Sort eigenvalues and eigenvectors in descending order
+    eigenvalues = eigensolver.eigenvalues().reverse();
+    principalAxes = eigensolver.eigenvectors().rowwise().reverse();
+    
+    ax1 = principalAxes.col(0);
+    ax2 = principalAxes.col(1);
+    ax3 = principalAxes.col(2);
+    
+    return true;
+}
+
 
 void Surface::Load(String fileName) {
 	if (!LoadFromJsonFile(*this, fileName)) 
