@@ -78,6 +78,7 @@ ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &
 
 double Area(const UVector<Point3D> &p) {
 	int n = p.size();
+	ASSERT(n > 0);
     Value3D area = Value3D::Zero();
 
 	if (Last(p) == First(p))
@@ -92,13 +93,91 @@ double Area(const UVector<Point3D> &p) {
 
 Point3D Centroid(const UVector<Point3D> &p) {
 	int n = p.size();
+    ASSERT(n > 1);
     Point3D ret = Point3D::Zero();
-    	
+    
+	if (Last(p) == First(p))
+		--n;
+			
 	for (int i = 0; i < n; ++i) 
 		ret += p[i];
 	ret /= n;
 	
 	return ret;
+}
+
+bool IsRectangle(const UVector<Point3D> &p) {
+	int n = p.size();
+
+	if (n == 0)
+		return false;
+    
+	if (Last(p) == First(p))
+		--n;
+	
+	if (n != 4)
+		return false;
+	
+	Value3D v01 = p[1] - p[0],
+	 		v12 = p[2] - p[1],
+	 		v23 = p[3] - p[2],
+	 		v30 = p[0] - p[3];
+	
+	if (abs(v01.Length() - v23.Length()) > EPS_LEN)	// Sides same size
+		return false;
+	if (abs(v12.Length() - v30.Length()) > EPS_LEN)
+		return false;
+	
+	if (abs(v01.Angle(v12) - M_PI/2) > EPS_LEN)		// 90 deg
+		 return false;
+	if (abs(v12.Angle(v23) - M_PI/2) > EPS_LEN)
+		 return false;
+	if (abs(v23.Angle(v30) - M_PI/2) > EPS_LEN)
+		 return false;
+	
+	if (!IsFlat(p))
+		return false;
+	
+	return true;
+}
+
+bool IsFlat(const UVector<Point3D> &p) {
+	int n = p.size();
+
+	if (n == 0)
+		return false;
+    
+	if (Last(p) == First(p))
+		--n;
+	
+	if (n > 3)
+		return false;
+	else if (n == 3)
+		return true;
+	
+	const Point3D &p0 = p[0];
+    Value3D vec1 = p[1] - p[0];
+    Value3D vec2 = p[2] - p[0];
+	Value3D normal = vec1%vec2;
+	
+	if (normal.Norm() == 0) 		// Collinear
+        return false;
+    
+    normal.Normalize();
+    
+	Vector<Value3D> vect;
+	for (int i = 2; i < n; ++i) {
+		Value3D vec1 = p[i] - p0;
+        Value3D vec2 = p[i + 1] - p0;
+        Value3D current_normal = vec1%vec2;
+        if (current_normal.Norm() != 0) 
+            current_normal.Normalize();
+        
+        if (!normal.IsSimilar(current_normal, EPS_LEN*EPS_LEN)) {
+            return false;
+        }
+	}
+	return true;
 }
 
 Vector<Pointf> Point3Dto2D_XY(const Vector<Point3D> &bound) {

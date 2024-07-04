@@ -1097,7 +1097,7 @@ Point3D Surface::GetCentreOfGravity_Surface() const {
 	
 // From https://github.com/melax/sandbox
 // Unitary matrix. It needs to be multiplied by the mass
-void Surface::GetInertia33_Volume(Matrix3d &inertia, const Point3D &c0, bool refine) const {
+bool Surface::GetInertia33_Volume(Matrix3d &inertia, const Point3D &c0, bool refine) const {
 	auto CalcDet = [](const Matrix3d &A, Vector3d &diag, Vector3d &offd, double &vol) {
 		double d = A.determinant();  	// Vol of tiny parallelepiped= d * dr * ds * dt (the 3 partials of my tetral triple integral equation)
 		vol += d;                   	// Add vol of current tetra (note it could be negative - that's ok we need that sometimes)
@@ -1135,21 +1135,25 @@ void Surface::GetInertia33_Volume(Matrix3d &inertia, const Point3D &c0, bool ref
 		
 		CalcDet(A, diag, offd, vol);
 	}
+	if (vol == 0) 
+		return false;
+	
 	vol /= 6;
 	diag /= vol*60;  	
 	offd /= vol*120;
-	inertia << 	diag[1] + diag[2], -offd[2], 		  -offd[1],
-				-offd[2], 		   diag[0] + diag[2], -offd[0],
-				-offd[1], 		   -offd[0], 		  diag[0] + diag[1];
+	inertia << 	diag[1] + diag[2], -offd[2], 		   -offd[1],
+			   -offd[2], 		    diag[0] + diag[2], -offd[0],
+			   -offd[1], 		   -offd[0], 		    diag[0] + diag[1];
 				
 	if (refine) {
 		double mx = inertia.cwiseAbs().maxCoeff();	
-		inertia = inertia.unaryExpr([&](double v){return abs(v/mx) > 1E-6 ? 0 : v;});
+		inertia = inertia.unaryExpr([&](double v) {return abs(v/mx) > 1E-6 ? 0 : v;});
 	}
+	return true;
 }
 
 // Unitary matrix. It needs to be multiplied by the mass
-void Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool refine) const {
+bool Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool refine) const {
 	inertia = MatrixXd::Zero(3,3);
 	double total = 0;
 	
@@ -1179,26 +1183,34 @@ void Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool re
 			CalcPoint(panel.surface1*.25/3, nodes[panel.id[3]]);
 		}
 	}
+	if (total == 0)
+		return false;
+	
 	inertia.array() /= total;
 	if (refine) {
 		double mx = inertia.cwiseAbs().maxCoeff();	
 		inertia = inertia.unaryExpr([&](double v){return abs(v/mx) > 1E-6 ? 0 : v;});
 	}
+	return true;
 }
 
-void Surface::GetInertia33(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const {
+bool Surface::GetInertia33(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const {
 	if (byVolume)
-		GetInertia33_Volume(inertia, c0, refine);
+		return GetInertia33_Volume(inertia, c0, refine);
 	else
-		GetInertia33_Surface(inertia, c0, refine);
+		return GetInertia33_Surface(inertia, c0, refine);
 }
 
-void Surface::GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const {
-	if (byVolume)
-		GetInertia33_Volume(inertia, c0, refine);
-	else
-		GetInertia33_Surface(inertia, c0, refine);
+bool Surface::GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const {
+	if (byVolume) {
+		if (!GetInertia33_Volume(inertia, c0, refine))
+			return false;
+	} else {
+		if (!GetInertia33_Surface(inertia, c0, refine))
+			return false;
+	}
 	GetInertia33_Radii(inertia);
+	return true;
 }
 
 void Surface::GetInertia33_Radii(Matrix3d &inertia) {
@@ -2054,10 +2066,12 @@ Surface &Surface::TransRot(double dx, double dy, double dz, double ax, double ay
 }
 
 
-bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &under) {
-	if (IsEmpty() || mass == 0)
+bool Surface::TranslateArchimede(double allmass, double rho, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol) {
+	dz = 0;
+	if (IsEmpty() || allmass == 0)
 		return false;
 	Surface base;
+	Surface under;
 	
 	auto Residual = [&](const double ddz)->double {
 		base = clone(*this);
@@ -2069,8 +2083,18 @@ bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &u
 			return std::numeric_limits<double>::max();		// Totally out
 		else if (under.volume == volume)
 			return std::numeric_limits<double>::lowest();	// Totally submerged
-		else
-			return under.volume*rho - mass;					// ∑ Fheave = 0
+		
+		allvol = under.volume;
+		for (Surface *s : damaged) {
+			Surface ss = clone(*s);
+			ss.Translate(0, 0, ddz);
+			Surface u;
+			u.CutZ(ss, -1);
+			u.GetPanelParams();
+			u.GetVolume();	
+			allvol -= u.volume;
+		}
+		return allvol*rho - allmass;					// ∑ Fheave = 0
 	};
 	
 	// Scales initial delta z (ddz)
@@ -2092,7 +2116,7 @@ bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &u
 	int maxIter = 100;
 	char cond = 'i';
 	for (; nIter < maxIter; ++nIter) {
-		if (abs(res) < mass/100000) {
+		if (abs(res) < allmass/100000) {
 			cond = 'm';
 			break;
 		} else if (abs(ddz) < 0.0005) {
@@ -2124,6 +2148,32 @@ bool Surface::TranslateArchimede(double mass, double rho, double &dz, Surface &u
 	LOG(Format("TranslateArchimede NumIter: %d (%c)", nIter, cond));
 	
 	Translate(0, 0, dz);
+	
+	if (VolumeMatch(tolerance, tolerance) < 0)
+		return false;
+	
+	// Calc the cb
+	under.CutZ(base, -1);
+	under.GetPanelParams();
+	under.GetVolume();
+	allvol = under.volume;
+	cb = under.GetCentreOfBuoyancy()*under.volume;
+	for (Surface *s : damaged) {
+		Surface u;
+		u.CutZ(*s, -1);
+		u.GetPanelParams();
+		u.GetVolume();	
+		if (u.VolumeMatch(tolerance, tolerance) < 0)
+			return false;
+		double vv = u.volume;
+		Point3D ccb = u.GetCentreOfBuoyancy();
+		cb -= ccb*vv;
+		allvol -= vv;
+	}
+	if (allvol <= 0)
+		return false;
+	
+	cb /= allvol;
 	
 	return true;
 }
@@ -2400,6 +2450,16 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	if (bound[0] != bound[bound.size()-1])
 		bound << bound[0];
 	
+	// Is it a rectangle?
+	if (IsRectangle(bound)) {
+		double l01 = Length(bound[1] - bound[0]),
+	 	   	   l12 = Length(bound[2] - bound[1]);
+		   
+		AddFlatRectangle(l01, l12, panelWidth, panelWidth);
+		return;
+	}
+	
+	
 	// Removes short and breaks long segments to fit with panel width
 	if (adjustSize) {		
 		for (int i = bound.size()-3; i >= 0; --i) {		// Joins adjacent collinear ...
@@ -2613,6 +2673,114 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	s.SetPanelPoints(pans);
 	Append(s);
 }
+
+
+void Surface::Extrude(double dx, double dy, double dz, bool close) {
+	Surface lid;
+	
+	GetSegments();
+	double panelWidth = GetAvgLenSegment();
+	
+	if (close) {
+		lid = clone(*this);	
+		lid.Translate(dx, dy, dz);
+	}
+
+	// Gets the perimeter
+	GetSegments();
+	Vector<LineSegment> perimeter;
+	for (LineSegment &seg : segments) {
+		if (seg.panels.size() == 1)
+			perimeter << seg;
+	}
+	
+	// Orders the perimeter
+	Vector<LineSegment> orderedperimeter;
+	orderedperimeter << perimeter[0];
+	perimeter.Remove(0);
+	while (!perimeter.IsEmpty()) {
+		LineSegment &seg = Last(orderedperimeter);
+		bool removed = false;
+		for (int i = 0; i < perimeter.size(); ++i) {
+			LineSegment &per = perimeter[i];
+			if (seg.inode1 == per.inode0 || seg.inode1 == per.inode1) {
+				if (seg.inode1 == per.inode1)
+					Swap(per.inode0, per.inode1);
+				orderedperimeter << per;	
+				perimeter.Remove(i);
+				removed = true;
+				break;
+			}
+		}
+		if (!removed)
+			break;
+	}
+	
+	// Converts the perimeter to a polyline
+	Array<Point3D> bound;
+	bound << nodes[orderedperimeter[0].inode0];
+	for (LineSegment &seg : orderedperimeter) 
+		bound << nodes[seg.inode1];
+	
+	// Redimension the polyline to fit better to panelWidth
+	{
+		for (int i = bound.size()-3; i >= 0; --i) {		// Joins adjacent collinear ...
+			if (Collinear(bound[i], bound[i+1], bound[i+2])) 
+				bound.Remove(i+1);
+		} 
+		if (bound.size() > 3) {							// ... including the first and last
+			if (Collinear(bound[bound.size()-2], bound[0], bound[1])) {
+				bound.Remove(0);
+				bound[bound.size()-1] = clone(bound[0]);
+			}
+		}
+		
+		Vector<double> lens(bound.size()-1);
+		for (int i = 0; i < bound.size()-1; ++i) 
+			lens[i] = Distance(bound[i], bound[i+1]);
+
+		for (int i = lens.size()-1; i >= 0; --i) {		// Breaks long 
+			double rat = lens[i]/panelWidth;	
+			if (rat > 1.5) {
+				int num = int(round(rat));
+			
+				double x0 = bound[i].x;
+				double lenx = bound[i+1].x - bound[i].x;
+				double y0 = bound[i].y;
+				double leny = bound[i+1].y - bound[i].y;
+				double z0 = bound[i].z;
+				double lenz = bound[i+1].z - bound[i].z;
+				for (int in = num-1; in >= 1; --in) {
+					Point3D p(x0 + lenx*in/num, y0 + leny*in/num, z0 + lenz*in/num);
+					bound.Insert(i+1, p);
+				}
+			}
+		}
+	}
+	
+	// Constructs the extrusion
+	double len = sqrt(dx*dx + dy*dy + dz*dz);
+	int num = (int)ceil(len/panelWidth);
+	Value3D delta(dx, dy, dz);
+
+	Array<PanelPoints> pans;
+	for (int ip = 0; ip < bound.size()-1; ++ip) {
+		for (int ir = 0; ir < num; ++ir) {	
+			PanelPoints &p = pans.Add();
+			p.data[0] = bound[ip]   + delta*ir/num;
+			p.data[1] = bound[ip+1] + delta*ir/num;
+			p.data[2] = bound[ip+1] + delta*(ir + 1)/num;
+			p.data[3] = bound[ip]   + delta*(ir + 1)/num;
+		}
+	}
+	Surface s;
+	s.SetPanelPoints(pans);	
+	Append(s);		
+	
+	if (close)
+		Append(lid);
+}
+		
 /*
 void Surface::AddPolygonalPanel2(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize) {
 	ASSERT(_bound.GetCount() >= 2);
@@ -2983,6 +3151,52 @@ bool Surface::PrincipalComponents(Value3D &ax1, Value3D &ax2, Value3D &ax3) {
     return true;
 }
 
+double Surface::YawMainAxis() {
+	Point3D cb = GetCentreOfBuoyancy();
+	
+	VectorMap<double, double> mapX;
+	
+	auto Residual = [&](double y)->double {
+		int id;
+		if ((id = mapX.Find(y)) >= 0)
+			return mapX[id];
+
+		Surface surf = clone(*this);
+		surf.Rotate(0, 0, y, cb.x, cb.y, cb.z);
+		Matrix3d inertia;
+		surf.GetInertia33_Volume(inertia, cb, false);
+		mapX.Add(y, inertia(1, 1));
+		return inertia(1, 1);
+	};
+	auto SectionSearch0 = [&](double a, double b, double &moment) {
+		moment = -1;
+		double ret;
+		for (int i = 0; i < 10; ++i) {
+			double v = a + i*(b-a)/10;
+			double nmx = Residual(v);
+			if (nmx > moment) {
+				moment = nmx;
+				ret = v;
+			}
+		}
+		return ret;
+	};
+	auto SectionSearch = [&](double a, double b, double tol, double &moment) {
+		double val, range;
+		range = b - a;
+		val = SectionSearch0(a, b, moment);
+		while (range > tol) {
+			range /= 10;
+			val = SectionSearch0(val-range, val+range, moment);
+		}
+		return val;
+	};
+
+	double momentX;
+	double yawX = SectionSearch(ToRad(-90.), ToRad(90.), ToRad(0.05), momentX);
+
+	return yawX;
+}
 
 void Surface::Load(String fileName) {
 	if (!LoadFromJsonFile(*this, fileName)) 

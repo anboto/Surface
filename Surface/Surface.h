@@ -56,7 +56,7 @@ public:
 	Value3D(double _x, double _y, double _z) 	{Set(_x, _y, _z);}
 	
 	Value3D(const Nuller&) 		{SetNull();}
-	void SetNull() 				{x = Null;}
+	void SetNull() 				{x = y = z = Null;}
 	bool IsNullInstance() const	{return IsNull(x) || IsNull(y) || IsNull(z);}
 	
 	void SetZero()				{x = y = z = 0;}
@@ -136,6 +136,9 @@ public:
 	
 	inline double Length()  const {return ::sqrt(Length2());}
 	inline double Length2() const {return x*x + y*y + z*z;}
+	inline double Norm() const	  {return Length();}
+	inline double Norm2() const	  {return Length2();}
+	
 	Value3D &Normalize() {
 		double length = Length();
 		
@@ -150,7 +153,8 @@ public:
 	}
 	double Manhattan() const {return abs(x) + abs(y) + abs(z);}
 
-	double Angle(const Value3D &p) const {return acos(dot(p)/(Length()*p.Length()));}
+	double Angle(const Value3D &p) 		 const {return acos(dot(p)/(Length()*p.Length()));}
+	double AngleNormal(const Value3D &p) const {return acos(dot(p));}
 	
 	void SimX() {x = -x;}
 	void SimY() {y = -y;}
@@ -393,7 +397,7 @@ public:
 	Segment3D(const Point3D &_from, const Direction3D &normal, double length) : from(_from) {
 		to = Point3D(from.x + length*normal.x, from.y + length*normal.y, from.z + length*normal.z);
 	}
-	void SetNull() 				{from = Null;}
+	void SetNull() 				{from = to = Null;}
 	bool IsNullInstance() const	{return IsNull(from) || IsNull(to);}
 		
 	void Set(const Point3D &_from, const Point3D &_to) {
@@ -641,12 +645,12 @@ public:
 	double VolumeRatio() const;
 	Point3D GetCentreOfBuoyancy() const;
 	Point3D GetCentreOfGravity_Surface() const;
-	void GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
-	void GetInertia33_Surface(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
-	void GetInertia33(Matrix3d &inertia, const Point3D &cg, bool byVolume, bool refine = false) const;
+	bool GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
+	bool GetInertia33_Surface(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
+	bool GetInertia33(Matrix3d &inertia, const Point3D &cg, bool byVolume, bool refine = false) const;
 	void GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const;
 	static void GetInertia33_Radii(Matrix3d &inertia);
-	void GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const;
+	bool GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const;
 	static void FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3D &c0);
 		
 	static void TranslateInertia33(Matrix3d &inertia, double m, const Point3D &cg, const Point3D &c0, const Point3D &nc0);
@@ -685,9 +689,10 @@ public:
 	Surface &Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	Surface &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	
-	bool TranslateArchimede(double mass, double rho, double &dz, Surface &under);
+	bool TranslateArchimede(double allmass, double rho, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol);
 	
 	bool PrincipalComponents(Value3D &ax1, Value3D &ax2, Value3D &ax3);
+	double YawMainAxis();
 		
 	void Scale(double rx, double ry, double rz, const Point3D &c0);
 	
@@ -714,7 +719,8 @@ public:
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 	//void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
-	
+	void Extrude(double dx, double dy, double dz, bool close);
+		
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
 	static int RemoveTinyPanels(Vector<Panel> &_panels);
@@ -859,6 +865,8 @@ void LoadGMSH(String fileName, Surface &surf);
 
 void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z);
 void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z);
+
+void LoadOBJ(String fileName, Surface &surf);
 	
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
@@ -866,10 +874,13 @@ ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt);
 
 Point3D Centroid(const UVector<Point3D> &p);
 double Area(const UVector<Point3D> &p);
+bool IsRectangle(const UVector<Point3D> &p);
+bool IsFlat(const UVector<Point3D> &p);
 
 Pointf Centroid(const UVector<Pointf> &p);
 double Area(const UVector<Pointf> &p);
-
+bool IsRectangle(const UVector<Pointf> &p);
+	
 Vector<Pointf>  Point3Dto2D_XY(const Vector<Point3D> &bound);
 Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf>  &bound);
 Vector<Pointf>  Point3Dto2D_XZ(const Vector<Point3D> &bound);
