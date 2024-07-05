@@ -167,8 +167,8 @@ bool IsFlat(const UVector<Point3D> &p) {
     
 	Vector<Value3D> vect;
 	for (int i = 2; i < n; ++i) {
-		Value3D vec1 = p[i] - p0;
-        Value3D vec2 = p[i + 1] - p0;
+		vec1 = p[i] - p0;
+        vec2 = p[i + 1] - p0;
         Value3D current_normal = vec1%vec2;
         if (current_normal.Norm() != 0) 
             current_normal.Normalize();

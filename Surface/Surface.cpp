@@ -1473,17 +1473,31 @@ Force6D Surface::GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3
 	return f;
 }	
 
-Force6D Surface::GetMassForce(const Point3D &c0, const Point3D &cg, const double mass, const double g) {
+Force6D Surface::GetMassForce(const Point3D &c0, const Vector<Point3D> &cgs, const Vector<double> &masses, const double g) {
+	ASSERT(cgs.size() == masses.size());
+	
 	Force6D f = Force6D::Zero();
 	
-	if (IsNull(cg) || IsNull(mass) || mass == 0)
-		return Null;
+	for (int i = 0; i < cgs.size(); ++i) {
+		if (IsNull(cgs[i]) || IsNull(masses[i]) || masses[i] == 0)
+			return Null;
 		
-	f.AddLinear(Direction3D(0, 0, -mass*g), cg, c0);
+		f.AddLinear(Direction3D(0, 0, -masses[i]*g), cgs[i], c0);
+	}
 	
 	return f;
 }													
 
+Force6D Surface::GetMassForce(const Point3D &c0, const Point3D &cg, const double mass, const double g) {
+	Vector<Point3D> cgs;
+	Vector<double> masses;
+	
+	cgs << cg;
+	masses << mass;
+	
+	return GetMassForce(c0, cgs, masses, g);
+}
+	
 double Surface::GetWaterPlaneArea() const {
 	double ret = 0;
 	
@@ -2066,7 +2080,7 @@ Surface &Surface::TransRot(double dx, double dy, double dz, double ax, double ay
 }
 
 
-bool Surface::TranslateArchimede(double allmass, double rho, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol) {
+bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol) {
 	dz = 0;
 	if (IsEmpty() || allmass == 0)
 		return false;
@@ -2079,6 +2093,9 @@ bool Surface::TranslateArchimede(double allmass, double rho, const UVector<Surfa
 		under.CutZ(base, -1);
 		under.GetPanelParams();
 		under.GetVolume();
+		if (under.VolumeMatch(ratioError, ratioError) < 0)
+			throw Exc(t_("Incomplete mesh or wrongly oriented panels"));
+		
 		if (under.volume == 0)
 			return std::numeric_limits<double>::max();		// Totally out
 		else if (under.volume == volume)
@@ -2091,7 +2108,10 @@ bool Surface::TranslateArchimede(double allmass, double rho, const UVector<Surfa
 			Surface u;
 			u.CutZ(ss, -1);
 			u.GetPanelParams();
-			u.GetVolume();	
+			u.GetVolume();
+			if (u.VolumeMatch(ratioError, ratioError) < 0)
+				throw Exc(t_("Incomplete mesh or wrongly oriented panels"));
+				
 			allvol -= u.volume;
 		}
 		return allvol*rho - allmass;					// ∑ Fheave = 0
@@ -2455,10 +2475,12 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		double l01 = Length(bound[1] - bound[0]),
 	 	   	   l12 = Length(bound[2] - bound[1]);
 		   
-		AddFlatRectangle(l01, l12, panelWidth, panelWidth);
+		AddFlatRectangle(l12, l01, panelWidth, panelWidth);
+		double minx, maxx, miny, maxy;
+		Range(bound, minx, maxx, miny, maxy);	
+		Translate(minx, miny, 0);
 		return;
 	}
-	
 	
 	// Removes short and breaks long segments to fit with panel width
 	if (adjustSize) {		

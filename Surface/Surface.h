@@ -660,6 +660,7 @@ public:
 	static Force6D GetHydrostaticForceCB(const Point3D &c0, const Point3D &cb, double volume, double rho, double g);
 	static Force6D GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3D &cb, double volume);
 	static Force6D GetMassForce(const Point3D &c0, const Point3D &cg, const double mass, const double g);
+	static Force6D GetMassForce(const Point3D &c0, const Vector<Point3D> &cgs, const Vector<double> &masses, const double g);
 	void GetHydrostaticStiffness(MatrixXd &c, const Point3D &c0, const Point3D &cg, 
 				const Point3D &cb, double rho, double g, double mass, bool massBuoy);
 	Force6D GetHydrodynamicForce(const Point3D &c0, bool clip, Function<double(double x, double y)> GetZSurf,
@@ -689,7 +690,7 @@ public:
 	Surface &Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	Surface &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	
-	bool TranslateArchimede(double allmass, double rho, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol);
+	bool TranslateArchimede(double allmass, double rho, double ratioError, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol);
 	
 	bool PrincipalComponents(Value3D &ax1, Value3D &ax2, Value3D &ax3);
 	double YawMainAxis();
@@ -880,6 +881,8 @@ bool IsFlat(const UVector<Point3D> &p);
 Pointf Centroid(const UVector<Pointf> &p);
 double Area(const UVector<Pointf> &p);
 bool IsRectangle(const UVector<Pointf> &p);
+
+void Range(const UVector<Pointf> &p, double &minx, double &maxx, double &miny, double &maxy);
 	
 Vector<Pointf>  Point3Dto2D_XY(const Vector<Point3D> &bound);
 Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf>  &bound);

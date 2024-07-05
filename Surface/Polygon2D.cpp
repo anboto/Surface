@@ -117,4 +117,24 @@ bool IsRectangle(const UVector<Pointf> &p) {
 	return true;	
 }
 
+void Range(const UVector<Pointf> &p, double &minx, double &maxx, double &miny, double &maxy) {
+	int n = p.size();
+	
+	const Pointf &first = First(p);
+	minx = maxx = first.x;
+	miny = maxy = first.y;
+	
+	for (int i = 1; i < n; ++i) {
+		const Pointf &p_i = p[i];	
+		if (p_i.x < minx)
+			minx = p_i.x;
+		else if (p_i.x > maxx)
+			maxx = p_i.x;
+		if (p_i.y < miny)
+			miny = p_i.y;
+		else if (p_i.y > maxy)
+			maxy = p_i.y;
+	}
+}
+
 }
