@@ -2169,10 +2169,7 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 	
 	Translate(0, 0, dz);
 	
-	if (VolumeMatch(tolerance, tolerance) < 0)
-		return false;
-	
-	// Calc the cb
+	// Calc the cb_all
 	under.CutZ(base, -1);
 	under.GetPanelParams();
 	under.GetVolume();
@@ -2186,9 +2183,11 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 		if (u.VolumeMatch(tolerance, tolerance) < 0)
 			return false;
 		double vv = u.volume;
-		Point3D ccb = u.GetCentreOfBuoyancy();
-		cb -= ccb*vv;
-		allvol -= vv;
+		if (vv > 0) {
+			Point3D ccb = u.GetCentreOfBuoyancy();
+			cb -= ccb*vv;
+			allvol -= vv;
+		}
 	}
 	if (allvol <= 0)
 		return false;
