@@ -2094,7 +2094,7 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 		under.GetPanelParams();
 		under.GetVolume();
 		if (under.VolumeMatch(ratioError, ratioError) < 0)
-			throw Exc(t_("Incomplete mesh or wrongly oriented panels"));
+			return Null;
 		
 		if (under.volume == 0)
 			return std::numeric_limits<double>::max();		// Totally out
@@ -2110,7 +2110,7 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 			u.GetPanelParams();
 			u.GetVolume();
 			if (u.VolumeMatch(ratioError, ratioError) < 0)
-				throw Exc(t_("Incomplete mesh or wrongly oriented panels"));
+				return Null;
 				
 			allvol -= u.volume;
 		}
@@ -2127,9 +2127,11 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 	
 	// First it floats it
 	double res = Residual(dz);
-	if (res == std::numeric_limits<double>::max() || res == std::numeric_limits<double>::lowest()) {
+	if (IsNull(res) || res == std::numeric_limits<double>::max() || res == std::numeric_limits<double>::lowest()) {
 		dz = -minZ - 0.01;	// Just slightly touching the water
 		res = Residual(dz);
+		if (IsNull(res))
+			return false;
 	}
 	
 	int nIter = 0;	
@@ -2148,10 +2150,12 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 		else
 			dz -= ddz;
 		double nres = Residual(dz);
-		if (nres == std::numeric_limits<double>::max() || nres == std::numeric_limits<double>::lowest()) {
+		if (IsNull(nres) || nres == std::numeric_limits<double>::max() || nres == std::numeric_limits<double>::lowest()) {
 			ddz = -ddz/2;
 			dz += ddz;
 			res = Residual(dz);
+			if (IsNull(res))
+				return false;
 		} else if (Sign(res) != Sign(nres)) {
 			if (abs(nres) < abs(res)) 
 				res = nres;
