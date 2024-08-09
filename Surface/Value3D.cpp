@@ -23,12 +23,12 @@ Value3D Centroid(const Value3D &a, const Value3D &b, const Value3D &c) {
 }
 
 // The normal of three collinear points may be misleading. Check collinearity before.
-Direction3D Normal(const Value3D &a, const Value3D &b, const Value3D &c) {
-	return Direction3D((a - b) % (b - c)).Normalize();
+Vector3D Normal(const Value3D &a, const Value3D &b, const Value3D &c) {
+	return Vector3D((a - b) % (b - c)).Normalize();
 }
 
 bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c) {
-	return Direction3D((a - b) % (b - c)).Length() < 0.0001;
+	return Vector3D((a - b) % (b - c)).Length() < 0.0001;
 }
 
 bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c) {
@@ -61,8 +61,8 @@ double Direction(const Pointf& a, const Pointf& b) {
 }
 
 
-Point3D Intersection(const Direction3D &lineVector, const Point3D &linePoint, const Point3D &planePoint, const Direction3D &planeNormal) {
-	Direction3D diff = planePoint - linePoint;
+Point3D Intersection(const Vector3D &lineVector, const Point3D &linePoint, const Point3D &planePoint, const Vector3D &planeNormal) {
+	Vector3D diff = planePoint - linePoint;
 	double prod1 = diff.dot(planeNormal);
 	double prod2 = lineVector.dot(planeNormal);
 	if (abs(prod2) < EPS_LEN)
@@ -84,9 +84,9 @@ double Distance(const Value3D &p1, const Value3D &p2) {
 }
 
 void TranslateForce(const Point3D &from, const VectorXd &ffrom, Point3D &to, VectorXd &fto) {
-	Direction3D r(from.x - to.x, from.y - to.y, from.z - to.z);
-	Direction3D F(ffrom[0], ffrom[1], ffrom[2]);
-	Direction3D M = r%F;
+	Vector3D r(from.x - to.x, from.y - to.y, from.z - to.z);
+	Vector3D F(ffrom[0], ffrom[1], ffrom[2]);
+	Vector3D M = r%F;
 	
 	M = r%F;
 	
@@ -102,25 +102,28 @@ void Value3D::Translate(double dx, double dy, double dz) {
 	z += dz;
 }
 
-void Value3D::Rotate(double ax, double ay, double az, double cx, double cy, double cz) {
-	Affine3d aff;
-	GetTransform(aff, ax, ay, az, cx, cy, cz);
-	TransRot(aff);
+void Value3D::Rotate(double ax, double ay, double az, double cx, double cy, double cz, RotationOrder order) {
+	TransRot(GetTransformRotation(Value3D(ax, ay, az), Point3D(cx, cy, cz), order));
 }
 
-void Value3D::TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
-	Affine3d aff;
-	GetTransform(aff, dx, dy, dz, ax, ay, az, cx, cy, cz);
-	TransRot(aff);
+void Value3D::TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz, RotationOrder order) {
+	TransRot(GetTransform(Value3D(dx, dy, dz), Value3D(ax, ay, az), Point3D(cx, cy, cz), order));
+}
+
+void Value3D::TransRot(const Value3D &trans, const Value3D &rot, const Point3D &centre, RotationOrder order) {
+	TransRot(GetTransform(trans, rot, centre, order));
+}
+
+void Value3D::TransRot000(double dx, double dy, double dz, double ax, double ay, double az, RotationOrder order) {
+	TransRot(GetTransform000(Value3D(dx, dy, dz), Value3D(ax, ay, az), order));
+}
+
+void Value3D::TransRot000(const Value3D &trans, const Value3D &rot, RotationOrder order) {
+	TransRot(GetTransform000(trans, rot, order));
 }
 
 void Value3D::TransRot(const Affine3d &quat) {
-	Vector3d pnt0(x, y, z);	
-	Vector3d pnt = quat * pnt0;
-
-	x = pnt[0];
-	y = pnt[1];
-	z = pnt[2];
+	Set(quat * Vector3d(x, y, z));
 }
 
 void TransRot(const Value3D &pos, const Value3D &ref, double x, double y, double z, double rx, double ry, double rz, Value3D &npos) {
@@ -133,6 +136,16 @@ void TransRot(const Value3D &pos, const Value3D &ref, const VectorXd &transf, Va
 	npos.TransRot(transf[0], transf[1], transf[2], transf[3], transf[4], transf[5], ref.x, ref.y, ref.z);
 }
 
+void TransRot000(const Value3D &pos, double x, double y, double z, double rx, double ry, double rz, Value3D &npos) {
+	npos = clone(pos);
+	npos.TransRot000(x, y, z, rx, ry, rz);
+}
+
+void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos) {
+	npos = clone(pos);
+	npos.TransRot(aff);
+}
+
 void TransRot(const Value3D &pos, const Value3D &ref, VectorXd &x, VectorXd &y, VectorXd &z, VectorXd &rx, VectorXd &ry, VectorXd &rz) {
 	ASSERT((x.size() == y.size()) && (y.size() == z.size()) && (z.size() == rx.size()) && (rx.size() == ry.size()) && (ry.size() == rz.size()));
 	for (int i = 0; i < x.size(); ++i) {
@@ -142,11 +155,6 @@ void TransRot(const Value3D &pos, const Value3D &ref, VectorXd &x, VectorXd &y, 
 		y[i] = ps.y;
 		z[i] = ps.z;
 	}
-}
-
-void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos) {
-	npos = clone(pos);
-	npos.TransRot(aff);
 }
 
 bool TransRotChangeRef(const Value3D &ref, const VectorXd &transf, const Value3D &nref, VectorXd &ntransf) {
@@ -183,31 +191,33 @@ bool TransRotChangeRef(const Value3D &ref, const VectorXd &transf, const Value3D
 	return true;
 }
 
-void GetTransform(Affine3d &aff, double ax, double ay, double az, double cx, double cy, double cz) {
-	Vector3d c(cx, cy, cz);	
-	aff = Translation3d(c) *
-		  AngleAxisd(ax, Vector3d::UnitX()) *
-		  AngleAxisd(ay, Vector3d::UnitY()) *
-		  AngleAxisd(az, Vector3d::UnitZ()) *
-		  Translation3d(-c);
+Affine3d GetTransformRotation000(const Value3D &rot, RotationOrder order) {
+	if (order == RotationOrder::XYZ) 
+		return Affine3d(AngleAxisd(rot.x, Vector3d::UnitX()) *
+			   			AngleAxisd(rot.y, Vector3d::UnitY()) *
+			   			AngleAxisd(rot.z, Vector3d::UnitZ()));
+	else if (order == RotationOrder::ZYX) 
+		return Affine3d(AngleAxisd(rot.z, Vector3d::UnitZ()) *
+	   					AngleAxisd(rot.y, Vector3d::UnitY()) *
+	   					AngleAxisd(rot.x, Vector3d::UnitX()));
+	else
+		return Affine3d(AngleAxisd(rot.y, Vector3d::UnitY()) *
+		   				AngleAxisd(rot.z, Vector3d::UnitZ()) *
+		   				AngleAxisd(rot.x, Vector3d::UnitX()));
 }
 
-void GetTransform(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
-	Vector3d d(dx, dy, dz), c(cx, cy, cz);	
-	aff = Translation3d(d) *
-		  Translation3d(c) *
-		  AngleAxisd(ax, Vector3d::UnitX()) *
-		  AngleAxisd(ay, Vector3d::UnitY()) *
-		  AngleAxisd(az, Vector3d::UnitZ()) *
-		  Translation3d(-c);
+Affine3d GetTransform000(const Value3D &trans, const Value3D &rot, RotationOrder order) {
+	return Translation3d(trans) * GetTransformRotation000(rot, order);
 }
 
-void GetTransform000(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az) {
-	Vector3d d(dx, dy, dz);	
-	aff = Translation3d(d) *
-		  AngleAxisd(ax, Vector3d::UnitX()) *
-		  AngleAxisd(ay, Vector3d::UnitY()) *
-		  AngleAxisd(az, Vector3d::UnitZ());
+Affine3d GetTransformRotation(const Value3D &rot, const Point3D &centre, RotationOrder order) {
+	return Translation3d(centre) *
+		   GetTransformRotation000(rot, order) *
+		   Translation3d(-centre);
+}
+
+Affine3d GetTransform(const Value3D &trans, const Value3D &rot, const Point3D &centre, RotationOrder order) {
+	return Translation3d(trans) * GetTransformRotation(rot, centre, order);
 }
 
 Point3D Segment3D::IntersectionPlaneX(double x) {
@@ -240,9 +250,9 @@ Point3D Segment3D::IntersectionPlaneZ(double z) {
 	return Point3D(from.x + (to.x - from.x)*factor, from.y + (to.y - from.y)*factor, z);
 }
 
-Point3D Segment3D::Intersection(const Point3D &planePoint, const Direction3D &planeNormal) {
-	Direction3D vector = Direction();
-	Direction3D diff = planePoint - from;
+Point3D Segment3D::Intersection(const Point3D &planePoint, const Vector3D &planeNormal) {
+	Vector3D vector = Direction();
+	Vector3D diff = planePoint - from;
 	double prod1 = diff.dot(planeNormal);
 	double prod2 = vector.dot(planeNormal);
 	if (abs(prod2) < EPS_LEN)

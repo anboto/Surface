@@ -78,10 +78,10 @@ void TestSurfaceX_Calc() {
 	UppLog() << Format("\nVolume:  %.3f", volume);
 	UppLog() << Format("\nSeconds: %.8f", t.Seconds());
 	
-	Affine3d quat;
-	SurfaceX::GetTransform(quat, 1, 2, 3, 4, 5, 6);
-	double x, y, z, x0 = 1, y0 = 2, z0 = 3;
-	SurfaceX::TransRot(x, y, z, x0, y0, z0, quat);
+	Affine3d quat = GetTransformRotation(Vector3D(1, 2, 3), Point3D(4, 5, 6));
+	double x0 = 1, y0 = 2, z0 = 3;
+	Point3D npos;
+	TransRot(quat, Point3D(x0, y0, z0), npos);
 	
 	MatrixXd centroids0(2, 3);
 	centroids0 << x0, y0, z0, x0, y0, z0;
@@ -123,9 +123,10 @@ void TestSurfaceX_TransRot() {
 	}
 
 	for (int i = 0; i < PtfmSurge.size(); ++i) {
-		SurfaceX::TransRot(x, y, z, x0, y0, z0, PtfmSurge[i], PtfmSway[i], PtfmHeave[i], 
-							ToRad(PtfmRoll[i]), ToRad(PtfmPitch[i]), ToRad(PtfmYaw[i])); 
-		VERIFY(abs(x - TwrTpTDxi[i]) < 0.01 && abs(y - TwrTpTDyi[i]) < 0.01 && abs(z - TwrTpTDzi[i]) < 0.01);
+		Point3D npos;
+		TransRot000(Point3D(x0, y0, z0), PtfmSurge[i], PtfmSway[i], PtfmHeave[i], 
+							ToRad(PtfmRoll[i]), ToRad(PtfmPitch[i]), ToRad(PtfmYaw[i]), npos); 
+		VERIFY(abs(npos.x - TwrTpTDxi[i]) < 0.01 && abs(npos.y - TwrTpTDyi[i]) < 0.01 && abs(npos.z - TwrTpTDzi[i]) < 0.01);
 	}
 }
 
@@ -255,8 +256,6 @@ void TestPoly() {
         Point3D(2.663, 0, 2.065)
     };
     
-	ContainsPointRes ret;
-	
 	UppLog() << "\nTesting ContainsPoint() with a 3D polygon";
 	VERIFY(ContainsPointRes::POLY_IN  == ContainsPoint(polygon, Point3D(1.332, 1.829, 1.533), 0.1, ToRad(2.)));
     VERIFY(ContainsPointRes::POLY_OUT == ContainsPoint(polygon, Point3D(3.832, 1.892, 2.533), 0.1, ToRad(2.)));
@@ -353,10 +352,7 @@ void TestPoly() {
 	    for (int i = 0; i < sizes.size(); ++i) {
 	        s.Clear();
 			s.AddPolygonalPanel(pol_2, sizes[i], true);
-			double area = 0;
-			for (int i = 0; i < s.panels.size(); ++i)
-				area += s.panels[i].surface0;
-			VERIFY(EqualRatio(Area(pol_2), area, 0.00001));
+			VERIFY(EqualRatio(Area(pol_2), s.GetArea(), 0.00001));		// 5
 	    }
 	    for (int i = 0; i < sizes.size(); ++i) 
 	        sizes[i] *= 100;
@@ -365,6 +361,69 @@ void TestPoly() {
     }	
 }
 
+
+void TestBasic() {
+	UppLog() << "\nTesting basic classes";
+	
+	{
+		UppLog() << "\nTesting force sum 1";
+		
+		Point3D c0(1, -1, 5);
+		
+		Vector3D f1(2, 5, 4);
+		Point3D p1(3, 6, 7);
+	
+		Vector3D f2(-1, 5, -2);
+		Point3D p2(1, 2, -4);
+	
+		Force6D f = Force6D::Zero();
+		f.Add(f1, p1, c0);
+		f.Add(f2, p2, c0);
+	
+		VERIFY(f == Force6D(1, 10, 2, 57, 5, -1));
+	}
+	{
+		UppLog() << "\nTesting force sum 2";
+		
+		Point3D c0(2, -3, 1);
+		
+		Vector3D f1(22, 15, 34);
+		Point3D p1(31, 16, -77);
+	
+		Vector3D f2(-12, -5, 22);
+		Point3D p2(11, 234, 14);
+	
+		Force6D f = Force6D::Zero();
+		f.Add(f1, p1, c0);
+		f.Add(f2, p2, c0);
+	
+		VERIFY(f == Force6D(10, 10, 56, 7095, -3056, 2816));
+	}
+	{
+		
+		Point3D c0(10, 20, -30);
+		Value3D trans(2, 1, 6), rot(-M_PI/4, M_PI, M_PI/3);
+		{
+			Point3D p(23, -12, 45);
+			p.TransRot(trans, rot, c0, RotationOrder::XYZ);
+			VERIFY(p == Point3D(-22.2128129, -35.3858754, -73.6801417));
+		}
+		{
+			Point3D p(23, -12, 45);
+			p.TransRot(trans, rot, c0, RotationOrder::ZYX);
+			VERIFY(p == Point3D(-20.8320147, 24.9444655, -99.6604255));
+		}
+		{
+			Point3D p(23, -12, 45);
+		
+			Value3D vtrans(22, 11, -16), vrot(-M_PI/5, M_PI/2, -M_PI/5);
+			
+			Velocity6D v(vtrans, vrot);
+			v.Translate(c0, p);
+		}
+	}
+}
+	
 CONSOLE_APP_MAIN 
 {
 	StdLogSetup(LOG_COUT|LOG_FILE);
@@ -373,7 +432,7 @@ CONSOLE_APP_MAIN
 	UppLog() << "Surface demo and test";
 	
 	try {
-		bool test = CommandLine().size() > 0 && CommandLine()[0] == "-test";
+		TestBasic();
 		
 		TestPoly();
 		TestMesh();

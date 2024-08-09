@@ -116,34 +116,9 @@ void SurfaceX::TransRotFast(double &x, double &y, double &z, double x0, double y
 	TransRotFast(x, y, z, x0, y0, z0, mat);
 }
 
-void SurfaceX::GetTransform(Affine3d &aff, double dx, double dy, double dz, double ax, double ay, double az) {
-	Vector3d d(dx, dy, dz);	
-	aff = Translation3d(d) *
-		  AngleAxisd(ax, Vector3d::UnitX()) *
-		  AngleAxisd(ay, Vector3d::UnitY()) *
-		  AngleAxisd(az, Vector3d::UnitZ());
-}
-
-void SurfaceX::TransRot(double &x, double &y, double &z, double x0, double y0, double z0, const Affine3d &quat) {
-	Vector3d pnt0(x0, y0, z0);	
-	Vector3d pnt = quat * pnt0;
-
-	x = pnt[0];
-	y = pnt[1];
-	z = pnt[2];
-}
-
 void SurfaceX::TransRot(SurfaceX &surf, const SurfaceX &surf0, const Affine3d &quat) {
 	surf.centroids = quat * surf0.centroids.colwise().homogeneous();
 	surf.normals = quat * surf0.normals.colwise().homogeneous();
 }
-
-void SurfaceX::TransRot(double &x, double &y, double &z, double x0, double y0, double z0,
-					 double dx, double dy, double dz, double ax, double ay, double az) {
-	Affine3d aff;		
-	GetTransform(aff, dx, dy, dz, ax, ay, az);
-	TransRot(x, y, z, x0, y0, z0, aff);
-}
-	
 	
 }

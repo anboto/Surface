@@ -75,10 +75,10 @@ bool Surface::FixSkewed(int ipanel) {
 	Point3D &p3 = nodes[id3];
 	
 	if (!pan.IsTriangle()) {		// Is not triangular 
-		Direction3D normal301 = Normal(p3, p0, p1);
-		Direction3D normal012 = Normal(p0, p1, p2);
-		Direction3D normal123 = Normal(p1, p2, p3);
-		Direction3D normal230 = Normal(p2, p3, p0);
+		Vector3D normal301 = Normal(p3, p0, p1);
+		Vector3D normal012 = Normal(p0, p1, p2);
+		Vector3D normal123 = Normal(p1, p2, p3);
+		Vector3D normal230 = Normal(p2, p3, p0);
 		double d0  = normal301.Length();
 		double d01 = Length(normal301, normal012);
 		double d02 = Length(normal301, normal123);
@@ -383,7 +383,7 @@ void Surface::TrianglesToQuadsFlat() {
 				
 				int *id0 = panels[idp0].id;
 				
-				Direction3D n0 = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);
+				Vector3D n0 = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);
 				
 				if ((seg.inode0 == id0[0] && seg.inode1 == id0[1]) ||
 					(seg.inode0 == id0[1] && seg.inode1 == id0[0])) {
@@ -398,7 +398,7 @@ void Surface::TrianglesToQuadsFlat() {
 						   (seg.inode0 == id0[0] && seg.inode1 == id0[2])) 
 					id0[3] = nid;
 				
-				Direction3D nn = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);	// If normals don't match
+				Vector3D nn = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);	// If normals don't match
 				if (!nn.IsSimilar(n0, 0.00001))			// Reoriented upside down
 					ReorientPanel(idp0);
 				
@@ -1300,24 +1300,24 @@ Force6D Surface::GetHydrostaticForce(const Point3D &c0, double rho, double g) co
 	
 static void AddTrianglePressure(Force6D &f, const Point3D &centroid, const Point3D &normal, 
 	double surface, const Point3D &c0, const Point3D &p1, const Point3D &p2, const Point3D &p3) {
-	Direction3D f0;
+	Vector3D f0;
 	double p;
 	
 	p = centroid.z*surface*.75;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, centroid, c0);	
+	f.Add(f0, centroid, c0);	
 	
 	p = p1.z*surface*.25/3;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, p1, c0);	
+	f.Add(f0, p1, c0);	
 
 	p = p2.z*surface*.25/3;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, p2, c0);
+	f.Add(f0, p2, c0);
 	
 	p = p3.z*surface*.25/3;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, p3, c0);
+	f.Add(f0, p3, c0);
 }
 
 Force6D Surface::GetHydrostaticForceNormalized(const Point3D &c0) const {
@@ -1344,7 +1344,7 @@ static void AddTriangleDynPressure(Force6D &f, const Point3D &centroid, const Po
 	Function<double(double x, double y)> GetZSurf,
 	Function<double(double x, double y, double z, double et)> GetPress) {
 		
-	Direction3D f0;
+	Vector3D f0;
 	double p;
 	
 	if (GetZSurf) {		// Clips the triangle if it has vertexes out of the water
@@ -1398,19 +1398,19 @@ static void AddTriangleDynPressure(Force6D &f, const Point3D &centroid, const Po
 	
 	p = GetPress(centroid.x, centroid.y, centroid.z, etcentroid)*surface*.75;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, centroid, c0);	
+	f.Add(f0, centroid, c0);	
 	
 	p = GetPress(p0.x, p0.y, p0.z, et0)*surface*.25/3;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, p0, c0);	
+	f.Add(f0, p0, c0);	
 
 	p = GetPress(p1.x, p1.y, p1.z, et1)*surface*.25/3;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, p1, c0);
+	f.Add(f0, p1, c0);
 	
 	p = GetPress(p2.x, p2.y, p2.z, et2)*surface*.25/3;
 	f0.Set(p*normal.x, p*normal.y, p*normal.z);
-	f.AddLinear(f0, p2, c0);
+	f.Add(f0, p2, c0);
 }
 
 Force6D Surface::GetHydrodynamicForce(const Point3D &c0, bool clip,
@@ -1468,7 +1468,7 @@ Force6D Surface::GetHydrostaticForceCBNormalized(const Point3D &c0, const Point3
 	if (volume < EPS_LEN)
 		return f;
 	
-	f.AddLinear(Direction3D(0, 0, volume), cb, c0);		
+	f.Add(Vector3D(0, 0, volume), cb, c0);		
 	
 	return f;
 }	
@@ -1482,7 +1482,7 @@ Force6D Surface::GetMassForce(const Point3D &c0, const Vector<Point3D> &cgs, con
 		if (IsNull(cgs[i]) || IsNull(masses[i]) || masses[i] == 0)
 			return Null;
 		
-		f.AddLinear(Direction3D(0, 0, -masses[i]*g), cgs[i], c0);
+		f.Add(Vector3D(0, 0, -masses[i]*g), cgs[i], c0);
 	}
 	
 	return f;
@@ -2036,9 +2036,8 @@ Surface &Surface::Translate(double dx, double dy, double dz) {
 	return *this;
 }
 
-Surface &Surface::Rotate(double a_x, double a_y, double a_z, double c_x, double c_y, double c_z) {
-	Affine3d quat;
-	GetTransform(quat, a_x, a_y, a_z, c_x, c_y, c_z);
+Surface &Surface::Rotate(double ax, double ay, double az, double cx, double cy, double cz) {
+	Affine3d quat = GetTransformRotation(Value3D(ax, ay, az), Point3D(cx, cy, cz));
 	
 	for (int i = 0; i < nodes.size(); ++i) 
 		nodes[i].TransRot(quat);
@@ -2059,8 +2058,7 @@ Surface &Surface::Rotate(double a_x, double a_y, double a_z, double c_x, double 
 }
 
 Surface &Surface::TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
-	Affine3d quat;
-	GetTransform(quat, dx, dy, dz, ax, ay, az, cx, cy, cz);
+	Affine3d quat = GetTransform(Value3D(dx, dy, dz), Value3D(ax, ay, az), Point3D(cx, cy, cz));
 	
 	for (int i = 0; i < nodes.size(); ++i) 
 		nodes[i].TransRot(quat);

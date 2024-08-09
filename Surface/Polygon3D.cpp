@@ -19,8 +19,8 @@ ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &
     }
     const UVector<Point3D> &polygon = polygon2.size() > 0 ? polygon2 : _polygon;
     
-	UVector<Direction3D> normals;
-	Direction3D normal = Direction3D::Zero();
+	UVector<Vector3D> normals;
+	Vector3D normal = Vector3D::Zero();
 	
 	for (int i = 0; i < polygon.size()-2; ++i) {
 		if (!Collinear(polygon[i], polygon[i+1], polygon[i+2])) {

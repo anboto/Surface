@@ -22,7 +22,7 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 	if (!line.StartsWith("solid"))
 		throw Exc(in.Str() + ". "  + t_("'solid' field not found"));
 	
-	isText = true;
+	//isText = true;
 	
     while (!in.IsEof()) {	
 		line = ToLower(TrimBoth(in.GetLine()));
@@ -35,6 +35,8 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 		if (!line.StartsWith("facet normal"))
 			throw Exc(in.Str() + ". "  + t_("'facet normal' field not found"));
 
+		isText = true;
+		
 		line = ToLower(TrimBoth(in.GetLine()));
 		if (!line.StartsWith("outer loop"))
 			throw Exc(in.Str() + ". "  + t_("'outer loop' field not found"));			
@@ -70,7 +72,7 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 }
 			
 static void STLFacetTxtOut(FileOut &out, const Point3D &p0, const Point3D &p1, const Point3D &p2, 
-						const Point3D &p3, const Direction3D &normal, double factor) {
+						const Point3D &p3, const Vector3D &normal, double factor) {
 	out << "facet normal " << normal.x << " " << normal.y << " " << normal.z << "\n";
 	out << "   outer loop" << "\n";
 	out << "      vertex " << p0.x*factor << " " << p0.y*factor << " " << p0.z*factor << "\n";
@@ -145,13 +147,13 @@ static void LoadStlBin(String fileName, Surface &surf, String &header) {
 	in.Read(headerB, 80);
 	header = headerB;
 	
-	if (header.StartsWith("solid"))
-		throw Exc(t_("Binary stl must not begin with 'solid' text"));
+	//if (header.StartsWith("solid"))
+	//	throw Exc(t_("Binary stl must not begin with 'solid' text"));
 	
 	/*int32 numFacets =*/ in.Read<int32>();
 	
 	while (!in.IsEof()) {
-    	Direction3D normal;
+    	Vector3D normal;
     	normal.x = double(in.Read<float>());
     	normal.y = double(in.Read<float>());
     	normal.z = double(in.Read<float>());
