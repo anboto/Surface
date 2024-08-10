@@ -400,26 +400,31 @@ void TestBasic() {
 		VERIFY(f == Force6D(10, 10, 56, 7095, -3056, 2816));
 	}
 	{
+		// Points c0 and p are in the same rigid body
+		// If c0 translates trans and rotates rot, where p will be?
 		
 		Point3D c0(10, 20, -30);
 		Value3D trans(2, 1, 6), rot(-M_PI/4, M_PI, M_PI/3);
 		{
 			Point3D p(23, -12, 45);
-			p.TransRot(trans, rot, c0, RotationOrder::XYZ);
+			p.TransRot(trans, rot, c0, RotationOrder::XYZ);		// Considering rotation in XYZ order
 			VERIFY(p == Point3D(-22.2128129, -35.3858754, -73.6801417));
 		}
 		{
 			Point3D p(23, -12, 45);
-			p.TransRot(trans, rot, c0, RotationOrder::ZYX);
+			p.TransRot(trans, rot, c0, RotationOrder::ZYX);		// Considering rotation in ZYX order
 			VERIFY(p == Point3D(-20.8320147, 24.9444655, -99.6604255));
 		}
 		{
+			// In the same case, if the speed in c0 is vtrans and vrot, what would be the speed at p?
+			
 			Point3D p(23, -12, 45);
 		
 			Value3D vtrans(22, 11, -16), vrot(-M_PI/5, M_PI/2, -M_PI/5);
 			
 			Velocity6D v(vtrans, vrot);
 			v.Translate(c0, p);
+			VERIFY(v == Velocity6D(Value3D(119.7035315, 49.9557489, -16.3141592), Value3D(-M_PI/5, M_PI/2, -M_PI/5)));
 		}
 	}
 }
