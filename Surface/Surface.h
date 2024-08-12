@@ -77,6 +77,7 @@ public:
 	inline Value3D operator=(const Vector3d &p)	{Set(p);	return *this;}
 	
     operator Eigen::Vector3d() const {return Eigen::Vector3d(x, y, z);}
+    operator Eigen::VectorXd() const {return Eigen::Vector3d(x, y, z);}
     operator Eigen::MatrixXd() const {
         Eigen::MatrixXd m(1, 3);
         m << x, y, z;
