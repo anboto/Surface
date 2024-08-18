@@ -54,6 +54,7 @@ public:
 	Value3D(const Value3D &p, int)				{Set(p);}
 	Value3D(const Value3D &p) 					{Set(p);}
 	Value3D(const Vector3d &p) 					{Set(p);}
+	Value3D(const Vector<double> &p) 			{Set(p);}
 	Value3D(double _x, double _y, double _z) 	{Set(_x, _y, _z);}
 	
 	Value3D(const Nuller&) 		{SetNull();}
@@ -71,6 +72,7 @@ public:
 	
 	void Set(const Value3D &p) 					{x = p.x;	y = p.y;	z = p.z;}
 	void Set(const Vector3d &p) 				{x = p(0);	y = p(1);	z = p(2);}
+	void Set(const Vector<double> &p) 			{x = p[0];	y = p[1];	z = p[2];}
 	void Set(double _x, double _y, double _z) 	{x = _x;  	y = _y;  	z = _z;}
 	
 	inline Value3D operator=(const Value3D &p)	{Set(p);	return *this;}
