@@ -148,6 +148,12 @@ public:
 	inline double Norm() const	  {return Length();}
 	inline double Norm2() const	  {return Length2();}
 	
+	Value3D ClosestPointToLine(const Value3D &a, const Value3D &b) const;
+	double DistanceToSegment(const Value3D &a, const Value3D &b) const;
+	double DistanceToClosedCylinder(const Value3D &a, const Value3D &b, double r, bool considerBase) const;
+	double DistanceToLine(const Value3D &a, const Value3D &b) const;
+	double DistanceToCylinder(const Value3D &a, const Value3D &b, double r) const;
+		
 	Value3D &Normalize() {
 		double length = Length();
 		
@@ -405,6 +411,7 @@ double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2);
 bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c);
 double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
 double Direction(const Pointf& a, const Pointf& b);
+ 
 
 class Segment3D : public Moveable<Segment3D> {
 public:
@@ -578,7 +585,7 @@ public:
 		}
 	}
 	
-	void NormalExt(Value6D &n, const Point3D &c0) const;
+	Value6D NormalExt(const Point3D &c0) const;
 };
 
 class LineSegment : public Moveable<LineSegment> {

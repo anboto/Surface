@@ -22,6 +22,69 @@ Value3D Centroid(const Value3D &a, const Value3D &b, const Value3D &c) {
 	return Value3D(avg(a.x, b.x, c.x), avg(a.y, b.y, c.y), avg(a.z, b.z, c.z));	
 }
 
+Value3D Value3D::ClosestPointToLine(const Value3D &a, const Value3D &b) const {
+	Point3D ab = b - a;
+	Point3D ap = *this - a;
+	
+    double t = ap.dot(ab) / ab.dot(ab);
+    return a + ab * t;		// Projection of point in line	
+}
+
+double Value3D::DistanceToSegment(const Value3D &a, const Value3D &b) const {
+	Point3D ab = b - a;
+	Point3D ap = *this - a;
+	
+    double t = ap.dot(ab) / ab.dot(ab);
+    Value3D q =  a + ab * t;// Projection of point in line	
+    
+	if (t >= 0 && t <= 1) 	// Check if q is within the segment AB
+		return (*this - q).Length();									// Q is within the segment, calculate the distance from P to Q
+	else 
+		return min((*this - a).Length(), (*this - b).Length());	// Q is outside the segment, calculate the distance to the closest endpoint
+}
+
+double Value3D::DistanceToClosedCylinder(const Value3D &a, const Value3D &b, double r, bool considerBase) const {
+	Point3D ab = b - a;
+	Point3D ap = *this - a;
+	
+    double t = ap.dot(ab) / ab.dot(ab);
+    Value3D q =  a + ab * t;// Projection of point in line	
+    
+	if (t >= 0 && t <= 1)  	// Check if q is within the segment AB
+		return (*this - q).Length() - r;			// Q is within the segment, calculate the distance from P to Q, removing r
+	else {											// Q is outside the segment, calculate the distance to the closest base
+        double distanceToA = (*this - a).Length();  // Distance to base at A
+        double distanceToB = (*this - b).Length();  // Distance to base at B
+
+		if (considerBase) {
+	        // Project P onto the plane of the circular base and calculate the radial distance
+	        double distanceToBaseA = sqrt(distanceToA * distanceToA - (ab.dot(ap) 		 / ab.Length()) * (ab.dot(ap) 	 / ab.Length()));
+	        double distanceToBaseB = sqrt(distanceToB * distanceToB - (ab.dot(*this - b) / ab.Length()) * (ab.dot(*this - b) / ab.Length()));
+	
+	        // If the radial distance is less than or equal to the radius, return distance to the base plane
+	        if (distanceToBaseA <= r) 
+	            return fabs(ab.dot(ap) / ab.Length());
+	        else if (distanceToBaseB <= r)
+	            return fabs(ab.dot(*this - b) / ab.Length());
+	
+	        // Otherwise, return the shortest distance from P to the circular edge of the closest base
+	        return min(distanceToBaseA - r, distanceToBaseB - r);
+		} else
+			return std::min(distanceToA - r, distanceToB - r);	// Return the minimum distance from P to the closest circle edge
+	}
+}
+		
+double Value3D::DistanceToLine(const Value3D &a, const Value3D &b) const {
+	Point3D ab = b - a;
+	Point3D ap = *this - a;
+	Point3D crossProduct = ab % ap;
+	return crossProduct.Length() / ab.Length();	// Area of the parallelogram divided by the length of the base ab
+}
+
+double Value3D::DistanceToCylinder(const Value3D &a, const Value3D &b, double r) const {
+	return DistanceToLine(a, b) - r;		// If the distance is negative, the point is inside the cylinder
+}
+
 // The normal of three collinear points may be misleading. Check collinearity before.
 Vector3D Normal(const Value3D &a, const Value3D &b, const Value3D &c) {
 	return Vector3D((a - b) % (b - c)).Normalize();

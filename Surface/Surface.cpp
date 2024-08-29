@@ -641,11 +641,13 @@ void Panel::ShiftNodes(int shift) {
 		throw t_("ShiftNodes value not implemented");
 }
 
-void Panel::NormalExt(Value6D &n, const Point3D &c0) const {
+Value6D Panel::NormalExt(const Point3D &c0) const {
+	Value6D n;
 	n[0] = normalPaint[0];	n[1] = normalPaint[1];	n[2] = normalPaint[2];
 	Value3D r = centroidPaint - c0;
 	Value3D n2 = r%normalPaint;
 	n[3] = n2[0];	n[4] = n2[1];	n[5] = n2[2];	
+	return n;
 }
 
 bool Surface::SameOrderPanel(int ip0, int ip1, int in0, int in1) {
