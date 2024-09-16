@@ -437,8 +437,28 @@ void Surface::AnalyseSegments(double zTolerance) {
 	}
 }
 
+void Surface::AddLine(const Vector<Point3D> &points3D, const Vector<double> &radius) {
+	ASSERT(points3D.size() == radius.size());
+	
+	Line &l = lines.Add();
+	l.lines = clone(points3D);
+	l.radius = clone(radius);
+	
+	const int num = 20;
+	for (int i = 0; i < points3D.size()-1; ++i) {
+		Vector3D normal = (points3D[i] - points3D[i+1]).Normalize();
+		int id = l.toPlot.size();
+		l.toPlot.Append(GetCircle(points3D[i], normal, radius[i], num));
+		l.toPlot.Append(GetCircle(points3D[i+1], normal, radius[i+1], num));
+		for (int j = 0; j < num/2+1; ++j)
+			l.toPlot << l.toPlot[id+j];
+		l.toPlot << l.toPlot[id+num+num/2+1];
+	}
+}
+
 void Surface::AddLine(const Vector<Point3D> &points3D) {
-	lines << clone(points3D);
+	Line &l = lines.Add();
+	l.lines = clone(points3D);
 }
 
 void Surface::AddLine(const Vector<Pointf> &points) {
@@ -450,7 +470,8 @@ void Surface::AddLine(const Vector<Pointf> &points) {
 		points3D[i].z = 0;
 	}
 	
-	lines << pick(points3D);
+	Line &l = lines.Add();
+	l.lines = pick(points3D);
 }
 	
 bool Surface::GetLowest(int &iLowSeg, int &iLowPanel) {	// Get the lowest panel with normal non horizontal
@@ -766,7 +787,7 @@ const VolumeEnvelope &Surface::GetEnvelope() {
 		env.minZ = min(env.minZ, p.z);
 	}
 	for (const auto &line : lines) {
-		for (const auto &p : line) {	
+		for (const auto &p : line.lines) {	
 			env.maxX = max(env.maxX, p.x);
 			env.minX = min(env.minX, p.x);
 			env.maxY = max(env.maxY, p.y);
@@ -2014,8 +2035,6 @@ Surface &Surface::Append(const Surface &appended) {
 	Surface::RemoveDuplicatedPointsAndRenumber(panels, nodes);
 	Surface::RemoveDuplicatedPanels(panels);
 	
-	//pos.Set(0,0,0);
-	//angle.Set(0,0,0);
 	return *this;
 }
 	
@@ -2032,7 +2051,7 @@ Surface &Surface::Translate(double dx, double dy, double dz) {
 		segTo3panel[i].Translate(dx, dy, dz);
 	
 	for (int i = 0; i < lines.size(); ++i) 
-		Upp::Translate(lines[i], dx, dy, dz);
+		Upp::Translate(lines[i].lines, dx, dy, dz);
 	
 	//pos += Point3D(dx, dy, dz);
 	return *this;
@@ -2053,7 +2072,7 @@ Surface &Surface::Rotate(double ax, double ay, double az, double cx, double cy, 
 		segTo3panel[i].TransRot(quat);
 	
 	for (int i = 0; i < lines.size(); ++i) 
-		Upp::TransRot(lines[i], quat);
+		Upp::TransRot(lines[i].lines, quat);
 	
 	//angle += Point3D(a_x, a_y, a_z);
 	return *this;
@@ -2074,7 +2093,7 @@ Surface &Surface::TransRot(double dx, double dy, double dz, double ax, double ay
 		segTo3panel[i].TransRot(quat);
 	
 	for (int i = 0; i < lines.size(); ++i) 
-		Upp::TransRot(lines[i], quat);
+		Upp::TransRot(lines[i].lines, quat);
 	
 	return *this;
 }
@@ -3024,6 +3043,18 @@ bool Surface::GetDryPanels(const Surface &orig, bool onlywaterplane, double grid
 	return !panels.IsEmpty();
 }
 
+bool Surface::GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps) {
+	nodes = clone(orig.nodes);
+	panels.Clear();
+	
+	for (int id : panelIds) 
+		panels << orig.panels[id];
+
+	Heal(true, grid, eps);	
+	
+	return !panels.IsEmpty();
+}
+
 Vector<Segment3D> Surface::GetWaterLineSegments(const Surface &orig) {
 	Vector<Segment3D> ret;
 
@@ -3223,15 +3254,22 @@ double Surface::YawMainAxis() {
 	return yawX;
 }
 
-void Surface::Load(String fileName) {
-	if (!LoadFromJsonFile(*this, fileName)) 
-		throw Exc(Format(t_("Impossible to load file '%s'"), fileName));
+void Surface::LoadSerialization(String fileName) {
+	if (!FileExists(fileName))
+		throw Exc(Format("File '%s' does not exist", fileName));
+		
+	String error = LoadFromJsonError(*this, LoadFile(fileName));
+	if (!error.IsEmpty()) 
+		throw Exc(error);
 }
 
-void Surface::Save(String fileName) {
-	if (!StoreAsJsonFile(*this, fileName, true))
+void Surface::SaveSerialization(String fileName) {
+	if (!StoreAsJsonFile(*this, fileName, false))
 		throw Exc(Format(t_("Impossible to save file '%s'"), fileName));
 }
+
+Value3D operator*(double b, const Value3D& a) {return a*b;}
+Value3D operator/(double b, const Value3D& a) {return a/b;}
 
 VectorXd C6ToVector(const double *c) {
 	VectorXd v(6);

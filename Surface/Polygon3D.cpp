@@ -222,4 +222,22 @@ Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf> &bound) {
 	return ret;
 }
 
+Vector<Point3D> GetCircle(const Point3D &centre, const Vector3D &normal, double radius, int numPoints) {
+	Vector<Point3D> points(numPoints+1);
+    
+    // Create a vector orthogonal to the normal
+    Vector3D tangent1 = abs(normal.x) > abs(normal.z) ? Vector3D(-normal.y, normal.x, 0) : Vector3D(0, -normal.z, normal.y);
+    tangent1.Normalize();
+    Vector3D tangent2 = normal%tangent1;	    // Create another orthogonal vector
+
+    for (int i = 0; i < numPoints; ++i) {
+        double theta = 2*M_PI*i/numPoints;
+        Point3D point = centre + radius*(tangent1*cos(theta) + tangent2*sin(theta));
+        points[i] = point;
+    }
+    Last(points) = First(points);
+     
+    return points;
+}
+
 }

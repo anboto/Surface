@@ -121,6 +121,9 @@ public:
 	inline friend Value3D operator*(const Value3D& a, double b) 		{return Value3D(a.x*b, a.y*b, a.z*b);}
 	inline friend Value3D operator/(const Value3D& a, double b) 		{return Value3D(a.x/b, a.y/b, a.z/b);}
 
+    friend Value3D operator*(double b, const Value3D& a);
+	friend Value3D operator/(double b, const Value3D& a);
+
 	inline void operator+=(const Value3D& a) {x += a.x; y += a.y; z += a.z;}
 	inline void operator-=(const Value3D& a) {x -= a.x; y -= a.y; z -= a.z;}
 	inline void operator*=(double a) 		 {x *= a; y *= a; z *= a;}
@@ -189,6 +192,9 @@ public:
 	void Serialize(Stream& s)	{s % x % y % z;}
     void Xmlize(XmlIO& xio)     {xio("x", x)("y", y)("z", z);}
 };
+
+Value3D operator*(double b, const Value3D& a);
+Value3D operator/(double b, const Value3D& a);
 
 void TransRot(const Value3D &pos, const Value3D &ref, const VectorXd &transf, Value3D &npos);
 void TransRot(const Value3D &pos, const Value3D &ref, double x, double y, double z, double rx, double ry, double rz, Value3D &npos);
@@ -602,6 +608,29 @@ public:
 	Upp::Index<int> panels;
 };
 
+class Line : public Moveable<Line> {
+public:
+	Line() {}
+	Line(const Line &orig, int) {Copy(orig);}
+	Line(const Line &orig) {Copy(orig);}
+	void Copy(const Line &orig) {
+		lines = clone(orig.lines);
+		radius = clone(orig.radius);
+		toPlot = clone(orig.toPlot);
+	}
+	void Jsonize(JsonIO &json) {
+		json
+			("lines", lines)
+			("radius", radius)
+			("toPlot", toPlot)
+		;
+	}
+	
+	Upp::Vector<Point3D> lines;
+	Upp::Vector<double> radius;
+	Upp::Vector<Point3D> toPlot;
+};
+
 class VolumeEnvelope : public Moveable<VolumeEnvelope> {
 public:
 	VolumeEnvelope() {Reset();}
@@ -617,8 +646,8 @@ public:
 	void Set(const Vector<Point3D> &points);
 	
 	void MixEnvelope(const VolumeEnvelope &env);
-	double Max()	{return max(max(max(abs(maxX), abs(minX)), max(abs(maxY), abs(minY))), max(abs(maxZ), abs(minZ)));}
-	double LenRef()	{return max(max(maxX - minX, maxY - minY), maxZ - minZ);}
+	double Max()	{return maxNotNull(maxNotNull(max(abs(maxX), abs(minX)), maxNotNull(abs(maxY), abs(minY))), maxNotNull(abs(maxZ), abs(minZ)));}
+	double LenRef()	{return maxNotNull(maxNotNull(maxX - minX, maxY - minY), maxZ - minZ);}
 	
 	double maxX, minX, maxY, minY, maxZ, minZ;
 };
@@ -633,13 +662,13 @@ public:
 	void Clear();
 	bool IsEmpty() const;
 	
-	void Load(String fileName);
-	void Save(String fileName);
+	void LoadSerialization(String fileName);
+	void SaveSerialization(String fileName);
 
 	Vector<Point3D> nodes;
 	Vector<Panel> panels;
 	Vector<LineSegment> segments;
-	Array<Vector<Point3D>> lines;
+	Array<Line> lines;
 	
 	int GetNumNodes() const		{return nodes.size();}
 	int GetNumPanels() const	{return panels.size();}
@@ -650,6 +679,7 @@ public:
 	
 	VolumeEnvelope env;
 	
+	void AddLine(const Vector<Point3D> &points3D, const Vector<double> &radius);
 	void AddLine(const Vector<Point3D> &points3D);
 	void AddLine(const Vector<Pointf> &points);
 		
@@ -698,6 +728,8 @@ public:
 	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
+	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
+		
 	char IsWaterPlaneMesh() const; 
 	
 	void TrianglesToQuadsFlat();
@@ -747,7 +779,6 @@ public:
 	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
-	//void AddPolygonalPanel2(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
 	void Extrude(double dx, double dy, double dz, bool close);
 		
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
@@ -755,9 +786,6 @@ public:
 	static int RemoveTinyPanels(Vector<Panel> &_panels);
 	static int RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes);
 	static void DetectTriBiP(Vector<Panel> &panels) {int dum;	DetectTriBiP(panels, dum, dum, dum);}
-	
-	//inline const Point3D &GetPos() const 	{return pos;}
-	//inline const Point3D &GetAngle() const	{return angle;}
 	
 	void GetClosestPanels(int idPanel, UVector<int> &panIDs);
 	
@@ -802,8 +830,6 @@ private:
 							double panelWidth, int &idpan1, int &idpan2);
 	
 	Vector<int> selPanels, selNodes;
-	
-	//Point3D pos, angle;
 };
 
 class SurfaceMass  {
@@ -906,6 +932,9 @@ double Area(const UVector<Point3D> &p);
 bool IsRectangle(const UVector<Point3D> &p);
 bool IsFlat(const UVector<Point3D> &p);
 
+Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
+Vector<Point3D> GetCircle(const Point3D &centre, const Vector3D &normal, double radius, int numPoints);
+	
 Pointf Centroid(const UVector<Pointf> &p);
 double Area(const UVector<Pointf> &p);
 bool IsRectangle(const UVector<Pointf> &p);
@@ -918,8 +947,6 @@ Vector<Pointf>  Point3Dto2D_XZ(const Vector<Point3D> &bound);
 Vector<Point3D> Point2Dto3D_XZ(const Vector<Pointf>  &bound);
 Vector<Pointf>  Point3Dto2D_YZ(const Vector<Point3D> &bound);
 Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound);
-
-Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs);
 
 bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy);
 	

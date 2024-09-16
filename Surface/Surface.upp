@@ -7,12 +7,12 @@ uses
 
 file
 	Surface.cpp,
+	Surface.h,
 	Polygon2D.cpp,
 	Polygon3D.cpp,
 	Value3D.cpp,
 	SurfaceX.cpp,
 	ForceVector.cpp,
-	Surface.h,
 	stl.cpp,
 	obj.cpp,
 	grd.cpp,
