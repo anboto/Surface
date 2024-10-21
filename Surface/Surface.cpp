@@ -3271,6 +3271,10 @@ void Surface::SaveSerialization(String fileName) {
 Value3D operator*(double b, const Value3D& a) {return a*b;}
 Value3D operator/(double b, const Value3D& a) {return a/b;}
 
+bool IsNum(const Value3D &v) {return IsNum(v.x) && IsNum(v.y) && IsNum(v.z);}
+
+bool IsNum(const Value6D &v) {return IsNum(v.t) && IsNum(v.r);}
+
 VectorXd C6ToVector(const double *c) {
 	VectorXd v(6);
 	std::copy(c, c+6, v.data());

@@ -193,6 +193,8 @@ public:
     void Xmlize(XmlIO& xio)     {xio("x", x)("y", y)("z", z);}
 };
 
+bool IsNum(const Value3D &v);
+
 Value3D operator*(double b, const Value3D& a);
 Value3D operator/(double b, const Value3D& a);
 
@@ -310,6 +312,8 @@ public:
 	void Serialize(Stream& s)	{s % t % r;}
     void Xmlize(XmlIO& xio)     {xio("t", t)("r", r);}
 };
+
+bool IsNum(const Value6D &v);
 
 class ForceVector;
 
