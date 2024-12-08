@@ -3080,7 +3080,7 @@ Vector<Segment3D> Surface::GetWaterLineSegments(const Surface &orig) {
 	return ret;
 }
 
-void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps) {
+void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps, double meshRatio) {
 	if (c == 'f') {				// Takes the underwater limit from under and fills inside it
 		if (surf.surface == 0)
 			return;
@@ -3098,7 +3098,7 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 				break;
 			Vector<Pointf> bound2D = Point3Dto2D_XY(bound);
 			if (bound2D.size() > 2)
-				AddPolygonalPanel(bound2D, panelWidth*1.1, true);
+				AddPolygonalPanel(bound2D, panelWidth*1.1*meshRatio, true);
 		}
 	} else if (c == 'r') {		// Copies only the underwater side
 		if (under.panels.IsEmpty())
