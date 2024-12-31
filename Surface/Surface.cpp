@@ -1122,7 +1122,7 @@ Point3D Surface::GetCentreOfGravity_Surface() const {
 // Unitary matrix. It needs to be multiplied by the mass
 bool Surface::GetInertia33_Volume(Matrix3d &inertia, const Point3D &c0, bool refine) const {
 	auto CalcDet = [](const Matrix3d &A, Vector3d &diag, Vector3d &offd, double &vol) {
-		double d = A.determinant();  	// Vol of tiny parallelepiped= d * dr * ds * dt (the 3 partials of my tetral triple integral equation)
+		double d = A.determinant();  	// Vol of tiny parallelepiped = d * dr * ds * dt (the 3 partials of my tetral triple integral equation)
 		vol += d;                   	// Add vol of current tetra (note it could be negative - that's ok we need that sometimes)
 		for (int j = 0; j < 3; j++) {
 			int j1 = (j + 1) % 3;
