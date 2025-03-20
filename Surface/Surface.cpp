@@ -402,7 +402,6 @@ void Surface::TrianglesToQuadsFlat() {
 				if (!nn.IsSimilar(n0, 0.00001))			// Reoriented upside down
 					ReorientPanel(idp0);
 				
-		
 				panels.Remove(idp1);
 				found = true;
 				break;
@@ -2504,7 +2503,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		return;
 	}
 	
-	// Removes short and breaks long segments to fit with panel width
+	// Removes short and breaks long segments in the boundary to fit with panel width
 	if (adjustSize) {		
 		for (int i = bound.size()-3; i >= 0; --i) {		// Joins adjacent collinear ...
 			if (Collinear(bound[i], bound[i+1], bound[i+2])) 
@@ -2631,19 +2630,27 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	Array<PanelPoints> pans;
 	
 	// First moves the triangles in the boundaries
+	
+	Array<TrianglesPoints2D> trisbound;
+	
 	for (int i = tris.size()-1; i >= 0; --i) {
 		TrianglesPoints2D &t = tris[i];
 		for (int ip = 0; ip < bound.size(); ++ip) {
 			if (t.data[0] == bound[ip] || t.data[1] == bound[ip] || t.data[2] == bound[ip]) {
-				PanelPoints &p = pans.Add();						
-				for (int j = 0; j < 3; ++j) {
-					p.data[j].x = t.data[j].x;		p.data[j].y = t.data[j].y;	p.data[j].z = 0;
-				}
-				p.data[3] = clone(p.data[0]);
+				trisbound.Add(pick(t));
 				tris.Remove(i);
 				break;
 			}
 		}
+	}
+	
+	for (int i = trisbound.size()-1; i >= 0; --i) {
+		TrianglesPoints2D &t = trisbound[i];
+		PanelPoints &p = pans.Add();						
+		for (int j = 0; j < 3; ++j) {
+			p.data[j].x = t.data[j].x;		p.data[j].y = t.data[j].y;	p.data[j].z = 0;
+		}
+		p.data[3] = clone(p.data[0]);
 	}
 
 	// Set the squares as panels. It is better to build them from thereIsPoint() previous mapping
@@ -3254,6 +3261,84 @@ double Surface::YawMainAxis() {
 	return yawX;
 }
 
+Vector<int> Surface::GetBoundary() {
+	if (segments.IsEmpty())
+		GetSegments();
+	
+	Vector<int> ret;
+	for (const LineSegment &seg : segments) {
+		if (seg.panels.size() < 2) {	// If a segment belongs to just a panel, it is a boundary
+			FindAdd(ret, seg.inode0);	// Its nodes are returned
+			FindAdd(ret, seg.inode1);
+		}
+	}
+	return ret;
+}
+
+Vector<bool> Surface::GetBoundaryBool() {
+	if (segments.IsEmpty())
+		GetSegments();
+	
+	Vector<bool> ret(nodes.size(), false);
+	for (const LineSegment &seg : segments) {
+		if (seg.panels.size() < 2) 	// If a segment belongs to just a panel, it is a boundary
+			ret[seg.inode0] = ret[seg.inode1] = true;	// Its nodes are returned
+	}
+	return ret;
+}
+
+void Surface::SmoothLaplacian(double lambda, int iterations) {
+	Vector<bool> boundaryNodes = GetBoundaryBool();
+	SmoothLaplacian(lambda, iterations, boundaryNodes);
+}
+	
+void Surface::SmoothLaplacian(double lambda, int iterations, const Vector<bool> &boundaryNodes) {
+	Vector<Point3D> newPositions(nodes.size());
+
+    for (int iter = 0; iter < iterations; ++iter) {
+        for (size_t i = 0; i < nodes.size(); ++i) {		// Laplacian smoothing step (λ)
+            if (boundaryNodes[i]) 
+            	newPositions[i] = clone(nodes[i]); 		// Skip boundary points
+            else {
+	            Point3D sum(0, 0, 0);
+	            int neighborCount = 0;
+	
+	            for (const auto& panel : panels) {
+	                for (int j = 0; j < 4; ++j) {
+	                    if (panel.id[j] == i) { 		// Found the node in this panel
+	                        for (int k = 0; k < 3; ++k) {
+	                            if (k != j) {
+	                                sum = sum + nodes[panel.id[k]];
+	                                neighborCount++;
+	                            }
+	                        }
+	                        if (!panel.IsTriangle() && j != 3) {
+	                            sum = sum + nodes[panel.id[3]];
+	                          	neighborCount++;
+	                        }
+	                    }
+	                }
+	            }
+	            if (neighborCount > 0) {
+	                Point3D avg = sum / neighborCount;
+	                newPositions[i] = nodes[i] + (avg - nodes[i]) * lambda;
+	            } else
+	                newPositions[i] = clone(nodes[i]);
+            }
+        }
+        nodes = clone(newPositions);		// Apply first smoothing step
+	}	
+}
+
+void Surface::SmoothTaubin(double lambda, double mu, int iterations) {
+	Vector<bool> boundaryNodes = GetBoundaryBool();
+	for (int iter = 0; iter < iterations; ++iter) {
+		SmoothLaplacian(lambda, 1, boundaryNodes);
+		if (!IsNull(mu))
+			SmoothLaplacian(mu, 1, boundaryNodes);
+	}
+}
+	
 void Surface::LoadSerialization(String fileName) {
 	if (!FileExists(fileName))
 		throw Exc(Format("File '%s' does not exist", fileName));

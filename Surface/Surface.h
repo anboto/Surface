@@ -793,6 +793,11 @@ public:
 	
 	void GetClosestPanels(int idPanel, UVector<int> &panIDs);
 	
+	Vector<int> GetBoundary();
+	Vector<bool> GetBoundaryBool();
+	void SmoothLaplacian(double lambda, int iterations);
+	void SmoothTaubin(double lambda, double mu, int iterations);
+	
 	void Jsonize(JsonIO &json) {
 		json
 			("nodes", nodes)
@@ -832,7 +837,8 @@ private:
 	void JointTriangularPanels(int ip0, int ip1, int inode0, int inode1);
 	bool FindMatchingPanels(const Array<PanelPoints> &pans, double x, double y, 
 							double panelWidth, int &idpan1, int &idpan2);
-	
+	void SmoothLaplacian(double lambda, int iterations, const Vector<bool> &boundaryNodes);
+		
 	Vector<int> selPanels, selNodes;
 };
 
