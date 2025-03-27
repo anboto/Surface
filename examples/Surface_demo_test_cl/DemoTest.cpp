@@ -173,14 +173,14 @@ void TestMesh() {
 		double deltax = (msh - 1)*15;
 		
 		Surface s1;
-		s1.AddPolygonalPanel(bound, msh, true);
+		s1.AddPolygonalPanel(bound, msh, true, false);
 		s1.Translate(-70+deltax, 0, 0);
 		
 		for (auto &p : bound) 	
 			p.x -= 70;
 	
 		Surface s2;
-		s2.AddPolygonalPanel(bound, msh, true);
+		s2.AddPolygonalPanel(bound, msh, true, false);
 		s2.Translate(deltax, 20, 0);
 		
 		UVector<Pointf> bound3 = {
@@ -195,7 +195,7 @@ void TestMesh() {
 			{0,0}};
 	
 		Surface s3;
-		s3.AddPolygonalPanel(bound3, msh, true);
+		s3.AddPolygonalPanel(bound3, msh, true, false);
 		s3.Translate(deltax, -30, 0);	
 	
 		s << s1 << s2 << s3;
@@ -351,7 +351,7 @@ void TestPoly() {
     for (int n = 0; n < 1; ++n) {
 	    for (int i = 0; i < sizes.size(); ++i) {
 	        s.Clear();
-			s.AddPolygonalPanel(pol_2, sizes[i], true);
+			s.AddPolygonalPanel(pol_2, sizes[i], true, false);
 			VERIFY(EqualRatio(Area(pol_2), s.GetArea(), 0.00001));		// 5
 	    }
 	    for (int i = 0; i < sizes.size(); ++i) 

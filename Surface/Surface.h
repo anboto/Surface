@@ -604,12 +604,12 @@ public:
 	LineSegment(const LineSegment &orig, int) {Copy(orig);}
 	LineSegment(const LineSegment &orig) {Copy(orig);}
 	void Copy(const LineSegment &orig) {
-		inode0 = orig.inode0;
-		inode1 = orig.inode1;
-		panels = clone(orig.panels);
+		idNod0 = orig.idNod0;
+		idNod1 = orig.idNod1;
+		idPans = clone(orig.idPans);
 	}
-	int inode0, inode1;
-	Upp::Index<int> panels;
+	int idNod0, idNod1;
+	Upp::Index<int> idPans;
 };
 
 class Line : public Moveable<Line> {
@@ -729,7 +729,7 @@ public:
 						Function<double(double x, double y, double z, double et)> GetPress) const;
 	double GetWaterPlaneArea() const;
 	
-	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null, double meshRatio = 1);
+	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null, double meshRatio = 1, bool quads = false);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
@@ -749,6 +749,11 @@ public:
 	
 	void TriangleToQuad(int ip);
 	void TriangleToQuad(Panel &pan);
+	void TriangleToFalseQuad(int ipanel);
+	void QuadToQuad(int ip);
+	void QuadToQuad(Panel &pan);
+	
+	void TrianglesToFalseQuads();
 		
 	Surface &Translate(double dx, double dy, double dz);
 	Surface &Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
@@ -782,7 +787,7 @@ public:
 	
 	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
-	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize);
+	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize, bool quads);
 	void Extrude(double dx, double dy, double dz, bool close);
 		
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
@@ -795,8 +800,8 @@ public:
 	
 	Vector<int> GetBoundary();
 	Vector<bool> GetBoundaryBool();
-	void SmoothLaplacian(double lambda, int iterations);
-	void SmoothTaubin(double lambda, double mu, int iterations);
+	void SmoothLaplacian(double lambda, int iterations, int w);
+	void SmoothTaubin(double lambda, double mu, int iterations, int w);
 	
 	void Jsonize(JsonIO &json) {
 		json
@@ -837,8 +842,11 @@ private:
 	void JointTriangularPanels(int ip0, int ip1, int inode0, int inode1);
 	bool FindMatchingPanels(const Array<PanelPoints> &pans, double x, double y, 
 							double panelWidth, int &idpan1, int &idpan2);
-	void SmoothLaplacian(double lambda, int iterations, const Vector<bool> &boundaryNodes);
-		
+	void SmoothLaplacian(double lambda, int iterations, int w, const Vector<bool> &boundaryNodes);
+	void SmoothLaplacianWeightLess(double lambda, const Vector<bool> &boundaryNodes);
+	void SmoothLaplacianWeight(double lambda, const Vector<bool> &boundaryNodes);
+	void SmoothImplicitLaplacian(double lambda, const Vector<bool> &boundaryNodes);
+	
 	Vector<int> selPanels, selNodes;
 };
 

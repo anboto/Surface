@@ -3,6 +3,7 @@
 #include <Core/Core.h>
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
+#include <Eigen/Sparse>
 
 namespace Upp {
 using namespace Eigen;
@@ -145,18 +146,24 @@ void Surface::TriangleToQuad(Panel &pan) {
 }
 
 void Surface::TriangleToQuad(int ipanel) {
+	ASSERT(panels[ipanel].IsTriangle());
 	Panel &pan00 = panels[ipanel];
 	int id0 = pan00.id[0];
 	int id1 = pan00.id[1];
 	int id2 = pan00.id[2];
-	Point3D &p0 = nodes[id0];
-	Point3D &p1 = nodes[id1];
-	Point3D &p2 = nodes[id2];
+	const Point3D &p0 = nodes[id0];
+	const Point3D &p1 = nodes[id1];
+	const Point3D &p2 = nodes[id2];
 		
-	Point3D p012= Centroid(p0, p1, p2);	nodes.Add(p012);	int id012= nodes.size()-1;
-	Point3D p01 = Middle(p0, p1);		nodes.Add(p01);		int id01 = nodes.size()-1;
-	Point3D p12 = Middle(p1, p2);		nodes.Add(p12);		int id12 = nodes.size()-1;
-	Point3D p20 = Middle(p2, p0);		nodes.Add(p20);		int id20 = nodes.size()-1;
+	Point3D p012= Centroid(p0, p1, p2);	int id012= nodes.size();
+	Point3D p01 = Middle(p0, p1);		int id01 = nodes.size()+1;
+	Point3D p12 = Middle(p1, p2);		int id12 = nodes.size()+2;
+	Point3D p20 = Middle(p2, p0);		int id20 = nodes.size()+3;
+	
+	nodes.Add(p012);
+	nodes.Add(p01);	
+	nodes.Add(p12);	
+	nodes.Add(p20);	
 	
 	panels.Remove(ipanel, 1);
 	Panel &pan0 = panels.Add();	pan0.id[0] = id0;	pan0.id[1] = id01;	pan0.id[2] = id012;	pan0.id[3] = id20;
@@ -164,6 +171,58 @@ void Surface::TriangleToQuad(int ipanel) {
 	Panel &pan2 = panels.Add();	pan2.id[0] = id012;	pan2.id[1] = id12;	pan2.id[2] = id2;	pan2.id[3] = id20;
 }
 
+void Surface::TrianglesToFalseQuads() {
+	for (int ip = panels.size()-1; ip >= 0; --ip) {
+		if (panels[ip].IsTriangle()) 
+			TriangleToFalseQuad(ip); 
+	}
+}
+
+void Surface::TriangleToFalseQuad(int ipanel) {
+	ASSERT(panels[ipanel].IsTriangle());
+	Panel &pan00 = panels[ipanel];
+	int id0 = pan00.id[0];
+	int id1 = pan00.id[1];
+	int id2 = pan00.id[2];
+	const Point3D &p0 = nodes[id0];
+	const Point3D &p1 = nodes[id1];
+	const Point3D &p2 = nodes[id2];
+		
+	Point3D p20 = Middle(p2, p0);		int id20 = nodes.size();
+	nodes.Add(p20);	
+	pan00.id[3] = id20;
+}
+
+void Surface::QuadToQuad(Panel &pan) {
+	panels << pan;
+	QuadToQuad(panels.size() - 1);
+}
+
+void Surface::QuadToQuad(int ipanel) {
+	ASSERT(!panels[ipanel].IsTriangle());
+	Panel &pan00 = panels[ipanel];
+	int id0 = pan00.id[0];
+	int id1 = pan00.id[1];
+	int id2 = pan00.id[2];
+	int id3 = pan00.id[3];
+	const Point3D &p0 = nodes[id0];
+	const Point3D &p1 = nodes[id1];
+	const Point3D &p2 = nodes[id2];
+	const Point3D &p3 = nodes[id3];
+		
+	Point3D p0123 = (Centroid(p0, p1, p2) + Centroid(p1, p2, p3))/2;	
+												nodes.Add(p0123);	int id0123 = nodes.size()-1;
+	Point3D p01   = Middle(p0, p1);				nodes.Add(p01);		int id01 = nodes.size()-1;
+	Point3D p12   = Middle(p1, p2);				nodes.Add(p12);		int id12 = nodes.size()-1;
+	Point3D p23   = Middle(p2, p3);				nodes.Add(p23);		int id23 = nodes.size()-1;
+	Point3D p30   = Middle(p3, p0);				nodes.Add(p30);		int id30 = nodes.size()-1;
+	
+	panels.Remove(ipanel, 1);
+	Panel &pan0 = panels.Add();	pan0.id[0] = id0;		pan0.id[1] = id01;	pan0.id[2] = id0123;	pan0.id[3] = id30;
+	Panel &pan1 = panels.Add();	pan1.id[0] = id01;		pan1.id[1] = id1;	pan1.id[2] = id12;		pan1.id[3] = id0123;
+	Panel &pan2 = panels.Add();	pan2.id[0] = id0123;	pan2.id[1] = id12;	pan2.id[2] = id2;		pan2.id[3] = id23;
+	Panel &pan3 = panels.Add();	pan3.id[0] = id0123;	pan3.id[1] = id23;	pan3.id[2] = id3;		pan3.id[3] = id30;
+}
 
 void Surface::RoundClosest(Vector<Point3D> &_nodes, double grid, double eps) {
 	if (IsNull(grid) || IsNull(eps))
@@ -289,26 +348,26 @@ void Surface::AddSegment(int inode0, int inode1, int ipanel) {
 	ASSERT(!IsNull(inode0));
 	ASSERT(!IsNull(inode1));
 	for (int i = 0; i < segments.GetCount(); ++i) {
-		if ((segments[i].inode0 == inode0 && segments[i].inode1 == inode1) ||
-			(segments[i].inode1 == inode0 && segments[i].inode0 == inode1)) {
-			segments[i].panels << ipanel;
+		if ((segments[i].idNod0 == inode0 && segments[i].idNod1 == inode1) ||
+			(segments[i].idNod1 == inode0 && segments[i].idNod0 == inode1)) {
+			segments[i].idPans << ipanel;
 			return;
 		}
 	}
 	LineSegment &sg = segments.Add();
-	sg.inode0 = inode0;
-	sg.inode1 = inode1;
-	sg.panels << ipanel;
+	sg.idNod0 = inode0;
+	sg.idNod1 = inode1;
+	sg.idPans << ipanel;
 }
 
 int Surface::SegmentInSegments(int iseg) const {
-	Segment3D seg(nodes[segments[iseg].inode0], nodes[segments[iseg].inode1]);
+	Segment3D seg(nodes[segments[iseg].idNod0], nodes[segments[iseg].idNod1]);
 	double lenSeg = seg.Length();
 			
 	for (int i = 0; i < segments.GetCount(); ++i) {
 		if (i != iseg) {
 			const LineSegment &segment = segments[i];
-			Segment3D is(nodes[segment.inode0], nodes[segment.inode1]);
+			Segment3D is(nodes[segment.idNod0], nodes[segment.idNod1]);
 			if (is.SegmentIn(seg, lenSeg))		
 				return i;
 			if (seg.SegmentIn(is))
@@ -340,7 +399,7 @@ void Surface::GetSegments() {
 	else {
 		avgLenSegment = 0;
 		for (const auto &s : segments)
-			avgLenSegment += Distance(nodes[s.inode0], nodes[s.inode1]);
+			avgLenSegment += Distance(nodes[s.idNod0], nodes[s.idNod1]);
 		avgLenSegment /= segments.size();
 	}
 }
@@ -365,15 +424,15 @@ void Surface::TrianglesToQuadsFlat() {
 		GetSegments();
 		found = false;
 		for (const LineSegment &seg : segments) {
-			if (seg.panels.GetCount() == 2 && 													  // Two adjacent panels (the segment is not boundary)
-				panels[seg.panels[0]].IsTriangle() && panels[seg.panels[1]].IsTriangle() &&		  // Both triangles
-				panels[seg.panels[0]].normal0.IsSimilar(panels[seg.panels[1]].normal0, 0.01)) {   // Both in similar plane
-				int idp0 = seg.panels[0];
-				int idp1 = seg.panels[1];
+			if (seg.idPans.GetCount() == 2 && 													  // Two adjacent panels (the segment is not boundary)
+				panels[seg.idPans[0]].IsTriangle() && panels[seg.idPans[1]].IsTriangle() &&		  // Both triangles
+				panels[seg.idPans[0]].normal0.IsSimilar(panels[seg.idPans[1]].normal0, 0.01)) {   // Both in similar plane
+				int idp0 = seg.idPans[0];
+				int idp1 = seg.idPans[1];
 				int nid = -1;
 				for (int i = 0; i < 4; ++i) {		// Search the new node in panel 1
 					int id = panels[idp1].id[i];
-					if (id != seg.inode0 && id != seg.inode1) {
+					if (id != seg.idNod0 && id != seg.idNod1) {
 						nid = id;
 						break;
 					}
@@ -385,17 +444,17 @@ void Surface::TrianglesToQuadsFlat() {
 				
 				Vector3D n0 = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);
 				
-				if ((seg.inode0 == id0[0] && seg.inode1 == id0[1]) ||
-					(seg.inode0 == id0[1] && seg.inode1 == id0[0])) {
+				if ((seg.idNod0 == id0[0] && seg.idNod1 == id0[1]) ||
+					(seg.idNod0 == id0[1] && seg.idNod1 == id0[0])) {
 					id0[3] = id0[2]; 
 					id0[2] = id0[1];
 					id0[1] = nid;
-				} else if ((seg.inode0 == id0[1] && seg.inode1 == id0[2]) ||
-						   (seg.inode0 == id0[2] && seg.inode1 == id0[1])) {
+				} else if ((seg.idNod0 == id0[1] && seg.idNod1 == id0[2]) ||
+						   (seg.idNod0 == id0[2] && seg.idNod1 == id0[1])) {
 					id0[3] = id0[2]; 
 					id0[2] = nid;
-				} else if ((seg.inode0 == id0[2] && seg.inode1 == id0[0]) ||
-						   (seg.inode0 == id0[0] && seg.inode1 == id0[2])) 
+				} else if ((seg.idNod0 == id0[2] && seg.idNod1 == id0[0]) ||
+						   (seg.idNod0 == id0[0] && seg.idNod1 == id0[2])) 
 					id0[3] = nid;
 				
 				Vector3D nn = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);	// If normals don't match
@@ -414,15 +473,15 @@ void Surface::AnalyseSegments(double zTolerance) {
 	GetSegments();
 	
 	for (int i = 0; i < segments.GetCount(); ++i) {
-		int inode0 = segments[i].inode0;
-		int inode1 = segments[i].inode1;
+		int inode0 = segments[i].idNod0;
+		int inode1 = segments[i].idNod1;
 		
 		if (inode0 >= nodes.GetCount())
 			throw Exc(Format(t_("Node %d is pointing out of scope"), inode0+1));	
 		if (inode1 >= nodes.GetCount())
 			throw Exc(Format(t_("Node %d is pointing out of scope"), inode1+1));
 		
-		int num = segments[i].panels.GetCount();
+		int num = segments[i].idPans.GetCount();
 				
 		if (num == 1) {
 			if (nodes[inode0].z >= zTolerance && nodes[inode1].z >= zTolerance)
@@ -478,10 +537,10 @@ bool Surface::GetLowest(int &iLowSeg, int &iLowPanel) {	// Get the lowest panel 
 	double zLowSeg = DBL_MAX;
 	for (int i = 0; i < segments.GetCount(); ++i) {
 		const LineSegment &seg = segments[i];
-		if (seg.panels.GetCount() == 2) {
-			for (int ip = 0; ip < seg.panels.GetCount(); ++ip) {
-				if (panels[seg.panels[ip]].normal0.z != 0) {
-					double zz = max(nodes[seg.inode0].z, nodes[seg.inode1].z);
+		if (seg.idPans.GetCount() == 2) {
+			for (int ip = 0; ip < seg.idPans.GetCount(); ++ip) {
+				if (panels[seg.idPans[ip]].normal0.z != 0) {
+					double zz = max(nodes[seg.idNod0].z, nodes[seg.idNod1].z);
 					if (zz < zLowSeg) {
 						zLowSeg = zz;
 						iLowSeg = i;
@@ -495,9 +554,9 @@ bool Surface::GetLowest(int &iLowSeg, int &iLowPanel) {	// Get the lowest panel 
 		return true;
 	for (int i = 0; i < segments.GetCount(); ++i) {
 		const LineSegment &seg = segments[i];
-		if (seg.panels.GetCount() == 2) {
-			for (int ip = 0; ip < seg.panels.GetCount(); ++ip) {
-				double zz = min(nodes[seg.inode0].z, nodes[seg.inode1].z);
+		if (seg.idPans.GetCount() == 2) {
+			for (int ip = 0; ip < seg.idPans.GetCount(); ++ip) {
+				double zz = min(nodes[seg.idNod0].z, nodes[seg.idNod1].z);
 				if (zz < zLowSeg) {
 					zLowSeg = zz;
 					iLowSeg = i;
@@ -515,7 +574,7 @@ bool Surface::ReorientPanels0(bool _side) {
 		return false;
 	
 	// Reorient lowest panel downwards to be the seed
-	int ip = segments[iLowSeg].panels[iLowPanel];
+	int ip = segments[iLowSeg].idPans[iLowPanel];
 	if (panels[ip].normal0.z != 0) {
 		if (_side && panels[ip].normal0.z > 0 || !_side && panels[ip].normal0.z < 0)
 			ReorientPanel(ip);
@@ -538,13 +597,13 @@ bool Surface::ReorientPanels0(bool _side) {
 		panelProcessed << ipp;
 		
 		for (int is = 0; is < segments.size(); ++is) {
-			const Upp::Index<int> &segPanels = segments[is].panels;
+			const Upp::Index<int> &segPanels = segments[is].idPans;
 			if (segPanels.Find(ipp) >= 0) {
 				for (int i = 0; i < segPanels.GetCount(); ++i) {
 					int ipadyac = segPanels[i];
 					if (ipadyac != ipp && panelProcessed.Find(ipadyac) < 0) {
 						panelStack << ipadyac;
-						if (!SameOrderPanel(ipp, ipadyac, segments[is].inode0, segments[is].inode1))
+						if (!SameOrderPanel(ipp, ipadyac, segments[is].idNod0, segments[is].idNod1))
 							ReorientPanel(ipadyac);
 					}
 				}
@@ -581,7 +640,7 @@ Vector<Vector<int>> Surface::GetPanelSets(Function <bool(String, int pos)> Statu
 			panelProcessed << ipp;
 			
 			for (int is = 0; is < segments.GetCount(); ++is) {
-				const Upp::Index<int> &segPanels = segments[is].panels;
+				const Upp::Index<int> &segPanels = segments[is].idPans;
 				if (segPanels.Find(ipp) >= 0) {
 					for (int i = 0; i < segPanels.GetCount(); ++i) {
 						int ipadyac = segPanels[i];
@@ -2012,10 +2071,7 @@ void Surface::CutY(const Surface &orig, int factor) {
 
 Surface &Surface::Append(const Surface &appended) {
 	int num = nodes.size();
-	int numOrig = appended.nodes.size();
-	nodes.SetCount(num + numOrig);
-	for (int i = 0; i < numOrig; ++i)
-		nodes[num+i] = appended.nodes[i];
+	nodes.Append(appended.nodes);
 	
 	int numPan = panels.size();
 	int numPanOrig = appended.panels.size();
@@ -2254,13 +2310,16 @@ void Surface::DeployXSymmetry() {
 	for (int i = 0; i < nseg; ++i) {
 		LineSegment       &dest = segments.Add();
 		const LineSegment &orig = segments[i];
-		Point3D p0 = clone(nodes[orig.inode0]);
+		Point3D p0 = clone(nodes[orig.idNod0]);
 		p0.x *= -1;
-		dest.inode0 = FindNode(p0);
-		Point3D p1 = clone(nodes[orig.inode1]);
+		dest.idNod0 = FindNode(p0);
+		Point3D p1 = clone(nodes[orig.idNod1]);
 		p1.x *= -1;
-		dest.inode1 = FindNode(p1);
-	}
+		dest.idNod1 = FindNode(p1);
+	}	
+	double grid = 1, eps = 1e-8;
+	RoundClosest(nodes, grid, eps);
+	RemoveDuplicatedPointsAndRenumber(panels, nodes);
 }
 
 void Surface::DeployYSymmetry() {
@@ -2285,13 +2344,16 @@ void Surface::DeployYSymmetry() {
 	for (int i = 0; i < nseg; ++i) {
 		LineSegment       &dest = segments.Add();
 		const LineSegment &orig = segments[i];
-		Point3D p0 = clone(nodes[orig.inode0]);
+		Point3D p0 = clone(nodes[orig.idNod0]);
 		p0.y *= -1;
-		dest.inode0 = FindNode(p0);
-		Point3D p1 = clone(nodes[orig.inode1]);
+		dest.idNod0 = FindNode(p0);
+		Point3D p1 = clone(nodes[orig.idNod1]);
 		p1.y *= -1;
-		dest.inode1 = FindNode(p1);
+		dest.idNod1 = FindNode(p1);
 	}
+	double grid = 1, eps = 1e-8;
+	RoundClosest(nodes, grid, eps);
+	RemoveDuplicatedPointsAndRenumber(panels, nodes);
 }
 
 void VolumeEnvelope::MixEnvelope(const VolumeEnvelope &env) {
@@ -2482,7 +2544,31 @@ bool Surface::FindMatchingPanels(const Array<PanelPoints> &pans, double x, doubl
 	return false;
 }
 
-void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize) {
+static void InsertNode(int *panid, int id0, int id1, int id) {
+	if (panid[0] == id0 || panid[0] == id1) {
+		if (panid[2] == id0 || panid[2] == id1)
+			panid[3] = id;
+		else {
+			panid[3] = panid[2];
+			panid[2] = panid[1];
+			panid[1] = id;
+		}
+		return;
+	} else if (panid[1] == id0 || panid[1] == id1) {
+		panid[3] = panid[2];
+		panid[2] = id;
+		return;
+	} else if (panid[2] == id0 || panid[2] == id1) {
+		panid[3] = id;
+		return;
+	} else if (panid[3] == id0 || panid[3] == id1) {
+		panid[0] = id;
+		return;
+	}
+	throw Exc("Error in InsertNode");
+}
+			
+void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize, bool quads) {
 	ASSERT(_bound.size() >= 2);
 	
 	Vector<Pointf> bound = clone(_bound);
@@ -2552,6 +2638,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	}		
 	minX -= 0.3*panelWidth;	// To avoid matching with the boundary
 	minY -= 0.3*panelWidth;
+	
 	// Sets the points inside the boundary
 	Array<Pointf> poly;
 	int nx = 1+int((maxX-minX)/panelWidth);
@@ -2627,12 +2714,9 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		}
 	}
 	
-	Array<PanelPoints> pans;
-	
 	// First moves the triangles in the boundaries
 	
-	Array<TrianglesPoints2D> trisbound;
-	
+	Array<TrianglesPoints2D> trisbound;				// These triangles are extracted
 	for (int i = tris.size()-1; i >= 0; --i) {
 		TrianglesPoints2D &t = tris[i];
 		for (int ip = 0; ip < bound.size(); ++ip) {
@@ -2644,16 +2728,62 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		}
 	}
 	
+	Array<PanelPoints> panstri;
+	
 	for (int i = trisbound.size()-1; i >= 0; --i) {
 		TrianglesPoints2D &t = trisbound[i];
-		PanelPoints &p = pans.Add();						
+		PanelPoints &p = panstri.Add();						
 		for (int j = 0; j < 3; ++j) {
 			p.data[j].x = t.data[j].x;		p.data[j].y = t.data[j].y;	p.data[j].z = 0;
 		}
 		p.data[3] = clone(p.data[0]);
 	}
+	Surface stri;
+	stri.SetPanelPoints(panstri);
+	if (quads) {
+		stri.GetSegments();
+		Vector<bool> panToDel(stri.panels.size(), false);
+		Vector<bool> panDone(stri.panels.size(), false);
+		for (int isg = stri.segments.size()-1; isg >= 0; --isg) {
+			LineSegment &seg = stri.segments[isg];
+			if (seg.idPans.size() > 1 && 
+				!panToDel[seg.idPans[0]] && !panToDel[seg.idPans[1]] &&
+				!panDone[seg.idPans[0]] && !panDone[seg.idPans[1]] &&
+				stri.panels[seg.idPans[0]].IsTriangle() && stri.panels[seg.idPans[1]].IsTriangle()) {
+				Panel &pan0 = stri.panels[seg.idPans[0]];
+				Panel &pan1 = stri.panels[seg.idPans[1]];
+				int idnew = -1;
+				for (int id = 0; id < 3; ++id) {		// Get from the second triangle the node that is not in the first
+					int idn = pan1.id[id];
+					if (idn != seg.idNod0 && idn != seg.idNod1) {
+						idnew = idn;
+						break;
+					}
+				}
+				if (idnew < 0)
+					throw Exc(t_("Problem refining triangles"));
+				
+				InsertNode(pan0.id, seg.idNod0, seg.idNod1, idnew);
+				
+				panToDel[seg.idPans[1]] = true;
+				panDone[seg.idPans[0]] = true;
+				stri.segments.Remove(isg);
+			}
+		}
+		for (int i = panToDel.size()-1; i >= 0; --i)
+			if (panToDel[i])
+				stri.panels.Remove(i);
+		
+		for (int ip = stri.panels.size()-1; ip >= 0; --ip) {
+			if (stri.panels[ip].IsTriangle()) 
+				stri.TriangleToFalseQuad(ip); 
+		}
+	}
+	
+	Array<PanelPoints> pans;
 
 	// Set the squares as panels. It is better to build them from thereIsPoint() previous mapping
+	
 	ix = 0;
 	for (double x = minX; ix < nx-1; x += panelWidth, ix++) {
 		iy = 0;
@@ -2719,9 +2849,19 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 			}
 		}
 	}	
-
 	Surface s;
 	s.SetPanelPoints(pans);
+	if (quads) {
+		for (int ip = s.panels.size()-1; ip >= 0; --ip) {
+			if (s.panels[ip].IsTriangle()) 
+				s.TriangleToFalseQuad(ip); 
+		}
+	}
+	s.GetPanelParams();
+	s.Append(stri);
+	
+	//s.SmoothLaplacian(0.3, 50, 0);
+	
 	Append(s);
 }
 
@@ -2741,7 +2881,7 @@ void Surface::Extrude(double dx, double dy, double dz, bool close) {
 	GetSegments();
 	Vector<LineSegment> perimeter;
 	for (LineSegment &seg : segments) {
-		if (seg.panels.size() == 1)
+		if (seg.idPans.size() == 1)
 			perimeter << seg;
 	}
 	
@@ -2754,9 +2894,9 @@ void Surface::Extrude(double dx, double dy, double dz, bool close) {
 		bool removed = false;
 		for (int i = 0; i < perimeter.size(); ++i) {
 			LineSegment &per = perimeter[i];
-			if (seg.inode1 == per.inode0 || seg.inode1 == per.inode1) {
-				if (seg.inode1 == per.inode1)
-					Swap(per.inode0, per.inode1);
+			if (seg.idNod1 == per.idNod0 || seg.idNod1 == per.idNod1) {
+				if (seg.idNod1 == per.idNod1)
+					Swap(per.idNod0, per.idNod1);
 				orderedperimeter << per;	
 				perimeter.Remove(i);
 				removed = true;
@@ -2769,9 +2909,9 @@ void Surface::Extrude(double dx, double dy, double dz, bool close) {
 	
 	// Converts the perimeter to a polyline
 	Array<Point3D> bound;
-	bound << nodes[orderedperimeter[0].inode0];
+	bound << nodes[orderedperimeter[0].idNod0];
 	for (LineSegment &seg : orderedperimeter) 
-		bound << nodes[seg.inode1];
+		bound << nodes[seg.idNod1];
 	
 	// Redimension the polyline to fit better to panelWidth
 	{
@@ -3087,7 +3227,7 @@ Vector<Segment3D> Surface::GetWaterLineSegments(const Surface &orig) {
 	return ret;
 }
 
-void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps, double meshRatio) {
+void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, double grid, double eps, double meshRatio, bool quads) {
 	if (c == 'f') {				// Takes the underwater limit from under and fills inside it
 		if (surf.surface == 0)
 			return;
@@ -3105,7 +3245,7 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 				break;
 			Vector<Pointf> bound2D = Point3Dto2D_XY(bound);
 			if (bound2D.size() > 2)
-				AddPolygonalPanel(bound2D, panelWidth*1.1*meshRatio, true);
+				AddPolygonalPanel(bound2D, panelWidth*1.1*meshRatio, true, quads);
 		}
 	} else if (c == 'r') {		// Copies only the underwater side
 		if (under.panels.IsEmpty())
@@ -3267,9 +3407,9 @@ Vector<int> Surface::GetBoundary() {
 	
 	Vector<int> ret;
 	for (const LineSegment &seg : segments) {
-		if (seg.panels.size() < 2) {	// If a segment belongs to just a panel, it is a boundary
-			FindAdd(ret, seg.inode0);	// Its nodes are returned
-			FindAdd(ret, seg.inode1);
+		if (seg.idPans.size() < 2) {	// If a segment belongs to just a panel, it is a boundary
+			FindAdd(ret, seg.idNod0);	// Its nodes are returned
+			FindAdd(ret, seg.idNod1);
 		}
 	}
 	return ret;
@@ -3281,61 +3421,188 @@ Vector<bool> Surface::GetBoundaryBool() {
 	
 	Vector<bool> ret(nodes.size(), false);
 	for (const LineSegment &seg : segments) {
-		if (seg.panels.size() < 2) 	// If a segment belongs to just a panel, it is a boundary
-			ret[seg.inode0] = ret[seg.inode1] = true;	// Its nodes are returned
+		if (seg.idPans.size() < 2) 	// If a segment belongs to just a panel, it is a boundary
+			ret[seg.idNod0] = ret[seg.idNod1] = true;	// Its nodes are returned
 	}
 	return ret;
 }
 
-void Surface::SmoothLaplacian(double lambda, int iterations) {
-	Vector<bool> boundaryNodes = GetBoundaryBool();
-	SmoothLaplacian(lambda, iterations, boundaryNodes);
+void Surface::SmoothLaplacian(double lambda, int iterations, int w) {
+	const bool withBoundary = true;
+	Vector<bool> boundaryNodes;
+	if (!withBoundary)
+		boundaryNodes.SetCount(nodes.size(), false);
+	else
+		boundaryNodes = GetBoundaryBool();
+	SmoothLaplacian(lambda, iterations, w, boundaryNodes);
 }
-	
-void Surface::SmoothLaplacian(double lambda, int iterations, const Vector<bool> &boundaryNodes) {
+
+// Compute cotangent weight for an edge given two opposite vertices
+inline double CotangentWeight(const Point3D& a, const Point3D& b, const Point3D& c) {
+    Point3D u = a - c;
+    Point3D v = b - c;
+    double dot = u.x * v.x + u.y * v.y + u.z * v.z;
+    double cross_norm = sqrt((u.y * v.z - u.z * v.y) * (u.y * v.z - u.z * v.y) +
+                             (u.z * v.x - u.x * v.z) * (u.z * v.x - u.x * v.z) +
+                             (u.x * v.y - u.y * v.x) * (u.x * v.y - u.y * v.x));
+    return dot / (cross_norm + 1e-8); // Add epsilon to avoid division by zero
+}
+
+void Surface::SmoothLaplacianWeightLess(double lambda, const Vector<bool> &boundaryNodes) {
 	Vector<Point3D> newPositions(nodes.size());
-
-    for (int iter = 0; iter < iterations; ++iter) {
-        for (size_t i = 0; i < nodes.size(); ++i) {		// Laplacian smoothing step (λ)
-            if (boundaryNodes[i]) 
-            	newPositions[i] = clone(nodes[i]); 		// Skip boundary points
-            else {
-	            Point3D sum(0, 0, 0);
-	            int neighborCount = 0;
 	
-	            for (const auto& panel : panels) {
-	                for (int j = 0; j < 4; ++j) {
-	                    if (panel.id[j] == i) { 		// Found the node in this panel
-	                        for (int k = 0; k < 3; ++k) {
-	                            if (k != j) {
-	                                sum = sum + nodes[panel.id[k]];
-	                                neighborCount++;
-	                            }
-	                        }
-	                        if (!panel.IsTriangle() && j != 3) {
-	                            sum = sum + nodes[panel.id[3]];
-	                          	neighborCount++;
-	                        }
-	                    }
-	                }
-	            }
-	            if (neighborCount > 0) {
-	                Point3D avg = sum / neighborCount;
-	                newPositions[i] = nodes[i] + (avg - nodes[i]) * lambda;
-	            } else
-	                newPositions[i] = clone(nodes[i]);
+    for (size_t i = 0; i < nodes.size(); ++i) {		// Laplacian smoothing step (λ)
+        if (boundaryNodes[i]) 
+        	newPositions[i] = clone(nodes[i]); 		// Skip boundary points
+        else {
+            Point3D sum(0, 0, 0);
+            int neighborCount = 0;
+
+            for (const auto& panel : panels) {
+                for (int j = 0; j < 4; ++j) {
+                    if (panel.id[j] == i) { 		// Found the node in this panel
+                        for (int k = 0; k < 3; ++k) {
+                            if (k != j) {
+                                sum = sum + nodes[panel.id[k]];
+                                neighborCount++;
+                            }
+                        }
+                        if (!panel.IsTriangle() && j != 3) {
+                            sum = sum + nodes[panel.id[3]];
+                          	neighborCount++;
+                        }
+                    }
+                }
             }
+            if (neighborCount > 0) {
+                Point3D avg = sum / neighborCount;
+                newPositions[i] = nodes[i] + (avg - nodes[i]) * lambda;
+            } else
+                newPositions[i] = clone(nodes[i]);
         }
-        nodes = clone(newPositions);		// Apply first smoothing step
-	}	
+    }
+    nodes = clone(newPositions);			// Apply first smoothing step
 }
 
-void Surface::SmoothTaubin(double lambda, double mu, int iterations) {
-	Vector<bool> boundaryNodes = GetBoundaryBool();
+void Surface::SmoothLaplacianWeight(double lambda, const Vector<bool> &boundaryNodes) {
+	Vector<Point3D> new_positions(nodes.size(), Point3D{0, 0, 0});
+	Vector<double> weight_sum(nodes.size(), 0);
+	 
+    for (const Panel& panel : panels) {		// Compute Laplacian update
+        if (panel.IsTriangle()) {
+            for (int i = 0; i < 3; ++i) {
+	            int vi = panel.id[i];
+	            int vj = panel.id[(i + 1) % 3];
+	            int vk = panel.id[(i + 2) % 3];
+	            
+	            double w = abs(CotangentWeight(nodes[vi], nodes[vj], nodes[vk]));
+	            if (w > 10)
+	                w = 10;
+	                	            
+	            new_positions[vi] += nodes[vj] * w;
+	            weight_sum[vi] += w;
+	        }
+        } else {
+	        for (int i = 0; i < 4; ++i) {
+	            int vi = panel.id[i];
+	            int vj = panel.id[(i + 1) % 4];
+	            int vk = panel.id[(i + 2) % 4];
+	            int vl = panel.id[(i + 3) % 4];
+	            
+	            double w1 = CotangentWeight(nodes[vi], nodes[vj], nodes[vk]);
+	            double w2 = CotangentWeight(nodes[vi], nodes[vj], nodes[vl]);
+	            double w = abs(w1 + w2);
+	            
+	            if (w > 10)
+	                w = 10;
+	            
+	            new_positions[vi] += nodes[vj] * w;
+	            weight_sum[vi] += w;
+	        }
+        }
+    }
+    for (int i = 0; i < nodes.GetCount(); ++i) {		// Apply smoothing step
+        if (!boundaryNodes[i] && weight_sum[i] > 1e-4) {
+            Point3D laplacian = (new_positions[i] / weight_sum[i]) - nodes[i];
+            nodes[i] = nodes[i] + laplacian * lambda;
+        }
+    }
+}
+
+// To review
+void Surface::SmoothImplicitLaplacian(double lambda, const Vector<bool> &boundaryNodes) {
+    int n = nodes.GetCount();
+    SparseMatrix<double> L(n, n);
+    VectorXd bx(n), by(n), bz(n);
+    
+    std::vector<Triplet<double>> triplets;
+    
+    for (const auto& panel : panels) {
+        for (int i = 0; i < 3; ++i) {
+            int vi = panel.id[i];
+            int vj = panel.id[(i + 1) % 3];
+            int vk = panel.id[(i + 2) % 3];
+            
+            if (boundaryNodes[vi] || boundaryNodes[vj]) 
+            	continue; // Skip fixed nodes
+            
+            double w = CotangentWeight(nodes[vi], nodes[vj], nodes[vk]);
+            
+            triplets.emplace_back(vi, vj, -w);
+            triplets.emplace_back(vj, vi, -w);
+            triplets.emplace_back(vi, vi, w);
+            triplets.emplace_back(vj, vj, w);
+        }
+    }
+    
+    L.setFromTriplets(triplets.begin(), triplets.end());
+    SparseMatrix<double> I(n, n);
+    I.setIdentity();
+    SparseMatrix<double> A = I - lambda * L;
+    
+    for (int i = 0; i < n; ++i) {
+        bx(i) = nodes[i].x;
+        by(i) = nodes[i].y;
+        bz(i) = nodes[i].z;
+    }
+    
+    SparseLU<SparseMatrix<double>> solver;
+    solver.compute(A);
+    VectorXd new_x = solver.solve(bx);
+    VectorXd new_y = solver.solve(by);
+    VectorXd new_z = solver.solve(bz);
+    
+    for (int i = 0; i < n; ++i) {
+        if (boundaryNodes[i]) 
+        	continue; // Do not update fixed nodes
+        nodes[i].x = new_x(i);
+        nodes[i].y = new_y(i);
+        nodes[i].z = new_z(i);
+    }
+}
+
+void Surface::SmoothLaplacian(double lambda, int iterations, int w, const Vector<bool> &boundaryNodes) {
+	Vector<Point3D> newPositions(nodes.size());
+	
+    for (int iter = 0; iter < iterations; ++iter) {
+        if (w == 0)
+            SmoothLaplacianWeightLess(lambda, boundaryNodes);
+        else
+            SmoothLaplacianWeight(lambda, boundaryNodes);
+    }
+}
+
+void Surface::SmoothTaubin(double lambda, double mu, int iterations, int w) {
+	const bool withBoundary = true;
+	Vector<bool> boundaryNodes;
+	if (!withBoundary)
+		boundaryNodes.SetCount(nodes.size(), false);
+	else
+		boundaryNodes = GetBoundaryBool();
 	for (int iter = 0; iter < iterations; ++iter) {
-		SmoothLaplacian(lambda, 1, boundaryNodes);
+		SmoothLaplacian(lambda, 1, w, boundaryNodes);
 		if (!IsNull(mu))
-			SmoothLaplacian(mu, 1, boundaryNodes);
+			SmoothLaplacian(mu, 1, w, boundaryNodes);
 	}
 }
 	
