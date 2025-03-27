@@ -3451,7 +3451,7 @@ inline double CotangentWeight(const Point3D& a, const Point3D& b, const Point3D&
 void Surface::SmoothLaplacianWeightLess(double lambda, const Vector<bool> &boundaryNodes) {
 	Vector<Point3D> newPositions(nodes.size());
 	
-    for (size_t i = 0; i < nodes.size(); ++i) {		// Laplacian smoothing step (λ)
+    for (int i = 0; i < nodes.size(); ++i) {		// Laplacian smoothing step (λ)
         if (boundaryNodes[i]) 
         	newPositions[i] = clone(nodes[i]); 		// Skip boundary points
         else {
