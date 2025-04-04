@@ -222,7 +222,7 @@ public:
 	Value3D t, r;
 	
 	Value6D() {}
-	Value6D(const Value6D &f)	{Set(f);}
+	//Value6D(const Value6D &f)	{Set(f);}
 	Value6D(const VectorXd &v)	{Set(v);}
 	template<typename T>
 	Value6D(const T *v)			{Set(v);}
@@ -872,7 +872,7 @@ public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
 	SurfaceX() {}
-	SurfaceX(const SurfaceX &surf, int) {}
+	SurfaceX(const SurfaceX &, int) {}
 	
 	void Load(const Surface &parent);
 	
@@ -967,7 +967,8 @@ Vector<Pointf>  Point3Dto2D_YZ(const Vector<Point3D> &bound);
 Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound);
 
 bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy);
-	
+
+  
 }
 	
 #endif

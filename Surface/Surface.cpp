@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright 2021 - 2022, the Anboto author and contributors
+// Copyright 2021 - 2025, the Anboto author and contributors   
 #include <Core/Core.h>
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
 #include <Eigen/Sparse>
 
+#include <Functions4U/EnableWarnings.h>
+
 namespace Upp {
 using namespace Eigen;
-
 
 void Surface::Clear() {
 	nodes.Clear();
@@ -182,10 +183,10 @@ void Surface::TriangleToFalseQuad(int ipanel) {
 	ASSERT(panels[ipanel].IsTriangle());
 	Panel &pan00 = panels[ipanel];
 	int id0 = pan00.id[0];
-	int id1 = pan00.id[1];
+	//int id1 = pan00.id[1];
 	int id2 = pan00.id[2];
 	const Point3D &p0 = nodes[id0];
-	const Point3D &p1 = nodes[id1];
+	//const Point3D &p1 = nodes[id1];
 	const Point3D &p2 = nodes[id2];
 		
 	Point3D p20 = Middle(p2, p0);		int id20 = nodes.size();
@@ -576,13 +577,13 @@ bool Surface::ReorientPanels0(bool _side) {
 	// Reorient lowest panel downwards to be the seed
 	int ip = segments[iLowSeg].idPans[iLowPanel];
 	if (panels[ip].normal0.z != 0) {
-		if (_side && panels[ip].normal0.z > 0 || !_side && panels[ip].normal0.z < 0)
+		if ((_side && panels[ip].normal0.z > 0) || (!_side && panels[ip].normal0.z < 0))
 			ReorientPanel(ip);
 	} else if (panels[ip].normal0.x != 0) {
-		if (_side && panels[ip].normal0.x > 0 || !_side && panels[ip].normal0.x < 0)
+		if ((_side && panels[ip].normal0.x > 0) || (!_side && panels[ip].normal0.x < 0))
 			ReorientPanel(ip);
 	} else {
-		if (_side && panels[ip].normal0.y > 0 || !_side && panels[ip].normal0.y < 0)
+		if ((_side && panels[ip].normal0.y > 0) || (!_side && panels[ip].normal0.y < 0))
 			ReorientPanel(ip);
 	}
 	
