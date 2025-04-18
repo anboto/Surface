@@ -305,14 +305,13 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 	}
 	
 	// Find unused nodes
-	Vector<int> newId;
-	newId.SetCount(_nodes.GetCount());
+	Vector<int> newId(_nodes.size());
 	int avId = 0;
-	for (int i = 0; i < _nodes.GetCount(); ++i) {
+	for (int i = 0; i < _nodes.size(); ++i) {
 		bool found = false;
-		for (int ip = 0; ip < _panels.GetCount() && !found; ++ip) {
-			int numP = PanelGetNumNodes(_panels, ip);
-			for (int j = 0; j < numP; ++j) {
+		for (int ip = 0; ip < _panels.size() && !found; ++ip) {
+			//int numP = PanelGetNumNodes(_panels, ip);
+			for (int j = 0; j < 4/*numP*/; ++j) {
 				if (_panels[ip].id[j] == i) {
 					found = true;
 					break;
@@ -330,13 +329,13 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 	}
 	
 	// Remove duplicated nodes
-	for (int i = _nodes.GetCount()-1; i >= 0; --i) {
+	for (int i = _nodes.size()-1; i >= 0; --i) {
 		if (IsNull(newId[i]))
 			_nodes.Remove(i, 1);
 	}
 	
 	// Renumber panels
-	for (int i = 0; i < _panels.GetCount(); ++i) {
+	for (int i = 0; i < _panels.size(); ++i) {
 		for (int j = 0; j < 4; ++j) {
 			int& id = _panels[i].id[j];
 			id = newId[id];
@@ -348,7 +347,7 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 void Surface::AddSegment(int inode0, int inode1, int ipanel) {
 	ASSERT(!IsNull(inode0));
 	ASSERT(!IsNull(inode1));
-	for (int i = 0; i < segments.GetCount(); ++i) {
+	for (int i = 0; i < segments.size(); ++i) {
 		if ((segments[i].idNod0 == inode0 && segments[i].idNod1 == inode1) ||
 			(segments[i].idNod1 == inode0 && segments[i].idNod0 == inode1)) {
 			segments[i].idPans << ipanel;
@@ -684,7 +683,7 @@ bool Panel::FirstNodeIs0(int in0, int in1) const {
 	}
 }
 
-void Panel::RedirectTriangles() {
+void Panel::RedirectTriangles() {		// Reorient the triangles so the 4th node is equal to the 1st
 	int shift = 0;
 	if (id[0] == id[1])
 		shift = -1;
@@ -961,7 +960,14 @@ String Surface::CheckErrors() const {
 		return t_("Model is empty");
 	return Null;
 }
-		
+
+void Surface::RedirectTriangles() {
+	for (int ip = 0; ip < panels.size(); ++ip) {
+		Panel &panel = panels[ip];
+		panel.RedirectTriangles();
+	}	
+}
+
 void Surface::GetPanelParams() {
 	for (int ip = 0; ip < panels.size(); ++ip) {
 		Panel &panel = panels[ip];
@@ -1960,7 +1966,7 @@ void Surface::CutY(const Surface &orig, int factor) {
 				panels << Panel(orig.panels[ip]);			// Gets the panels that comply
 		} else if ((p0.y)*factor >= -EPS_LEN && (p1.y)*factor >= -EPS_LEN && 
 			(p2.y)*factor >= -EPS_LEN && (p3.y)*factor >= -EPS_LEN) 
-			;											// Refuses the panels that don't
+			;											// Refuses the panels that don't comply
 		else {											// Process the intermediate
 			const int *origPanelid = orig.panels[ip].id;
 			Vector<int> nodeFrom, nodeTo;
@@ -2637,18 +2643,36 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		if (p.y > maxY)
 			maxY = p.y;
 	}		
-	minX -= 0.3*panelWidth;	// To avoid matching with the boundary
-	minY -= 0.3*panelWidth;
-	
+	//minX -= 0.3*panelWidth;	// To avoid matching with the boundary
+	//minY -= 0.3*panelWidth;
+
 	// Sets the points inside the boundary
 	Array<Pointf> poly;
-	int nx = 1+int((maxX-minX)/panelWidth);
-	int ny = 1+int((maxY-minY)/panelWidth);
+	int nx = 1 + int((maxX-minX)/panelWidth);
+	int ny = 1 + int((maxY-minY)/panelWidth);
+		
+	// If symmetric
+	if (Sign(maxX) > 0 && Sign(minX) < 0 && maxX + minX < EPS_LEN) {
+		maxX = Avg(maxX, -minX);
+		nx = int(maxX/panelWidth);
+		panelWidth = maxX/nx;	
+		minX = -maxX;
+		nx *= 2;
+	}
+	double panelHeight = panelWidth;
+	if (Sign(maxY) > 0 && Sign(minY) < 0 && maxY + minY < EPS_LEN) {
+		maxY = Avg(maxY, -minY);
+		ny = max(1, int(maxY/panelHeight));
+		panelHeight = maxY/ny;	
+		minY = -maxY;
+		ny *= 2;
+	}
+		
 	MatrixXi thereIsPoint = MatrixXi::Zero(nx, ny);		// Saves the quadrangles inside the boundary, so ContainsPoint() doesn't have to be called later
 	int ix = 0, iy;
-	for (double x = minX; x < maxX; x += panelWidth, ix++) {
+	for (double x = minX; ix < nx; x += panelWidth, ix++) {
 		iy = 0;
-		for (double y = minY; y < maxY; y += panelWidth, iy++) {	
+		for (double y = minY; iy < ny; y += panelHeight, iy++) {	
 			Pointf pt(x, y);
 			bool addPoint = true;
 			for (int i = 0; i < bound.size(); ++i)	// Only adds points that are not near an existing one
@@ -2788,7 +2812,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	ix = 0;
 	for (double x = minX; ix < nx-1; x += panelWidth, ix++) {
 		iy = 0;
-		for (double y = minY; iy < ny-1; y += panelWidth, iy++) {
+		for (double y = minY; iy < ny-1; y += panelHeight, iy++) {
 			int sum = 0;
 			if (thereIsPoint(ix, iy))		sum++;
 			if (thereIsPoint(ix+1, iy))		sum++;
@@ -2799,8 +2823,8 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 				PanelPoints &p = pans.Add();
 				p.data[0] = Point3D(x, y, 0);
 				p.data[1] = Point3D(x+panelWidth, y, 0);
-				p.data[2] = Point3D(x+panelWidth, y+panelWidth, 0);
-				p.data[3] = Point3D(x, y+panelWidth, 0);
+				p.data[2] = Point3D(x+panelWidth, y+panelHeight, 0);
+				p.data[3] = Point3D(x, y+panelHeight, 0);
 			} else if (sum == 3) {							// This is a triangle, not touching the boundary, but out of the squares
 				for (int i = 0; i < tris.size(); ++i) {		// 		Search if this is a real triangle
 					sum = 0;
@@ -2823,7 +2847,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 					}
 					if (thereIsPoint(ix+1, iy+1)) {
 						for (int j = 0; j < 3; j++) {
-							if (t.data[j] == Pointf(x+panelWidth, y+panelWidth)) {
+							if (t.data[j] == Pointf(x+panelWidth, y+panelHeight)) {
 								sum++;
 								break;
 							}
@@ -2831,7 +2855,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 					}
 					if (thereIsPoint(ix, iy+1)) {
 						for (int j = 0; j < 3; j++) {
-							if (t.data[j] == Pointf(x, y+panelWidth)) {
+							if (t.data[j] == Pointf(x, y+panelHeight)) {
 								sum++;
 								break;
 							}

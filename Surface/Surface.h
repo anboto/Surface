@@ -692,6 +692,7 @@ public:
 	Surface &OrientFlat();
 	void Image(int axis);
 	const VolumeEnvelope &GetEnvelope(); 
+	void RedirectTriangles();
 	void GetPanelParams();
 	String CheckErrors() const;
 	double GetArea();
