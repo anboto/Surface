@@ -8,6 +8,7 @@ uses
 file
 	Surface.cpp,
 	Surface.h,
+	View.cpp,
 	Polygon2D.cpp,
 	Polygon3D.cpp,
 	Value3D.cpp,

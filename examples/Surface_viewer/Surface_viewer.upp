@@ -1,0 +1,15 @@
+description "2024 3D\377";
+
+uses
+	CtrlLib,
+	Surface,
+	Controls4U;
+
+file
+	main.cpp,
+	main.lay,
+	teapot.obj;
+
+mainconfig
+	"" = "GUI";
+

@@ -138,6 +138,9 @@ void LoadTDynMsh(String fileName, Surface &surf) {
 			else
 				panel.id[3] = f.GetInt(4)-1;	
 		}	
+		String error = surf.CheckNodeIds();
+		if (!error.IsEmpty())
+			throw Exc(error);
 	} catch (Exc e) {
 		throw Exc(t_("Parsing error: ") + e);
 	}

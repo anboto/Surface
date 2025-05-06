@@ -63,6 +63,9 @@ void LoadOBJ(String fileName, Surface &surf) {
 				}
 			}
 		}
+		String error = surf.CheckNodeIds();
+		if (!error.IsEmpty())
+			throw Exc(error);
 	} catch (Exc e) {
 		throw Exc(t_("Parsing error: ") + e);
 	}

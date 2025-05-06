@@ -48,6 +48,9 @@ void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z) {
 		}
 		if (surf.panels.size() != numPanels)
 			throw Exc(Format(t_("The number of panels in the header (%d) does not match the number of panels in the file (%d)"), numPanels, surf.panels.size()));
+		String error = surf.CheckNodeIds();
+		if (!error.IsEmpty())
+			throw Exc(error);
 	} catch (Exc e) {
 		throw Exc(t_("Parsing error: ") + e);
 	}

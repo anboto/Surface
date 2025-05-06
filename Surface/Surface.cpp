@@ -276,16 +276,27 @@ void Surface::GetClosestPanels(int idPanel, UVector<int> &panIDs) {
 	panIDs.Remove(0); 	// 0, idPanel itself
 }
 
+String Surface::CheckNodeIds() {
+	for (int ip = 0; ip < panels.size(); ++ip) {
+		const Panel &p = panels[ip];
+		for (int i = 0; i < 4; ++i) {
+			if (p.id[i] >= nodes.size())
+				return Format("Node %d in Panel %d does not exist. There are only %d nodes", p.id[i] + 1, ip + 1, nodes.size());
+		}
+	}
+	return String();
+}
+
 int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes) {
 	int num = 0;
 	
 	// Detect duplicated points in nodes
 	double similThres = EPS_LEN;
 	Upp::Index<int> duplic, goods;
-	for (int i = 0; i < _nodes.GetCount()-1; ++i) {
+	for (int i = 0; i < _nodes.size()-1; ++i) {
 		if (duplic.Find(i) >= 0)
 			continue;
-		for (int j = i+1; j < _nodes.GetCount(); ++j) {
+		for (int j = i+1; j < _nodes.size(); ++j) {
 			if (_nodes[i].IsSimilar(_nodes[j], similThres)) {
 				duplic << j;
 				goods << i;
@@ -295,7 +306,7 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 	}
 	
 	// Replace duplicated points with good ones in panels
-	for (int i = 0; i < _panels.GetCount(); ++i) {
+	for (int i = 0; i < _panels.size(); ++i) {
 		for (int j = 0; j < 4; ++j) {
 			int &id = _panels[i].id[j];
 			int pos = duplic.Find(id);
@@ -409,11 +420,12 @@ void Surface::GetNormals() {
 		const Point3D &p0 = nodes[panel.id[0]];
 		const Point3D &p1 = nodes[panel.id[1]];
 		const Point3D &p2 = nodes[panel.id[2]];
-		const Point3D &p3 = nodes[panel.id[3]];
 	
-		panel.normal0   = Normal(p0, p1, p2);
-		if (!panel.IsTriangle()) 
-			panel.normal1   = Normal(p2, p3, p0);
+		panel.normal0 = Normal(p0, p1, p2);
+		if (!panel.IsTriangle()) {
+			const Point3D &p3 = nodes[panel.id[3]];
+			panel.normal1 = Normal(p2, p3, p0);
+		}
 	}
 }
 
@@ -819,7 +831,7 @@ Surface &Surface::OrientFlat() {
 	return *this;
 }		
 		
-void Surface::Image(int axis) {
+void Surface::Mirror(int axis) {
 	for (int i = 0; i < nodes.size(); ++i) {
 		Point3D &node = nodes[i];
 		if (axis == 0)
@@ -2217,13 +2229,20 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 	
 	int nIter = 0;	
 	int maxIter = 100;
+
+#ifdef _DEBUG
 	char cond = 'i';
+#endif
 	for (; nIter < maxIter; ++nIter) {
 		if (abs(res) < allmass/100000) {
+#ifdef _DEBUG
 			cond = 'm';
+#endif
 			break;
 		} else if (abs(ddz) < 0.0005) {
+#ifdef _DEBUG
 			cond = 'd';
+#endif
 			break;
 		}
 		if (res > 0)

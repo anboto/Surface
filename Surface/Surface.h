@@ -5,6 +5,7 @@
 
 #include <Eigen/Eigen.h>
 #include <Functions4U/Functions4U.h>
+#include <Painter/Painter.h>
 
 namespace Upp {
 using namespace Eigen;
@@ -690,7 +691,7 @@ public:
 	String Heal(bool basic, double grid, double eps, Function <bool(String, int pos)> Status = Null);
 	Surface &Orient();
 	Surface &OrientFlat();
-	void Image(int axis);
+	void Mirror(int axis);
 	const VolumeEnvelope &GetEnvelope(); 
 	void RedirectTriangles();
 	void GetPanelParams();
@@ -797,6 +798,8 @@ public:
 	static int RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes);
 	static void DetectTriBiP(Vector<Panel> &panels) {int dum;	DetectTriBiP(panels, dum, dum, dum);}
 	
+	String CheckNodeIds();
+		
 	void GetClosestPanels(int idPanel, UVector<int> &panIDs);
 	
 	Vector<int> GetBoundary();
@@ -804,6 +807,20 @@ public:
 	void SmoothLaplacian(double lambda, int iterations, int w);
 	void SmoothTaubin(double lambda, double mu, int iterations, int w);
 	
+	enum SurfaceShowMesh {SHOW_MESH, SHOW_VISIBLE_MESH, SHOW_FACES, SHOW_MESH_FACES, UNKNOWN};
+	enum SurfaceShowColor {SHOW_DARKER, SHOW_BRIGHTER, SHOW_FLAT};
+	
+	Image GetImage(double scale, int width, int height, Color color, Color back, const Point3D &lightDir, 
+				   int dx, int dy, double ax, double ay, double az, double _c_x, double _c_y, double _c_z,
+				   bool painter, SurfaceShowMesh toShowMesh, SurfaceShowColor toShowColor) const;
+	void Render(Surface &mesh, Vector<Color> &colors, Color color, const Point3D &lightDir, double ax, double ay, double az, double cx, double cy, double cz, SurfaceShowColor toShowColor) const;
+	void RenderObject(Surface &surf, Vector<Color> &colors, Color color, const Point3D &lightDir, 
+			   double ax, double ay, double az, double _c_x, double _c_y, double _c_z, SurfaceShowColor toShowColor) const;
+	void GetRenderDimensions(double &minX, double &maxX, double &minY, double &maxY) const;
+	template <class T>
+	static void Paint(T& w, Surface &mesh, Vector<Color> &colors, double scale, int width, int height, Color back, const Point3D &lightDir, 
+			   int dx, int dy, bool painter, SurfaceShowMesh toShowMesh);
+			   
 	void Jsonize(JsonIO &json) {
 		json
 			("nodes", nodes)
@@ -928,6 +945,59 @@ void Rotate(Range &r, double ax, double ay, double az, double cx, double cy, dou
 	for (Value3D &p : r)
 		p.Rotate(ax, ay, az, cx, cy, cz);
 }
+
+template <class T>
+void Surface::Paint(T& w, Surface &mesh, Vector<Color> &colors, double scale, int width, int height, Color back, const Point3D &lightDir, int dx, int dy,
+	bool painter, SurfaceShowMesh toShowMesh) {
+	dx += width/2;
+	dy = height/2 - dy;
+	
+	if (painter) {
+		DrawPainter im(w, Size(width, height));
+		
+		im.LineCap(LINECAP_SQUARE);
+		im.LineJoin(LINEJOIN_MITER);
+		
+		for (int i = 0; i < mesh.panels.size(); ++i) {
+			const Panel &p = mesh.panels[i];
+			const Point3D &n0 = mesh.nodes[p.id[0]];
+			const Point3D &n1 = mesh.nodes[p.id[1]];
+			const Point3D &n2 = mesh.nodes[p.id[2]];
+			im.Move(n0.x*scale + dx, n0.y*scale + dy).Line(n1.x*scale + dx, n1.y*scale + dy)
+			  .Move(n1.x*scale + dx, n1.y*scale + dy).Line(n2.x*scale + dx, n2.y*scale + dy);
+			if (p.IsTriangle()) 
+			  im.Move(n2.x*scale + dx, n2.y*scale + dy).Line(n0.x*scale + dx, n0.y*scale + dy);
+			else {
+				const Point3D &n3 = mesh.nodes[p.id[3]];
+				im.Move(n2.x*scale + dx, n2.y*scale + dy).Line(n3.x*scale + dx, n3.y*scale + dy)
+			  	  .Move(n3.x*scale + dx, n3.y*scale + dy).Line(n0.x*scale + dx, n0.y*scale + dy);
+			}
+			im.Stroke(1, colors[i]).Fill(colors[i]);
+		}
+	} else {
+		for (int i = 0; i < mesh.panels.size(); ++i) {
+			const Panel &p = mesh.panels[i];
+			const Point3D &n0 = mesh.nodes[p.id[0]];
+			const Point3D &n1 = mesh.nodes[p.id[1]];
+			const Point3D &n2 = mesh.nodes[p.id[2]];
+			Vector<Point> pi;
+			pi << Point(n0.x*scale + dx, n0.y*scale + dy) << Point(n1.x*scale + dx, n1.y*scale + dy) << Point(n2.x*scale + dx, n2.y*scale + dy);
+			if (!p.IsTriangle()) {
+				const Point3D &n3 = mesh.nodes[p.id[3]];
+				pi << Point(n3.x*scale + dx, n3.y*scale + dy);
+			}
+			if (toShowMesh == SHOW_MESH)
+				w.DrawPolyline(pi, 1, colors[i]);	
+			else if (toShowMesh == SHOW_VISIBLE_MESH)
+				w.DrawPolygon(pi, back, 1, colors[i]);	
+			else if (toShowMesh == SHOW_FACES)
+				w.DrawPolygon(pi, colors[i]);	
+			else if (toShowMesh == SHOW_MESH_FACES)
+				w.DrawPolygon(pi, colors[i], 1, Black());
+		}
+	}       
+}
+
 	
 void LoadStl(String fileName, Surface &surf, bool &isText, String &header);
 void LoadStl(String fileName, Surface &surf);

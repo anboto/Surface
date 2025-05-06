@@ -21,8 +21,8 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 	f.IsSeparator = [](int c)->int {return c == '\t' || c == ' ' || c == '!';};
 	
 	line = ToLower(TrimBoth(in.GetLine()));
-	if (!line.StartsWith("solid"))
-		throw Exc(in.Str() + ". "  + t_("'solid' field not found"));
+	//if (!line.StartsWith("solid"))
+	//	throw Exc(in.Str() + ". "  + t_("'solid' field not found"));
 	
 	//isText = true;
 	
@@ -71,6 +71,9 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 				throw Exc(in.Str() + ". "  + Format(t_("Label '%s' not handled in facet"), label));	
 		}
 	}
+	String error = surf.CheckNodeIds();
+	if (!error.IsEmpty())
+		throw Exc(error);
 }
 			
 static void STLFacetTxtOut(FileOut &out, const Point3D &p0, const Point3D &p1, const Point3D &p2, 
@@ -183,6 +186,9 @@ static void LoadStlBin(String fileName, Surface &surf, String &header) {
 				
 		/*int16 attributeByteCount =*/ in.Read<int16>();
 	}
+	String error = surf.CheckNodeIds();
+	if (!error.IsEmpty())
+		throw Exc(error);
 }
 
 static void STLFacetBinNodeOut(FileOutBinary &out, const Point3D &node) {
