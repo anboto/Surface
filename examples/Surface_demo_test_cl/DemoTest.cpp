@@ -249,6 +249,11 @@ void TestMesh() {
 void TestPoly() {
 	UppLog() << "\nTesting 2D and 3D ContainsPoint()";
 	
+	VERIFY(ContainsPoint(Point(1, 2), Point(10, 20), Point(1, 20), Point(4, 15)));	// Inside
+	VERIFY(!ContainsPoint(Point(1, 2), Point(10, 20), Point(1, 20), Point(4, 5)));	// Outside
+	VERIFY(ContainsPoint(Point(1, 2), Point(10, 20), Point(1, 20), Point(1, 20)));	// In a vertex
+	VERIFY(ContainsPoint(Point(1, 2), Point(10, 20), Point(1, 20), Point(4, 20)));	// In a side
+	
 	UVector<Point3D> polygon = {
         Point3D(0, 0, 1),
         Point3D(0, 3.784, 1),
@@ -270,6 +275,8 @@ void TestPoly() {
         Pointf(0.5, 2),
         Pointf(0.5, 1)
     };	
+    
+    VERIFY(!IsClockwise(pol_2));
     
     VERIFY(5 == Area(pol_2));
     

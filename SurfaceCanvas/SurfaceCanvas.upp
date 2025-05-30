@@ -1,0 +1,15 @@
+description "3D control\377B44,169,203";
+
+uses
+	Surface,
+	plugin/png,
+	PdfDraw,
+	plugin/jpg,
+	STEM4U;
+
+file
+	SurfaceCanvas.cpp,
+	SurfaceCanvas.h,
+	SurfaceCanvas.iml;
+
+ spellcheck_comments "EN-GB"

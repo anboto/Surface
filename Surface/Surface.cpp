@@ -22,7 +22,7 @@ void Surface::Clear() {
 	selNodes.Clear();
 }
 
-Surface::Surface(const Surface &orig, int) {
+void Surface::Copy(const Surface &orig) {	// deep copy
 	healing = orig.healing;
 	numTriangles = orig.numTriangles;
 	numBiQuads = orig.numBiQuads;
@@ -58,6 +58,44 @@ Surface::Surface(const Surface &orig, int) {
 	
 	selPanels = clone(orig.selPanels);
 	selNodes = clone(orig.selNodes);
+}
+
+Surface::Surface(Surface &&orig) noexcept {		// pick copy (move)
+	healing = orig.healing;
+	numTriangles = orig.numTriangles;
+	numBiQuads = orig.numBiQuads;
+	numMonoQuads = orig.numMonoQuads;
+	numDupPan = orig.numDupPan;
+	numDupP = orig.numDupP;
+	numSkewed = orig.numSkewed;
+	//numUnprocessed = orig.numUnprocessed;
+	
+	panels = pick(orig.panels);
+	nodes = pick(orig.nodes);
+	skewed = pick(orig.skewed);
+	segWaterlevel = pick(orig.segWaterlevel);
+	segTo1panel = pick(orig.segTo1panel);
+	segTo3panel = pick(orig.segTo3panel);
+	segments = pick(orig.segments);
+	
+	env = pick(orig.env);
+	
+	surface = orig.surface;
+	volume = orig.volume;
+	volumex = orig.volumex;
+	volumey = orig.volumey;
+	volumez = orig.volumez;
+	
+	lines = pick(orig.lines);
+	
+	avgFacetSideLen = orig.avgFacetSideLen;
+
+	side = orig.side;
+	
+	avgLenSegment = orig.avgLenSegment;
+	
+	selPanels = pick(orig.selPanels);
+	selNodes = pick(orig.selNodes);	
 }
 
 bool Surface::IsEmpty() const {

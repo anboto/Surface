@@ -1,4 +1,4 @@
-description "Basic 3D primitives and its handling\377B44,169,203";
+description "Basic 3D primitives\377B44,169,203";
 
 uses
 	Eigen,
@@ -8,7 +8,7 @@ uses
 file
 	Surface.cpp,
 	Surface.h,
-	View.cpp,
+	SurfaceView.cpp,
 	Polygon2D.cpp,
 	Polygon3D.cpp,
 	Value3D.cpp,

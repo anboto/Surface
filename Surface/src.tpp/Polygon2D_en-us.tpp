@@ -21,10 +21,30 @@ order is required.&]
 ContainsPointRes [* ContainsPoint]([@(0.0.255) const] Vector<Pointf>[@(0.0.255) `&] 
 [*@3 polygon], [@(0.0.255) const] Pointf[@(0.0.255) `&] [*@3 pt])&]
 [s2;%% Checks if point [%-*@3 pt] is inside or in the boundaries of 
-polygon [%-*@3 polygon].&]
+counterclockwise polygon [%-*@3 polygon].&]
 [s2; [%% Returned ]ContainsPointRes is:&]
 [s2;i150;O0; >0 if [*@3 pt] is inside&]
 [s2;i150;O0; `=`= 0 if [*@3 pt] is in the boundary.&]
+[s3; &]
+[s4; &]
+[s5;:Upp`:`:ContainsPoint`(const Point`_`&`,const Point`_`&`,const Point`_`&`,const Point`_`&`): [@(0.0.255) t
+emplate] <[@(0.0.255) typename] T> [@(0.0.255) bool] [* ContainsPoint]([@(0.0.255) const] 
+Point`_<T>[@(0.0.255) `&] [*@3 a], [@(0.0.255) const] Point`_<T>[@(0.0.255) `&] 
+[*@3 b], [@(0.0.255) const] Point`_<T>[@(0.0.255) `&] [*@3 c], [@(0.0.255) const] 
+Point`_<T>[@(0.0.255) `&] [*@3 p])&]
+[s2;%% Checks if the point [%-*@3 p] is inside or in the boundaries 
+of the counterclockwise triangle [%-*@3 a], [%-*@3 b], [%-*@3 c].&]
+[s3; &]
+[s4; &]
+[s5;:Upp`:`:ContainsPoint`(const Point`_`&`,const Point`_`&`,const Point`_`&`,const Point`_`&`,const Point`_`&`): [@(0.0.255) t
+emplate] <[@(0.0.255) typename] T> [@(0.0.255) bool] [* ContainsPoint]([@(0.0.255) const] 
+Point`_<T>[@(0.0.255) `&] [*@3 a], [@(0.0.255) const] Point`_<T>[@(0.0.255) `&] 
+[*@3 b], [@(0.0.255) const] Point`_<T>[@(0.0.255) `&] [*@3 c], [@(0.0.255) const] 
+Point`_<T>[@(0.0.255) `&] [*@3 d], [@(0.0.255) const] Point`_<T>[@(0.0.255) `&] 
+[*@3 p])&]
+[s2;%% Checks if the point [%-*@3 p] is inside or in the boundaries 
+of the counterclockwise quadrangle [%-*@3 a], [%-*@3 b], [%-*@3 c], 
+[%-*@3 d].&]
 [s3; &]
 [s4; &]
 [s5;:Upp`:`:PointInPoly`(const UVector`&`,const Upp`:`:Pointf`&`): [@(0.0.255) bool] 

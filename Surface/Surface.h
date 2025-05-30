@@ -640,6 +640,8 @@ class VolumeEnvelope : public Moveable<VolumeEnvelope> {
 public:
 	VolumeEnvelope() {Reset();}
 	void Reset() 	 {maxX = minX = maxY = minY = maxZ = minZ = Null;}
+	bool IsNull2D() const {return Upp::IsNull(maxX) || Upp::IsNull(minX) || Upp::IsNull(maxY) || Upp::IsNull(minY);}
+	bool IsNull() 	const {return IsNull2D() || Upp::IsNull(maxZ) || Upp::IsNull(minZ);}
 	VolumeEnvelope(const VolumeEnvelope &orig, int) {
 		maxX = orig.maxX;
 		minX = orig.minX;
@@ -657,13 +659,20 @@ public:
 	double maxX, minX, maxY, minY, maxZ, minZ;
 };
 
-class Surface : DeepCopyOption<Surface> {
+class Surface : Moveable<Surface> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
 	Surface() {}
-	Surface(const Surface &surf, int);
-		
+	Surface(const Surface &surf, int)		{Copy(surf);}
+	Surface(const Surface &surf)			{Copy(surf);}
+	Surface& operator=(const Surface &surf) {Copy(surf); return *this;};
+	Surface(Surface &&surf) noexcept;
+	
+	bool IsValid() const	{return magic == 1234567890;}
+	virtual ~Surface() 		{magic = 505;}
+	
+	void Copy(const Surface &surf);
 	void Clear();
 	bool IsEmpty() const;
 	
@@ -783,6 +792,8 @@ public:
 	Surface &SelNodes(Vector<int> &_selNodes) 	{selNodes = pick(_selNodes);	return *this;}
 	const Vector<int> &GetSelPanels() const		{return selPanels;}
 	const Vector<int> &GetSelNodes() const		{return selNodes;}
+	Surface &AddSelPanel(int id) 				{FindAdd(selPanels, id);		return *this;}
+	void ClearSelPanels() 						{selPanels.Clear();}
 	
 	void AddNode(const Point3D &p);
 	int FindNode(const Point3D &p);
@@ -807,20 +818,6 @@ public:
 	void SmoothLaplacian(double lambda, int iterations, int w);
 	void SmoothTaubin(double lambda, double mu, int iterations, int w);
 	
-	enum SurfaceShowMesh {SHOW_MESH, SHOW_VISIBLE_MESH, SHOW_FACES, SHOW_MESH_FACES, UNKNOWN};
-	enum SurfaceShowColor {SHOW_DARKER, SHOW_BRIGHTER, SHOW_FLAT};
-	
-	Image GetImage(double scale, int width, int height, Color color, Color back, const Point3D &lightDir, 
-				   int dx, int dy, double ax, double ay, double az, double _c_x, double _c_y, double _c_z,
-				   bool painter, SurfaceShowMesh toShowMesh, SurfaceShowColor toShowColor) const;
-	void Render(Surface &mesh, Vector<Color> &colors, Color color, const Point3D &lightDir, double ax, double ay, double az, double cx, double cy, double cz, SurfaceShowColor toShowColor) const;
-	void RenderObject(Surface &surf, Vector<Color> &colors, Color color, const Point3D &lightDir, 
-			   double ax, double ay, double az, double _c_x, double _c_y, double _c_z, SurfaceShowColor toShowColor) const;
-	void GetRenderDimensions(double &minX, double &maxX, double &minY, double &maxY) const;
-	template <class T>
-	static void Paint(T& w, Surface &mesh, Vector<Color> &colors, double scale, int width, int height, Color back, const Point3D &lightDir, 
-			   int dx, int dy, bool painter, SurfaceShowMesh toShowMesh);
-			   
 	void Jsonize(JsonIO &json) {
 		json
 			("nodes", nodes)
@@ -866,6 +863,7 @@ private:
 	void SmoothImplicitLaplacian(double lambda, const Vector<bool> &boundaryNodes);
 	
 	Vector<int> selPanels, selNodes;
+	int magic = 1234567890;
 };
 
 class SurfaceMass  {
@@ -946,58 +944,6 @@ void Rotate(Range &r, double ax, double ay, double az, double cx, double cy, dou
 		p.Rotate(ax, ay, az, cx, cy, cz);
 }
 
-template <class T>
-void Surface::Paint(T& w, Surface &mesh, Vector<Color> &colors, double scale, int width, int height, Color back, const Point3D &lightDir, int dx, int dy,
-	bool painter, SurfaceShowMesh toShowMesh) {
-	dx += width/2;
-	dy = height/2 - dy;
-	
-	if (painter) {
-		DrawPainter im(w, Size(width, height));
-		
-		im.LineCap(LINECAP_SQUARE);
-		im.LineJoin(LINEJOIN_MITER);
-		
-		for (int i = 0; i < mesh.panels.size(); ++i) {
-			const Panel &p = mesh.panels[i];
-			const Point3D &n0 = mesh.nodes[p.id[0]];
-			const Point3D &n1 = mesh.nodes[p.id[1]];
-			const Point3D &n2 = mesh.nodes[p.id[2]];
-			im.Move(n0.x*scale + dx, n0.y*scale + dy).Line(n1.x*scale + dx, n1.y*scale + dy)
-			  .Move(n1.x*scale + dx, n1.y*scale + dy).Line(n2.x*scale + dx, n2.y*scale + dy);
-			if (p.IsTriangle()) 
-			  im.Move(n2.x*scale + dx, n2.y*scale + dy).Line(n0.x*scale + dx, n0.y*scale + dy);
-			else {
-				const Point3D &n3 = mesh.nodes[p.id[3]];
-				im.Move(n2.x*scale + dx, n2.y*scale + dy).Line(n3.x*scale + dx, n3.y*scale + dy)
-			  	  .Move(n3.x*scale + dx, n3.y*scale + dy).Line(n0.x*scale + dx, n0.y*scale + dy);
-			}
-			im.Stroke(1, colors[i]).Fill(colors[i]);
-		}
-	} else {
-		for (int i = 0; i < mesh.panels.size(); ++i) {
-			const Panel &p = mesh.panels[i];
-			const Point3D &n0 = mesh.nodes[p.id[0]];
-			const Point3D &n1 = mesh.nodes[p.id[1]];
-			const Point3D &n2 = mesh.nodes[p.id[2]];
-			Vector<Point> pi;
-			pi << Point(n0.x*scale + dx, n0.y*scale + dy) << Point(n1.x*scale + dx, n1.y*scale + dy) << Point(n2.x*scale + dx, n2.y*scale + dy);
-			if (!p.IsTriangle()) {
-				const Point3D &n3 = mesh.nodes[p.id[3]];
-				pi << Point(n3.x*scale + dx, n3.y*scale + dy);
-			}
-			if (toShowMesh == SHOW_MESH)
-				w.DrawPolyline(pi, 1, colors[i]);	
-			else if (toShowMesh == SHOW_VISIBLE_MESH)
-				w.DrawPolygon(pi, back, 1, colors[i]);	
-			else if (toShowMesh == SHOW_FACES)
-				w.DrawPolygon(pi, colors[i]);	
-			else if (toShowMesh == SHOW_MESH_FACES)
-				w.DrawPolygon(pi, colors[i], 1, Black());
-		}
-	}       
-}
-
 	
 void LoadStl(String fileName, Surface &surf, bool &isText, String &header);
 void LoadStl(String fileName, Surface &surf);
@@ -1015,6 +961,30 @@ void LoadOBJ(String fileName, Surface &surf);
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
 ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt);
+
+bool IsClockwise(const UVector<Pointf> &p);
+	
+template<typename T>
+auto cross(const Point_<T>& a, const Point_<T>& b, const Point_<T>& c) {
+    return (b.x - a.x)*(c.y - a.y) - (b.y - a.y)*(c.x - a.x);
+}
+
+template<typename T>
+bool ContainsPoint(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, const Point_<T> &p) {
+    auto cross1 = cross(a, b, p);
+    auto cross2 = cross(b, c, p);
+    auto cross3 = cross(c, a, p);
+
+    bool has_neg = (cross1 < 0) || (cross2 < 0) || (cross3 < 0);
+    bool has_pos = (cross1 > 0) || (cross2 > 0) || (cross3 > 0);
+
+    return !(has_neg && has_pos); 
+}
+
+template<typename T>
+bool ContainsPoint(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, const Point_<T> &d, const Point_<T> &p) {
+    return ContainsPoint(a, b, c, p) || ContainsPoint(a, c, d, p);
+}
 
 Point3D Centroid(const UVector<Point3D> &p);
 double Area(const UVector<Point3D> &p);
@@ -1039,7 +1009,196 @@ Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound);
 
 bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy);
 
-  
+class ItemView : public Moveable<ItemView> {
+public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+	
+	int id[4];
+	unsigned numIds;
+	Point3D centroid;
+	Point3D normal;
+	Color color, meshColor;
+	double thickness;
+	int idBody = -1;
+	int idSubBody = -1;
+	
+	ItemView() {}
+	ItemView(const ItemView &orig, int) {
+		memcpy(id, orig.id, sizeof(orig.id));
+		numIds = orig.numIds;
+		centroid = orig.centroid;
+		normal = orig.normal;
+		color = orig.color;
+		meshColor = orig.meshColor;
+		thickness = orig.thickness;
+	}
+
+	void Jsonize(JsonIO &json) {
+		Vector<int> ids;
+		if (json.IsStoring()) {
+			ids << id[0];
+			ids << id[1];
+			ids << id[2];
+			ids << id[3];	
+		}
+		json
+			("ids", ids)
+		;
+		if (json.IsLoading()) {
+			id[0] = ids[0];
+			id[1] = ids[1];
+			id[2] = ids[2];
+			id[3] = ids[3];
+		}
+	}
+};
+
+class SurfaceView {
+public:
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+	
+	enum ShowMesh  {SHOW_MESH, SHOW_VISIBLE_MESH, SHOW_FACES, SHOW_MESH_FACES, UNKNOWN};
+	enum ShowColor {SHOW_DARKER, SHOW_BRIGHTER, SHOW_FLAT};
+	
+	void Clear();
+
+	SurfaceView &PaintSurface(Surface &mesh, Color color, Color meshColor, double thick, int idBody = -1, bool showNormals = false, double normalLen = -1);
+	SurfaceView &PaintLine(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double thick, double lenDelta = -20);
+	SurfaceView &PaintLine(const Point3D &p0, const Point3D &p1, const Color &color, double thick, double lenDelta = -20);
+	SurfaceView &PaintLine(const Segment3D &p, const Color &color, double thick, double lenDelta = -20);
+	SurfaceView &PaintLines(const Vector<Point3D>& lines, const Color &color);
+	SurfaceView &PaintMesh(const Point3D &p0, const Point3D &p1, const Point3D &p2, const Point3D &p3, const Color &linCol);
+	SurfaceView &PaintSegments(const Vector<Segment3D>& segs, const Color &color);
+	SurfaceView &PaintSegments(const Surface &surf, const Color &linCol);
+	SurfaceView &PaintCuboid(const Point3D &p0, const Point3D &p1, const Color &color);	
+	SurfaceView &PaintAxis(double x, double y, double z, double len);
+	SurfaceView &PaintAxis(const Point3D &p, double len);
+	SurfaceView &PaintDoubleAxis(double x, double y, double z, double len, const Color &color);
+	SurfaceView &PaintDoubleAxis(const Point3D &p, double len, const Color &color);
+	SurfaceView &PaintCube(const Point3D &p, double side, const Color &color);
+	SurfaceView &PaintCube(double x, double y, double z, double side, const Color &color);
+	SurfaceView &PaintArrow(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double lenDelta = -1); 
+	SurfaceView &PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
+	SurfaceView &PaintArrow2(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
+		
+	Image GetImage(Size sz, double scale, double dx, double dy, const Affine3d &rot);
+	
+	bool GetEnvelope2D();
+	VolumeEnvelope env2D;
+	
+	SurfaceView &SetLightDir(const Point3D &p)  {lightDir = clone(p).Normalize(); 	return *this;}
+	SurfaceView &SetLightColor(Color c)			{lightColor = c; 					return *this;}
+	SurfaceView &SetBackgroundColor(Color c)	{background = c; 					return *this;}
+	SurfaceView &SetLineThickness(int t)		{lineThickness = float(t);			return *this;}
+	
+	SurfaceView &SetShowMesh(ShowMesh s)		{showMesh = s; 						return *this;}
+	SurfaceView &SetShowColor(ShowColor s)		{showColor = s; 					return *this;}
+	
+	SurfaceView &SetPainter(bool b)				{painter = b; 						return *this;}
+
+	int GetNumItems()	{return items.size();}
+	int GetNumNodes()	{return nodes0.size();}
+	
+	void SelectPoint(Point p, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody);	
+
+protected:
+	//void Render(double ax, double ay, double az, double cx, double cy, double cz);
+	//void Render(const Value3D &rotation, const Point3D &centre);
+	void Render(const Affine3d &quat);
+	
+	template <class T>
+	void Paint(T& w, Size sz, double scale, double dx, double dy) const;
+	
+	const SurfaceView &ZoomToFit(Size sz, double &scale, Pointf &pos) const;
+	
+private:
+	Array<Vector3d> nodes0;		// Base data
+	Vector<ItemView> items;
+	Vector<int> order;
+	
+	Array<Vector3d> nodesRot;	// Rendered data (panels is sorted but internal values are not changed)
+	Vector<Color> colors;
+	
+	VectorMap<int, Surface *> surfs;
+	
+	Value3D lightDir = Value3D(0, 0, -1);
+	Color background, lightColor;
+	ShowMesh showMesh;
+	ShowColor showColor;
+	bool painter = false;
+	float lineThickness = 1;
+};
+
+template <class T>
+void SurfaceView::Paint(T& w, Size sz, double scl, double dx, double dy) const {
+	dx += sz.cx/2;
+	dy = sz.cy/2 - dy;
+	
+	if (painter) {
+		DrawPainter im(w, sz);
+		
+		im.LineCap(LINECAP_SQUARE);
+		im.LineJoin(LINEJOIN_MITER);
+		
+		im.DrawRect(sz, background);
+		for (int i = 0; i < items.size(); ++i) {
+			const ItemView &p = items[i];
+			
+			const Point3D &n0 = nodesRot[p.id[0]];
+			const Point3D &n1 = nodesRot[p.id[1]];
+			im.Move(n0.x*scl + dx, n0.y*scl + dy).Line(n1.x*scl + dx, n1.y*scl + dy);
+			if (p.numIds > 2) {
+				const Point3D &n2 = nodesRot[p.id[2]];
+				im.Line(n2.x*scl + dx, n2.y*scl + dy);
+				if (p.numIds == 3) 
+				  im.Line(n0.x*scl + dx, n0.y*scl + dy);
+				else {
+					const Point3D &n3 = nodesRot[p.id[3]];
+					im.Line(n3.x*scl + dx, n3.y*scl + dy).Line(n0.x*scl + dx, n0.y*scl + dy);
+				}
+			}
+			if (showMesh == SHOW_MESH || p.numIds == 2)
+				im.Stroke(p.thickness, p.meshColor);	
+			else if (showMesh == SHOW_VISIBLE_MESH)
+				im.Stroke(p.thickness, p.meshColor).Fill(background);
+			else if (showMesh == SHOW_FACES)
+				im.Stroke(p.thickness, colors[i]).Fill(colors[i]);
+			else if (showMesh == SHOW_MESH_FACES)
+				im.Stroke(p.thickness, p.meshColor).Fill(colors[i]);
+		}
+	} else {
+		w.DrawRect(sz, background);
+		
+		for (int io = 0; io < order.size(); ++io) {
+			int ip = order[io];
+			const ItemView &p = items[ip];
+			
+			if (p.numIds == 2) {
+				const Point3D &n0 = nodesRot[p.id[0]];
+				const Point3D &n1 = nodesRot[p.id[1]];
+				w.DrawLine(int(n0.x*scl + dx), int(n0.y*scl + dy), int(n1.x*scl + dx), int(n1.y*scl + dy), (int)p.thickness, p.meshColor);
+			} else {
+				Vector<Point> pi;
+				for (unsigned i = 0; i < p.numIds; ++i) {
+					const Point3D &n = nodesRot[p.id[i]];
+					pi << Point(int(n.x*scl + dx), int(n.y*scl + dy));
+				}
+				if (showMesh == SHOW_MESH) {
+					pi << pi[0];	// Close the figure
+					w.DrawPolyline(pi, (int)p.thickness, p.meshColor);	
+				} else if (showMesh == SHOW_VISIBLE_MESH) {
+					pi << pi[0];
+					w.DrawPolygon(pi, background, (int)p.thickness, p.meshColor);	
+				} else if (showMesh == SHOW_FACES)
+					w.DrawPolygon(pi, colors[ip]);	
+				else if (showMesh == SHOW_MESH_FACES)
+					w.DrawPolygon(pi, colors[ip], (int)p.thickness, p.meshColor);
+			} 
+		}
+	}       
+}	
+
+
 }
 	
 #endif
