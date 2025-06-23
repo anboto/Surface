@@ -79,7 +79,7 @@ struct SurfaceViewer : TopWindow {
 		surf.GetPanelParams();
 		surf.GetArea();
 		surf.GetEnvelope();
-		
+		view.SetRotationXYZ();
 		FullRefresh(true);
 		
 		return true;
@@ -106,6 +106,7 @@ struct SurfaceViewer : TopWindow {
 		panel.thickness.SetInc(1).Min(1) << [=]{FullRefresh(false);};	panel.thickness <<= 1;
 		
 		panel.opNormals << [=]{FullRefresh(false);};					panel.opNormals = false;
+		panel.opDeselect<< [=]{view.SetDeselectIfClickOut(panel.opDeselect); FullRefresh(false);};					panel.opDeselect = true;
 		
 		// RenderRefresh
 		panel.lightX 	<< [=]{RenderRefresh();};						panel.lightX = 0;
@@ -133,7 +134,7 @@ struct SurfaceViewer : TopWindow {
 		panel.fileSave.SelLoad(false);
 		
 		view.SetCanSelect();
-		view.WhenSelect << [=](int&, int&) {FullRefresh(false);};
+		view.WhenSelect << [=](int&, int&, bool) {FullRefresh(false);};
 		
 		Load();
 	}

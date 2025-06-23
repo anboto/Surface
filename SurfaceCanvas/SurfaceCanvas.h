@@ -20,6 +20,7 @@ public:
 	SurfaceCanvas &SetCentre(const Point3D &p);
 	SurfaceCanvas &SetRotation(const Affine3d &p){affine = p;			Render();	return *this;}
 	SurfaceCanvas &SetRotation(const Value3D &rot);
+	SurfaceCanvas &ScrollPosition(double rx, double ry);
 	
 	SurfaceCanvas &SetRotationX();
 	SurfaceCanvas &SetRotationY();
@@ -43,7 +44,7 @@ public:
 	Function <void()> WhenPaint;
 
 	SurfaceCanvas &SetCanSelect(bool v = true)	{canSelect = v;			return *this;}
-	Function <void(int&, int&)> WhenSelect;
+	Function <void(int&, int&, bool)> WhenSelect;
 
 	SurfaceCanvas &SetJPGQuality(int quality) 	{jpgQuality = quality; 	return *this;}
 	int GetJPGQuality() 				 		{return jpgQuality;}
@@ -63,7 +64,7 @@ private:
 	
 	void ContextMenu(Bar& bar);
 	
-	void SelectPoint(Point p);
+	void SelectPoint(Point p, bool select);
 	
 	template <class T>
 	void Ize(T& io) { 
@@ -80,7 +81,7 @@ private:
 	Vector<Value3D> contextX = {Value3D(M_PI/2, M_PI, M_PI/2), 	Value3D(M_PI/2, M_PI, -M_PI/2)};
 	Vector<Value3D> contextY = {Value3D(M_PI/2, M_PI, 0), 		Value3D(M_PI/2, M_PI, M_PI)};
 	Vector<Value3D> contextZ = {Value3D(0, 0, 0), 				Value3D(M_PI, 0, 0)};
-	Vector<Value3D> contextXYZ={Value3D(-M_PI/4, 0, M_PI/4), 	Value3D(-M_PI/4, M_PI, M_PI/4)};
+	Vector<Value3D> contextXYZ={Value3D(-M_PI/4, 0, M_PI/4), 	Value3D(-M_PI/4, 0, -M_PI/4), 	Value3D(-M_PI/4, 0, M_PI/4+M_PI), 	Value3D(-M_PI/4, 0, M_PI/4+M_PI/2)};
 	
 	double scale = 10;
 	Pointf pos;
@@ -91,6 +92,8 @@ private:
 	
 	int jpgQuality = 90;
 	String defaultFileName;
+	
+	int lastidBody = -1, lastidSubBody = -1;
 };
 
 

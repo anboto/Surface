@@ -52,9 +52,8 @@ void SurfaceView::Render(const Affine3d &quat) {
 	nodesRot.SetCount(nodes0.size());
 	std::atomic<int> ii(0);
 	CoDo([&] {
-		for(int in = ii++; in < nodes0.size(); in = ii++) {
+		for(int in = ii++; in < nodes0.size(); in = ii++)
 			nodesRot[in] = quat * nodes0[in];
-		}
 	});
 
 	colors.SetCount(items.size());
@@ -64,7 +63,9 @@ void SurfaceView::Render(const Affine3d &quat) {
 		for (int ip = ii++; ip < items.size(); ip = ii++) {		// Get the colours
 			ItemView &pv = items[ip];
 		
-			if (pv.numIds == 2) {
+			if (pv.overall)
+				pv.centroid = Point3D(0, 0, std::numeric_limits<double>::lowest());		// Over all
+			else if (pv.numIds == 2) {
 				const Point3D &p0 = nodesRot[pv.id[0]];
 				const Point3D &p1 = nodesRot[pv.id[1]];
 		
@@ -155,7 +156,7 @@ const SurfaceView &SurfaceView::ZoomToFit(Size sz, double &scale, Pointf &pos) c
 	return *this;
 }
 			
-void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody) {
+void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody, bool select) {
 	Pointf point;
 	
 	dx += sz.cx/2;
@@ -176,8 +177,12 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 				idBody = p.idBody;
 				idSubBody = p.idSubBody;
 				Surface *s = surfs.Get(idBody);
-				if (s->IsValid()) 
-					s->AddSelPanel(idSubBody);
+				if (s->IsValid()) {
+					if (select)
+						s->AddSelPanel(idSubBody);
+					else
+						s->RemoveSelPanel(idSubBody);
+				}
 				return;
 			}
 		} else if (p.numIds == 4) {
@@ -189,15 +194,21 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 				idBody = p.idBody;
 				idSubBody = p.idSubBody;
 				Surface *s = surfs.Get(idBody);
-				if (s->IsValid()) 
-					s->AddSelPanel(idSubBody);
+				if (s->IsValid()) {
+					if (select)
+						s->AddSelPanel(idSubBody);
+					else
+						s->RemoveSelPanel(idSubBody);
+				}
 				return;
 			}
 		}
 	}
-	for(int i = 0; i < surfs.size(); i++) {	// Clear all selected panels
-		if (surfs[i]->IsValid()) 
-			surfs[i]->ClearSelPanels();
+	if (deselectIfClickOutside) {
+		for(int i = 0; i < surfs.size(); i++) {	// Clear all selected panels
+			if (surfs[i]->IsValid()) 
+				surfs[i]->ClearSelPanels();
+		}
 	}
 	idBody = idSubBody = -1;
 }
@@ -271,18 +282,22 @@ SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshCol
 
 SurfaceView &SurfaceView::PaintLine(const Point3D &p0, const Point3D &p1, const Color &color, double thick, double lenDelta) {
 	double len = Distance(p0, p1);
-	int num;
-	if (lenDelta > 0)
-		num = int(len/lenDelta);
-	else
-		num = max(1, -int(lenDelta));
-	double dx = (p1.x - p0.x)/num;
-	double dy = (p1.y - p0.y)/num;
-	double dz = (p1.z - p0.z)/num;
 	Vector<Point3D> points;
-	for (int i = 0; i < num; ++i)
-		points << Point3D(p0.x + dx*i, p0.y + dy*i, p0.z + dz*i);
-	points << p1;
+	points << p0;
+	if (!IsNull(lenDelta)) {
+		int num;
+		if (lenDelta > 0)
+			num = int(len/lenDelta);
+		else
+			num = max(1, -int(lenDelta));
+		double dx = (p1.x - p0.x)/num;
+		double dy = (p1.y - p0.y)/num;
+		double dz = (p1.z - p0.z)/num;
+		for (int i = 1; i < num; ++i)
+			points << Point3D(p0.x + dx*i, p0.y + dy*i, p0.z + dz*i);
+		
+	}
+	points << p1;	
 
 	int nnodes = nodes0.size();
 	nodes0.SetCountR(nnodes + points.size());
@@ -298,6 +313,7 @@ SurfaceView &SurfaceView::PaintLine(const Point3D &p0, const Point3D &p1, const 
 		pv.id[1] = nnodes + ip+1;
 		pv.meshColor = color;
 		pv.thickness = thick;
+		pv.overall = IsNull(lenDelta);
 	}
 	return *this;
 }
@@ -313,9 +329,9 @@ SurfaceView &SurfaceView::PaintLine(const Segment3D &p, const Color &color, doub
 	return PaintLine(p.from, p.to, color, thick, lenDelta);
 }
 
-SurfaceView &SurfaceView::PaintSegments(const Vector<Segment3D>& segs, const Color &color) {
+SurfaceView &SurfaceView::PaintSegments(const Vector<Segment3D>& segs, const Color &color, double lenDelta) {
 	for (int i = 0; i < segs.size(); ++i) 
-		PaintLine(segs[i], color, lineThickness);
+		PaintLine(segs[i], color, lineThickness, lenDelta);
 	return *this;
 }
 
@@ -333,69 +349,69 @@ SurfaceView &SurfaceView::PaintMesh(const Point3D &p0, const Point3D &p1, const 
 	return *this;
 }
 
-SurfaceView &SurfaceView::PaintSegments(const Surface &surf, const Color &linCol) {
+SurfaceView &SurfaceView::PaintSegments(const Surface &surf, const Color &linCol, double lenDelta) {
 	for (int is = 0; is < surf.segments.size(); ++is) {
 		const LineSegment &seg = surf.segments[is];
 		
 		const Point3D &p0 = surf.nodes[seg.idNod0];
 		const Point3D &p1 = surf.nodes[seg.idNod1];
-		PaintLine(p0, p1, linCol, lineThickness);
+		PaintLine(p0, p1, linCol, lineThickness, lenDelta);
 	}
 	return *this;
 }
 
-SurfaceView &SurfaceView::PaintCuboid(const Point3D &p0, const Point3D &p1, const Color &color) {
-	PaintLine(p0.x, p0.y, p0.z, p0.x, p0.y, p1.z, color, lineThickness);
-	PaintLine(p0.x, p0.y, p1.z, p0.x, p1.y, p1.z, color, lineThickness);
-	PaintLine(p0.x, p1.y, p1.z, p0.x, p1.y, p0.z, color, lineThickness);
-	PaintLine(p0.x, p1.y, p0.z, p0.x, p0.y, p0.z, color, lineThickness);
+SurfaceView &SurfaceView::PaintCuboid(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta) {
+	PaintLine(p0.x, p0.y, p0.z, p0.x, p0.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p0.x, p0.y, p1.z, p0.x, p1.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p0.x, p1.y, p1.z, p0.x, p1.y, p0.z, color, lineThickness, lenDelta);
+	PaintLine(p0.x, p1.y, p0.z, p0.x, p0.y, p0.z, color, lineThickness, lenDelta);
 	
-	PaintLine(p0.x, p0.y, p0.z, p1.x, p0.y, p0.z, color, lineThickness);
-	PaintLine(p1.x, p0.y, p0.z, p1.x, p0.y, p1.z, color, lineThickness);
-	PaintLine(p1.x, p0.y, p1.z, p1.x, p1.y, p1.z, color, lineThickness);
-	PaintLine(p1.x, p1.y, p1.z, p1.x, p1.y, p0.z, color, lineThickness);
+	PaintLine(p0.x, p0.y, p0.z, p1.x, p0.y, p0.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p0.y, p0.z, p1.x, p0.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p0.y, p1.z, p1.x, p1.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p1.y, p1.z, p1.x, p1.y, p0.z, color, lineThickness, lenDelta);
 	
-	PaintLine(p1.x, p1.y, p0.z, p1.x, p0.y, p0.z, color, lineThickness);
-	PaintLine(p1.x, p0.y, p0.z, p1.x, p0.y, p1.z, color, lineThickness);
-	PaintLine(p1.x, p0.y, p1.z, p0.x, p0.y, p1.z, color, lineThickness);
-	PaintLine(p0.x, p0.y, p1.z, p0.x, p1.y, p1.z, color, lineThickness);
+	PaintLine(p1.x, p1.y, p0.z, p1.x, p0.y, p0.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p0.y, p0.z, p1.x, p0.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p0.y, p1.z, p0.x, p0.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p0.x, p0.y, p1.z, p0.x, p1.y, p1.z, color, lineThickness, lenDelta);
 	
-	PaintLine(p0.x, p1.y, p1.z, p1.x, p1.y, p1.z, color, lineThickness);
-	PaintLine(p1.x, p1.y, p1.z, p1.x, p1.y, p0.z, color, lineThickness);
-	PaintLine(p1.x, p1.y, p0.z, p0.x, p1.y, p0.z, color, lineThickness);
-	PaintLine(p0.x, p1.y, p0.z, p0.x, p0.y, p0.z, color, lineThickness);
+	PaintLine(p0.x, p1.y, p1.z, p1.x, p1.y, p1.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p1.y, p1.z, p1.x, p1.y, p0.z, color, lineThickness, lenDelta);
+	PaintLine(p1.x, p1.y, p0.z, p0.x, p1.y, p0.z, color, lineThickness, lenDelta);
+	PaintLine(p0.x, p1.y, p0.z, p0.x, p0.y, p0.z, color, lineThickness, lenDelta);
 		
 	return *this;
 }
 
-SurfaceView &SurfaceView::PaintAxis(const Point3D &p, double len) {
-	return PaintAxis(p.x, p.y, p.z, len);
+SurfaceView &SurfaceView::PaintAxis(const Point3D &p, double len, double lenDelta) {
+	return PaintAxis(p.x, p.y, p.z, len, lenDelta);
 }
 
-SurfaceView &SurfaceView::PaintAxis(double x, double y, double z, double len) {
-	PaintArrow(x, y, z, x+len, y	 , z,     LtRed());
-	PaintArrow(x, y, z, x	 , y+len , z,     LtGreen());
-	PaintArrow(x, y, z, x	 , y	 , z+len, LtBlue());
+SurfaceView &SurfaceView::PaintAxis(double x, double y, double z, double len, double lenDelta) {
+	PaintArrow(x, y, z, x+len, y	 , z,     LtRed(),   lenDelta);
+	PaintArrow(x, y, z, x	 , y+len , z,     LtGreen(), lenDelta);
+	PaintArrow(x, y, z, x	 , y	 , z+len, LtBlue(),  lenDelta);
 	return *this;
 }
 
-SurfaceView &SurfaceView::PaintDoubleAxis(const Point3D &p, double len, const Color &color) {
-	return PaintDoubleAxis(p.x, p.y, p.z, len, color);
+SurfaceView &SurfaceView::PaintDoubleAxis(const Point3D &p, double len, const Color &color, double lenDelta) {
+	return PaintDoubleAxis(p.x, p.y, p.z, len, color, lenDelta);
 }
 
-SurfaceView &SurfaceView::PaintDoubleAxis(double x, double y, double z, double len, const Color &color) {
-	PaintLine(x-len/2, y	  , z	   , x+len/2, y	     , z	  , color, lineThickness);
-	PaintLine(x		 , y-len/2, z	   , x		, y+len/2, z	  , color, lineThickness);
-	PaintLine(x		 , y	  , z-len/2, x		, y	     , z+len/2, color, lineThickness);
+SurfaceView &SurfaceView::PaintDoubleAxis(double x, double y, double z, double len, const Color &color, double lenDelta) {
+	PaintLine(x-len/2, y	  , z	   , x+len/2, y	     , z	  , color, lineThickness, lenDelta);
+	PaintLine(x		 , y-len/2, z	   , x		, y+len/2, z	  , color, lineThickness, lenDelta);
+	PaintLine(x		 , y	  , z-len/2, x		, y	     , z+len/2, color, lineThickness, lenDelta);
 	return *this;
 }
 
-SurfaceView &SurfaceView::PaintCube(const Point3D &p, double side, const Color &color) {
-	return PaintCube(p.x, p.y, p.z, side, color);
+SurfaceView &SurfaceView::PaintCube(const Point3D &p, double side, const Color &color, double lenDelta) {
+	return PaintCube(p.x, p.y, p.z, side, color, lenDelta);
 }
 
-SurfaceView &SurfaceView::PaintCube(double x, double y, double z, double side, const Color &color) {
-	return PaintCuboid(Point3D(x-side/2., y-side/2., z-side/2.), Point3D(x+side/2., y+side/2., z+side/2.), color);
+SurfaceView &SurfaceView::PaintCube(double x, double y, double z, double side, const Color &color, double lenDelta) {
+	return PaintCuboid(Point3D(x-side/2., y-side/2., z-side/2.), Point3D(x+side/2., y+side/2., z+side/2.), color, lenDelta);
 }
 
 SurfaceView &SurfaceView::PaintArrow(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double lenDelta) {
@@ -415,9 +431,9 @@ SurfaceView &SurfaceView::PaintArrow(const Point3D &p0, const Point3D &p1, const
 	Point3D parr2(pointTri.x - 0.1*len*sin(nangle), pointTri.y - 0.1*len*cos(nangle), pointTri.z); 
 	
 	PaintLine(p0,   pointTri, color, lineThickness, lenDelta);
-	PaintLine(p1,   parr1, 	  color, lineThickness, lenDelta*0.1);
-	PaintLine(p1,   parr2,    color, lineThickness, lenDelta*0.1);
-	PaintLine(parr1,parr2,    color, lineThickness, lenDelta*0.1);
+	PaintLine(p1,   parr1, 	  color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+	PaintLine(p1,   parr2,    color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+	PaintLine(parr1,parr2,    color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
 	
 	return *this;
 }

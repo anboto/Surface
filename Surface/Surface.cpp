@@ -287,6 +287,13 @@ int Surface::RemoveDuplicatedPanels(Vector<Panel> &_panels) {
 	return num;
 }
 
+void Surface::RemovePanels2(const Vector<int> &_ids) {
+	Vector<int> ids = clone(_ids);
+	Sort(ids);
+	for (int i = ids.size()-1; i >= 0; --i)
+		panels.Remove(ids[i]);
+}
+
 int Surface::RemoveTinyPanels(Vector<Panel> &_panels) {		
 	int num = 0;
 	double avgsurface = 0;
@@ -2510,24 +2517,24 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 				pans[n].data[0].y = 0;
 				pans[n].data[0].z = points[i].y;
 
-				pans[n].data[1].x = points[i+1].x*cos((2*M_PI*j)/numSlices);	
-				pans[n].data[1].y = points[i+1].x*sin((2*M_PI*j)/numSlices);
+				pans[n].data[1].x = points[i+1].x*cos(-(2*M_PI*j)/numSlices);	
+				pans[n].data[1].y = points[i+1].x*sin(-(2*M_PI*j)/numSlices);
 				pans[n].data[1].z = points[i+1].y;
 	
-				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos((2*M_PI*(j+1))/numSlices);	
-				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin((2*M_PI*(j+1))/numSlices);
+				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos(-(2*M_PI*(j+1))/numSlices);	
+				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin(-(2*M_PI*(j+1))/numSlices);
 				pans[n].data[2].z = pans[n].data[3].z = points[i+1].y;
 				
 				n++;
 			}
 		} else if (points[i+1].x == 0) {
 			for (int j = 0; j < numSlices; j++) {
-				pans[n].data[0].x = points[i].x*cos((2*M_PI*j)/numSlices);	
-				pans[n].data[0].y = points[i].x*sin((2*M_PI*j)/numSlices);
+				pans[n].data[0].x = points[i].x*cos(-(2*M_PI*j)/numSlices);	
+				pans[n].data[0].y = points[i].x*sin(-(2*M_PI*j)/numSlices);
 				pans[n].data[0].z = points[i].y;
 	
-				pans[n].data[1].x = points[i].x*cos((2*M_PI*(j+1))/numSlices);	
-				pans[n].data[1].y = points[i].x*sin((2*M_PI*(j+1))/numSlices);
+				pans[n].data[1].x = points[i].x*cos(-(2*M_PI*(j+1))/numSlices);	
+				pans[n].data[1].y = points[i].x*sin(-(2*M_PI*(j+1))/numSlices);
 				pans[n].data[1].z = points[i].y;
 											
 				pans[n].data[2].x = pans[n].data[3].x = 0;	
@@ -2538,20 +2545,20 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 			}
 		} else {
 			for (int j = 0; j < numSlices; ++j) {
-				pans[n].data[0].x = points[i].x*cos((2*M_PI*j)/numSlices);	
-				pans[n].data[0].y = points[i].x*sin((2*M_PI*j)/numSlices);
+				pans[n].data[0].x = points[i].x*cos(-(2*M_PI*j)/numSlices);	
+				pans[n].data[0].y = points[i].x*sin(-(2*M_PI*j)/numSlices);
 				pans[n].data[0].z = points[i].y;
 				
-				pans[n].data[1].x = points[i].x*cos((2*M_PI*(j+1))/numSlices);	
-				pans[n].data[1].y = points[i].x*sin((2*M_PI*(j+1))/numSlices);
+				pans[n].data[1].x = points[i].x*cos(-(2*M_PI*(j+1))/numSlices);	
+				pans[n].data[1].y = points[i].x*sin(-(2*M_PI*(j+1))/numSlices);
 				pans[n].data[1].z = points[i].y;
 	
-				pans[n].data[2].x = points[i+1].x*cos((2*M_PI*(j+1))/numSlices);	
-				pans[n].data[2].y = points[i+1].x*sin((2*M_PI*(j+1))/numSlices);
+				pans[n].data[2].x = points[i+1].x*cos(-(2*M_PI*(j+1))/numSlices);	
+				pans[n].data[2].y = points[i+1].x*sin(-(2*M_PI*(j+1))/numSlices);
 				pans[n].data[2].z = points[i+1].y;
 	
-				pans[n].data[3].x = points[i+1].x*cos((2*M_PI*j)/numSlices);	
-				pans[n].data[3].y = points[i+1].x*sin((2*M_PI*j)/numSlices);
+				pans[n].data[3].x = points[i+1].x*cos(-(2*M_PI*j)/numSlices);	
+				pans[n].data[3].y = points[i+1].x*sin(-(2*M_PI*j)/numSlices);
 				pans[n].data[3].z = points[i+1].y;
 				
 				n++;
@@ -2562,6 +2569,19 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 	SetPanelPoints(pans);
 }
 
+void Surface::AddPanels(const Surface &from, UVector<int> &panelIds) {
+	panels.SetCount(panelIds.size());
+	for (int i = 0; i < panels.size(); ++i) {
+		const Panel &panelFrom = from.panels[panelIds[i]];
+		Panel &panelTo = panels[i];
+		panelTo = clone(panelFrom);
+		for (int in = 0; in < 4; ++in) {
+			const Point3D &p = from.nodes[panelFrom.id[in]];
+			panelTo.id[in] = FindAdd(nodes, p);
+		}
+	}
+}
+	
 void Surface::SetPanelPoints(const Array<PanelPoints> &pans) {
 	for (const PanelPoints &pan : pans) {
 		for (auto &data : pan.data) {

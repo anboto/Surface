@@ -793,7 +793,15 @@ public:
 	const Vector<int> &GetSelPanels() const		{return selPanels;}
 	const Vector<int> &GetSelNodes() const		{return selNodes;}
 	Surface &AddSelPanel(int id) 				{FindAdd(selPanels, id);		return *this;}
+	Surface &RemoveSelPanel(int id) {
+		int idfind = Find(selPanels, id);
+		if (idfind >= 0) 
+			selPanels.Remove(idfind);
+		return *this;
+	}
 	void ClearSelPanels() 						{selPanels.Clear();}
+	
+	void RemovePanels2(const UVector<int> &panels);
 	
 	void AddNode(const Point3D &p);
 	int FindNode(const Point3D &p);
@@ -802,6 +810,7 @@ public:
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize, bool quads);
 	void Extrude(double dx, double dy, double dz, bool close);
+	void AddPanels(const Surface &from, UVector<int> &panelIds);
 		
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
@@ -1021,6 +1030,7 @@ public:
 	double thickness;
 	int idBody = -1;
 	int idSubBody = -1;
+	bool overall = false;
 	
 	ItemView() {}
 	ItemView(const ItemView &orig, int) {
@@ -1031,6 +1041,7 @@ public:
 		color = orig.color;
 		meshColor = orig.meshColor;
 		thickness = orig.thickness;
+		overall = orig.overall;
 	}
 
 	void Jsonize(JsonIO &json) {
@@ -1068,15 +1079,15 @@ public:
 	SurfaceView &PaintLine(const Segment3D &p, const Color &color, double thick, double lenDelta = -20);
 	SurfaceView &PaintLines(const Vector<Point3D>& lines, const Color &color);
 	SurfaceView &PaintMesh(const Point3D &p0, const Point3D &p1, const Point3D &p2, const Point3D &p3, const Color &linCol);
-	SurfaceView &PaintSegments(const Vector<Segment3D>& segs, const Color &color);
-	SurfaceView &PaintSegments(const Surface &surf, const Color &linCol);
-	SurfaceView &PaintCuboid(const Point3D &p0, const Point3D &p1, const Color &color);	
-	SurfaceView &PaintAxis(double x, double y, double z, double len);
-	SurfaceView &PaintAxis(const Point3D &p, double len);
-	SurfaceView &PaintDoubleAxis(double x, double y, double z, double len, const Color &color);
-	SurfaceView &PaintDoubleAxis(const Point3D &p, double len, const Color &color);
-	SurfaceView &PaintCube(const Point3D &p, double side, const Color &color);
-	SurfaceView &PaintCube(double x, double y, double z, double side, const Color &color);
+	SurfaceView &PaintSegments(const Vector<Segment3D>& segs, const Color &color, double lenDelta = -1);
+	SurfaceView &PaintSegments(const Surface &surf, const Color &linCol, double lenDelta = -1);
+	SurfaceView &PaintCuboid(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);	
+	SurfaceView &PaintAxis(double x, double y, double z, double len, double lenDelta = -1);
+	SurfaceView &PaintAxis(const Point3D &p, double len, double lenDelta = -1);
+	SurfaceView &PaintDoubleAxis(double x, double y, double z, double len, const Color &color, double lenDelta = -1);
+	SurfaceView &PaintDoubleAxis(const Point3D &p, double len, const Color &color, double lenDelta = -1);
+	SurfaceView &PaintCube(const Point3D &p, double side, const Color &color, double lenDelta = -1);
+	SurfaceView &PaintCube(double x, double y, double z, double side, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintArrow(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double lenDelta = -1); 
 	SurfaceView &PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintArrow2(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
@@ -1094,12 +1105,14 @@ public:
 	SurfaceView &SetShowMesh(ShowMesh s)		{showMesh = s; 						return *this;}
 	SurfaceView &SetShowColor(ShowColor s)		{showColor = s; 					return *this;}
 	
+	SurfaceView &SetDeselectIfClickOut(bool b = true){deselectIfClickOutside = b;	return *this;}
+	
 	SurfaceView &SetPainter(bool b)				{painter = b; 						return *this;}
 
 	int GetNumItems()	{return items.size();}
 	int GetNumNodes()	{return nodes0.size();}
 	
-	void SelectPoint(Point p, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody);	
+	void SelectPoint(Point p, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody, bool select);	
 
 protected:
 	//void Render(double ax, double ay, double az, double cx, double cy, double cz);
@@ -1127,6 +1140,7 @@ private:
 	ShowColor showColor;
 	bool painter = false;
 	float lineThickness = 1;
+	bool deselectIfClickOutside = true;
 };
 
 template <class T>

@@ -38,6 +38,14 @@ void SurfaceCanvas::Paint(Draw &w) {
 	WhenPaint();
 }
 
+SurfaceCanvas &SurfaceCanvas::ScrollPosition(double rx, double ry) {
+	Size sz = GetSize();
+	pos.x += sz.cx*rx;
+	pos.y += sz.cy*ry;
+	Refresh();
+	return *this;	
+}
+
 void SurfaceCanvas::SaveToFile(String fileName) {
 	GuiLock __;
 	
@@ -141,14 +149,19 @@ Image SurfaceCanvas::MouseEvent(int event, Point p, int zdelta, dword keyflags) 
 		SetFocus();
 		if (canSelect && keyflags & K_CTRL) {
 			selecting = true;
-			SelectPoint(p);
+			SelectPoint(p, true);
+		} else if (canSelect && keyflags & K_SHIFT) {
+			selecting = true;
+			SelectPoint(p, false);
 		} else {
 			rotating = true;
 			begin = clone(p);
 		}
 	} else if((event & Ctrl::ACTION) == Ctrl::MOUSEMOVE) {
 		if (canSelect && selecting && keyflags & K_CTRL)
-			SelectPoint(p);
+			SelectPoint(p, true);
+		else if (canSelect && selecting && keyflags & K_SHIFT)
+			SelectPoint(p, false);
 		else if (begin != p) {
 			if (translating) {
 				Pointf ps = GetPosition();
@@ -171,9 +184,13 @@ Image SurfaceCanvas::MouseEvent(int event, Point p, int zdelta, dword keyflags) 
 }
 
 void SurfaceCanvas::ContextMenu(Bar& bar) {
-	bar.Add(t_("Fit to data"), SurfaceCanvasImg::ShapeHandles(), [&]{ZoomToFit();}).Key(K_CTRL_F).Help(t_("Zoom to fit visible all data"));
-	bar.Add(t_("Zoom +"), 	   SurfaceCanvasImg::ZoomPlus(),  	 [&]{SetScale(GetScale()*1.1);})  .Key(K_CTRL|K_ADD).Help(t_("Zoom in (closer)"));
-	bar.Add(t_("Zoom -"), 	   SurfaceCanvasImg::ZoomMinus(), 	 [&]{SetScale(GetScale()*0.9);})  .Key(K_CTRL|K_SUBTRACT).Help(t_("Zoom out (away)"));									
+	bar.Add(t_("Fit to data"), SurfaceCanvasImg::ShapeHandles(), [&]{ZoomToFit();})				.Key(K_CTRL_F).Help(t_("Zoom to fit visible all data"));
+	bar.Add(t_("Zoom +"), 	   SurfaceCanvasImg::ZoomPlus(),  	 [&]{SetScale(GetScale()*1.1);}).Key(K_ADD).Help(t_("Zoom in (closer)"));
+	bar.Add(t_("Zoom -"), 	   SurfaceCanvasImg::ZoomMinus(), 	 [&]{SetScale(GetScale()*0.9);}).Key(K_SUBTRACT).Help(t_("Zoom out (away)"));
+	bar.Add(t_("Scroll right"),SurfaceCanvasImg::RightArrow(), 	 [&]{ScrollPosition(-.05, 0);}) .Key(K_RIGHT).Help(t_("Scroll right"));
+	bar.Add(t_("Scroll left"), SurfaceCanvasImg::LeftArrow(), 	 [&]{ScrollPosition(.05,  0);}) .Key(K_LEFT).Help(t_("Scroll left"));
+	bar.Add(t_("Scroll up"),   SurfaceCanvasImg::UpArrow(), 	 [&]{ScrollPosition(0, -.05);}) .Key(K_UP).Help(t_("Scroll up"));
+	bar.Add(t_("Scroll down"), SurfaceCanvasImg::DownArrow(), 	 [&]{ScrollPosition(0, .05);})  .Key(K_DOWN).Help(t_("Scroll down"));
 	bar.Add(t_("View X axis"), 			[&]{SetRotationX();});
 	bar.Add(t_("View Y axis"), 			[&]{SetRotationY();});
 	bar.Add(t_("View Z axis"), 			[&]{SetRotationZ();});
@@ -186,10 +203,18 @@ void SurfaceCanvas::ContextMenu(Bar& bar) {
 bool SurfaceCanvas::Key(dword key, int ) {
 	if (key == K_CTRL_F)
 		ZoomToFit();
-	else if (key == K_CTRL_ADD || key == (K_CTRL|K_PLUS))
+	else if (key == K_ADD || key == K_PLUS)
 		SetScale(GetScale()*1.1);
-	else if (key == K_CTRL_SUBTRACT || key == (K_CTRL|K_MINUS))
+	else if (key == K_SUBTRACT || key == K_MINUS)
 		SetScale(GetScale()*0.9);
+	else if (key == K_LEFT)
+		ScrollPosition(.05,  0);
+	else if (key == K_RIGHT)
+		ScrollPosition(-.05,  0);
+	else if (key == K_UP)
+		ScrollPosition(0, -.05);
+	else if (key == K_DOWN)
+		ScrollPosition(0, .05);
 	else if (key == K_CTRL_C)
 		SaveToClipboard();
 	else if (key == K_CTRL_S)
@@ -244,11 +269,15 @@ SurfaceCanvas &SurfaceCanvas::SetRotationXYZ() {
 	return ZoomToFit();
 }
 
-void SurfaceCanvas::SelectPoint(Point p) {
+void SurfaceCanvas::SelectPoint(Point p, bool select) {
 	int idBody, idSubBody;
-	SurfaceView::SelectPoint(p, GetSize(), scale, pos.x, pos.y, idBody, idSubBody);
-	WhenSelect(idBody, idSubBody);
-	Render();
+	SurfaceView::SelectPoint(p, GetSize(), scale, pos.x, pos.y, idBody, idSubBody, select);
+	if (lastidBody < 0 || lastidSubBody < 0 || lastidBody != idBody || lastidSubBody != idSubBody) {
+		WhenSelect(idBody, idSubBody, select);
+		lastidBody = idBody;
+		lastidSubBody = idSubBody;
+		Render();	
+	}
 }
 
 }
