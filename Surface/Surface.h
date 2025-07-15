@@ -65,7 +65,7 @@ public:
 	void SetZero()				{x = y = z = 0;}
 	static Value3D Zero() 		{return Value3D(0, 0, 0);}
 	
-	static int size() 		{return 3;}
+	static int size() 			{return 3;}
 	
 	Value3D(bool positive)	{x = Null; y = positive ? 1 : -1;}
 	bool IsPosInf()			{return IsNull(x) && y == 1;}
@@ -223,10 +223,11 @@ public:
 	Value3D t, r;
 	
 	Value6D() {}
-	//Value6D(const Value6D &f)	{Set(f);}
-	Value6D(const VectorXd &v)	{Set(v);}
+	Value6D(const Value6D &f)		{Set(f);}
+	Value6D(const Value6D &f, int)	{Set(f);}
+	Value6D(const VectorXd &v)		{Set(v);}
 	template<typename T>
-	Value6D(const T *v)			{Set(v);}
+	Value6D(const T *v)				{Set(v);}
 	Value6D(double v0, double v1, double v2, double v3, double v4, double v5) {Set(v0, v1, v2, v3, v4, v5);}
 	Value6D(const Value3D &tr, const Value3D &ro) {t = tr; r = ro;}
 	
@@ -318,7 +319,7 @@ bool IsNum(const Value6D &v);
 
 class ForceVector;
 
-class Force6D : public Value6D {
+class Force6D : public Moveable<Force6D>, public Value6D {
 public:
 	Force6D() : Value6D() {}
 	Force6D(const VectorXd &v) : Value6D(v) {}
@@ -372,8 +373,9 @@ public:
 };
 
 // For dummies: https://dynref.engr.illinois.edu/rkg.html
-class Velocity6D : public Value6D {
+class Velocity6D : public Moveable<Velocity6D>, public Value6D {
 public:
+	Velocity6D() : Value6D() {}
 	template<typename T>
 	Velocity6D(const T *v) {Set(v);}
 	Velocity6D(const Value3D &tr, const Value3D &ro) {t = tr; r = ro;}
@@ -389,10 +391,12 @@ public:
 	Velocity6D(const Nuller&) 		{SetNull();}
 };
 
-class Acceleration6D : public Value6D {
+class Acceleration6D : public Moveable<Acceleration6D>, public Value6D {
 public:
+	Acceleration6D() : Value6D() {}
 	template<typename T>
 	Acceleration6D(const T *v) {Set(v);}
+	Acceleration6D(const Value3D &tr, const Value3D &ro) {t = tr; r = ro;}
 	
 	void Translate(const Point3D &from, const Point3D &to, const Velocity6D &vel) {
 		Vector3D rpq = to - from;
@@ -401,6 +405,8 @@ public:
 	void Translate(const Vector3D &rpq, const Velocity6D &vel) {
 		t += r%rpq + vel.r%(vel.r%rpq);
 	}
+	
+	Acceleration6D(const Nuller&) 		{SetNull();}
 };
 
 VectorXd C6ToVector(const double *c);
@@ -677,7 +683,7 @@ public:
 	bool IsEmpty() const;
 	
 	void LoadSerialization(String fileName);
-	void SaveSerialization(String fileName);
+	void SaveSerialization(String fileName) const;
 
 	Vector<Point3D> nodes;
 	Vector<Panel> panels;

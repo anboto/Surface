@@ -2481,7 +2481,7 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 		throw Exc(t_("Point number has to be higher than 2"));
 	
 	Vector<Pointf> points = clone(_points);
-	for (int i = points.GetCount()-2; i >= 0; --i) {
+	for (int i = points.size()-2; i >= 0; --i) {
 		double len = sqrt(sqr(points[i].x-points[i+1].x) + sqr(points[i].y-points[i+1].y)); 
 		int num = int(round(len/panelWidth));
 		if (num > 1) {
@@ -2496,11 +2496,11 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 		}
 	}
 
-	double maxx = 0;
+	double maxRadius = 0;
 	for (Pointf &p : points)
-		maxx = max(maxx, p.x);
+		maxRadius = max(maxRadius, p.x);
 	
-	int numSlices = int(round(2*M_PI*maxx/panelWidth));
+	int numSlices = int(round(2*M_PI*maxRadius/panelWidth));
 	if (Odd(numSlices))
 		numSlices++;
 	
@@ -2508,21 +2508,21 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 		throw Exc(t_("Panel width too large"));
 		
 	Array<PanelPoints> pans;
-	pans.SetCount(numSlices*(points.GetCount()-1));
+	pans.SetCount(numSlices*(points.size()-1));
 	int n = 0;
-	for (int i = 0; i < points.GetCount()-1; ++i) {
+	for (int i = 0; i < points.size()-1; ++i) {
 		if (points[i].x == 0) {
 			for (int j = 0; j < numSlices; j++) {
 				pans[n].data[0].x = 0;	
 				pans[n].data[0].y = 0;
 				pans[n].data[0].z = points[i].y;
 
-				pans[n].data[1].x = points[i+1].x*cos(-(2*M_PI*j)/numSlices);	
-				pans[n].data[1].y = points[i+1].x*sin(-(2*M_PI*j)/numSlices);
+				pans[n].data[1].x = points[i+1].x*cos(-(2*M_PI*(j+1))/numSlices);	
+				pans[n].data[1].y = points[i+1].x*sin(-(2*M_PI*(j+1))/numSlices);
 				pans[n].data[1].z = points[i+1].y;
 	
-				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos(-(2*M_PI*(j+1))/numSlices);	
-				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin(-(2*M_PI*(j+1))/numSlices);
+				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos(-(2*M_PI*j)/numSlices);	
+				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin(-(2*M_PI*j)/numSlices);
 				pans[n].data[2].z = pans[n].data[3].z = points[i+1].y;
 				
 				n++;
@@ -3717,7 +3717,7 @@ void Surface::LoadSerialization(String fileName) {
 		throw Exc(error);
 }
 
-void Surface::SaveSerialization(String fileName) {
+void Surface::SaveSerialization(String fileName) const {
 	if (!StoreAsJsonFile(*this, fileName, false))
 		throw Exc(Format(t_("Impossible to save file '%s'"), fileName));
 }

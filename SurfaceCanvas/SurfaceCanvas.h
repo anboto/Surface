@@ -13,6 +13,8 @@ public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	typedef SurfaceCanvas CLASSNAME;
 
+	SurfaceCanvas()	{SetRotation(Value3D(-M_PI/4, 0, M_PI/4));}		// Isometric
+	
 	SurfaceCanvas &ZoomToFit();
 		
 	SurfaceCanvas &SetScale(double s)			{scale = s;				Render();	return *this;}
@@ -85,7 +87,7 @@ private:
 	
 	double scale = 10;
 	Pointf pos;
-	Affine3d affine = Affine3d::Identity();
+	Affine3d affine;
 	Point3D centre = Point3D::Zero();
 	
 	bool canSelect = false;
