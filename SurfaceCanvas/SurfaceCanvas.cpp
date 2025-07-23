@@ -135,6 +135,7 @@ void SurfaceCanvas::SaveToClipboard() {
 }
 
 Image SurfaceCanvas::MouseEvent(int event, Point p, int zdelta, dword keyflags) {
+	bool nothingdone = false;
 	if (((event & Ctrl::BUTTON) == Ctrl::RIGHT) && ((event & Ctrl::ACTION) == Ctrl::UP)) {
 		Disable();		// If window has slow refresh
 		MenuBar::Execute(THISBACK(ContextMenu));
@@ -178,8 +179,11 @@ Image SurfaceCanvas::MouseEvent(int event, Point p, int zdelta, dword keyflags) 
 		}
 	} else if ((event & Ctrl::ACTION) == Ctrl::UP || (event & Ctrl::ACTION) == Ctrl::MOUSELEAVE) 
 		translating = rotating = selecting = false;
-		
-	Refresh();
+	else
+		nothingdone = true;
+	
+	if (!nothingdone)	
+		Refresh();
 	return Image::Hand();
 }
 

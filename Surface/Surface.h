@@ -1103,7 +1103,11 @@ public:
 	bool GetEnvelope2D();
 	VolumeEnvelope env2D;
 	
-	SurfaceView &SetLightDir(const Point3D &p)  {lightDir = clone(p).Normalize(); 	return *this;}
+	SurfaceView &SetLightDir(const Point3D &p)  {
+		if (!IsNull(p))
+			lightDir = clone(p).Normalize(); 
+		return *this;
+	}
 	SurfaceView &SetLightColor(Color c)			{lightColor = c; 					return *this;}
 	SurfaceView &SetBackgroundColor(Color c)	{background = c; 					return *this;}
 	SurfaceView &SetLineThickness(int t)		{lineThickness = float(t);			return *this;}
