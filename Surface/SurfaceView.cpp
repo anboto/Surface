@@ -38,15 +38,6 @@ Color BlendColor(const Color &object, const Color &light, int intensity) {
     
     return Color(r, g, b);
 }
-/*
-void SurfaceView::Render(const Value3D &rotation, const Point3D &centre) {
-	Render(rotation.x, rotation.y, rotation.z, centre.x, centre.y, centre.z);
-}
-
-void SurfaceView::Render(double ax, double ay, double az, double cx, double cy, double cz) {
-	Affine3d quat = GetTransformRotation(Value3D(ax, -(ay + M_PI), az + M_PI), Point3D(cx, cy, cz));
-	Render(quat);
-}*/
 
 void SurfaceView::Render(const Affine3d &quat) {
 	nodesRot.SetCount(nodes0.size());
@@ -60,11 +51,11 @@ void SurfaceView::Render(const Affine3d &quat) {
 	
 	ii = 0;
 	CoDo([&] {
-		for (int ip = ii++; ip < items.size(); ip = ii++) {		// Get the colours
+		for (int ip = ii++; ip < items.size(); ip = ii++) {	// Get the colours
 			ItemView &pv = items[ip];
 		
-			if (pv.overall)
-				pv.centroid = Point3D(0, 0, std::numeric_limits<double>::lowest());		// Over all
+			if (pv.numIds == 1)
+				pv.centroid = nodesRot[pv.id[0]];
 			else if (pv.numIds == 2) {
 				const Point3D &p0 = nodesRot[pv.id[0]];
 				const Point3D &p1 = nodesRot[pv.id[1]];
@@ -75,7 +66,7 @@ void SurfaceView::Render(const Affine3d &quat) {
 				const Point3D &p1 = nodesRot[pv.id[1]];
 				const Point3D &p2 = nodesRot[pv.id[2]];
 		
-				pv.normal = Normal(p0, p1, p2);		// To simplify, triangles and quads have same normal and centroid
+				pv.normal = Normal(p0, p1, p2);				// To simplify, triangles and quads have same normal and centroid
 				pv.centroid = Centroid(p0, p1, p2);
 				
 		 		int c = (int) abs(lightDir.dot(pv.normal) * 255.0);
@@ -88,11 +79,16 @@ void SurfaceView::Render(const Affine3d &quat) {
 			 	else
 			 		colors[ip] = Color(c, c, c);
 			}
-		}
+			if (pv.overunder == 'o')
+				pv.centroid.z = UNDER_ALL;		// Over all (yes, it is opposite)
+			else if (pv.overunder == 'u')
+				pv.centroid.z = OVER_ALL;		// Under all	
+			}
 	});
-    order = GetCoSortOrderX(items, [](const ItemView& p1, const ItemView& p2) {	// Sort by Z depth
-        return p1.centroid.z > p2.centroid.z;		// Null is -infinity
-    });
+	if (sort)
+	    order = GetCoSortOrderX(items, [](const ItemView& p1, const ItemView& p2) {	// Sort by Z depth
+	        return p1.centroid.z > p2.centroid.z;		
+	    });
     
     GetEnvelope2D();
 }
@@ -133,6 +129,7 @@ void SurfaceView::Clear() {
 	colors.Clear();
 	order.Clear();
 	surfs.Clear();
+	strings.Clear();
 }
 
 const SurfaceView &SurfaceView::ZoomToFit(Size sz, double &scale, Pointf &pos) const { 
@@ -144,15 +141,11 @@ const SurfaceView &SurfaceView::ZoomToFit(Size sz, double &scale, Pointf &pos) c
 	double cx = avg(env2D.maxX, env2D.minX);
 	double cy = avg(env2D.maxY, env2D.minY);
 	
-	if (scaleX < scaleY) {
-		scale = scaleX;
-		pos.x = -cx*scaleX;
-		pos.y = cy*scaleX;
-	} else { 
-		scale = scaleY;
-		pos.x = -cx*scaleY;
-		pos.y = cy*scaleY;
-	}
+	scale = scaleX < scaleY ? scaleX : scaleY;
+
+	pos.x = -cx*scale;
+	pos.y =  cy*scale;
+
 	return *this;
 }
 			
@@ -164,11 +157,8 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 	
 	point.x = (pmouse.x - dx)/scale;
 	point.y = (dy - pmouse.y)/scale;
-	
-	for (int io = order.size()-1; io >= 0; --io) {
-		int ip = order[io];
-		const ItemView &p = items[ip];
-		
+
+	auto DoPaint = [&](const ItemView &p) {
 		if (p.numIds == 3) {
 			const Point3D &n0 = nodesRot[p.id[0]];
 			const Point3D &n1 = nodesRot[p.id[1]];
@@ -203,7 +193,16 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 				return;
 			}
 		}
+	};
+	
+	if (sort) {
+		for (int io = order.size()-1; io >= 0; --io)
+			DoPaint(items[order[io]]);
+	} else {
+		for (int io = 0; io < items.size(); ++io) 
+			DoPaint(items[io]);
 	}
+	
 	if (deselectIfClickOutside) {
 		for(int i = 0; i < surfs.size(); i++) {	// Clear all selected panels
 			if (surfs[i]->IsValid()) 
@@ -280,11 +279,36 @@ SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshCol
 	return *this;
 }
 
+SurfaceView &SurfaceView::PaintText(double x, double y, double z, const char *str, double where) {
+	Vector3d &node = nodes0.Add();
+	node.x() = x;
+	node.y() = y;
+	node.z() = z;
+	
+	ItemView &pv = items.Add();
+	
+	pv.numIds = 1;
+	pv.id[0] = nodes0.size()-1;
+	
+	strings << str;
+	pv.idString = strings.size()-1;
+		
+	if (where == SurfaceView::OVER_ALL)
+		pv.overunder = 'o';
+	else if (where == SurfaceView::UNDER_ALL)
+		pv.overunder = 'u';
+	else
+		pv.overunder = '\0';
+	return *this;
+}
+
 SurfaceView &SurfaceView::PaintLine(const Point3D &p0, const Point3D &p1, const Color &color, double thick, double lenDelta) {
+	ASSERT(!IsNull(lenDelta));
+	
 	double len = Distance(p0, p1);
 	Vector<Point3D> points;
 	points << p0;
-	if (!IsNull(lenDelta)) {
+	if (sort && lenDelta > SurfaceView::UNDER_ALL && lenDelta < SurfaceView::OVER_ALL) {
 		int num;
 		if (lenDelta > 0)
 			num = int(len/lenDelta);
@@ -313,7 +337,12 @@ SurfaceView &SurfaceView::PaintLine(const Point3D &p0, const Point3D &p1, const 
 		pv.id[1] = nnodes + ip+1;
 		pv.meshColor = color;
 		pv.thickness = thick;
-		pv.overall = IsNull(lenDelta);
+		if (lenDelta == SurfaceView::OVER_ALL)
+			pv.overunder = 'o';
+		else if (lenDelta == SurfaceView::UNDER_ALL)
+			pv.overunder = 'u';
+		else
+			pv.overunder = '\0';
 	}
 	return *this;
 }
@@ -321,12 +350,15 @@ SurfaceView &SurfaceView::PaintLine(const Point3D &p0, const Point3D &p1, const 
 SurfaceView &SurfaceView::PaintLine(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double thick, double lenDelta) {
 	Point3D p0(x0, y0, z0);
 	Point3D p1(x1, y1, z1);
-	PaintLine(p0, p1, color, thick, lenDelta);
+	if (!IsNull(p0) && !IsNull(p1))
+		PaintLine(p0, p1, color, thick, lenDelta);
 	return *this;
 }
 
 SurfaceView &SurfaceView::PaintLine(const Segment3D &p, const Color &color, double thick, double lenDelta) {
-	return PaintLine(p.from, p.to, color, thick, lenDelta);
+	if (!IsNull(p.from) && !IsNull(p.to))
+		PaintLine(p.from, p.to, color, thick, lenDelta);
+	return *this;
 }
 
 SurfaceView &SurfaceView::PaintSegments(const Vector<Segment3D>& segs, const Color &color, double lenDelta) {
@@ -335,9 +367,20 @@ SurfaceView &SurfaceView::PaintSegments(const Vector<Segment3D>& segs, const Col
 	return *this;
 }
 
-SurfaceView &SurfaceView::PaintLines(const Vector<Point3D>& line, const Color &color) {
+SurfaceView &SurfaceView::PaintLines(const Vector<Point3D>& line, const Color &color, double thick, double lenDelta) {
+	if (IsNull(thick))
+		thick = lineThickness*3;
 	for (int i = 0; i < line.size()-1; ++i)
-		PaintLine(line[i], line[i+1], color, lineThickness*3);
+		PaintLine(line[i], line[i+1], color, thick, lenDelta);
+	return *this;
+}
+
+SurfaceView &SurfaceView::PaintLines(const Vector<double>& x, const Vector<double>& y, const Vector<double>& z, const Color &color, double thick, double lenDelta) {
+	ASSERT(x.size() == y.size() && y.size() == z.size());
+	if (IsNull(thick))
+		thick = lineThickness*3;
+	for (int i = 0; i < x.size()-1; ++i)
+		PaintLine(x[i], y[i], z[i], x[i+1], y[i+1], z[i+1], color, thick, lenDelta);
 	return *this;
 }
 
@@ -381,6 +424,56 @@ SurfaceView &SurfaceView::PaintCuboid(const Point3D &p0, const Point3D &p1, cons
 	PaintLine(p1.x, p1.y, p0.z, p0.x, p1.y, p0.z, color, lineThickness, lenDelta);
 	PaintLine(p0.x, p1.y, p0.z, p0.x, p0.y, p0.z, color, lineThickness, lenDelta);
 		
+	return *this;
+}
+
+SurfaceView &SurfaceView::PaintGrid(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta) {
+	static int numtiles = 20;
+	double minx, maxx, miny, maxy, minz, maxz;
+	if (p0.x > p1.x) {
+		maxx = p0.x;
+		minx = p1.x;
+	} else {
+		minx = p0.x;
+		maxx = p1.x;
+	}
+	if (p0.y > p1.y) {
+		maxy = p0.y;
+		miny = p1.y;
+	} else {
+		miny = p0.y;
+		maxy = p1.y;
+	}
+	if (p0.z > p1.z) {
+		maxz = p0.z;
+		minz = p1.z;
+	} else {
+		minz = p0.z;
+		maxz = p1.z;
+	}
+	double dx = maxx - minx,
+		   dy = maxy - miny,
+		   dz = maxz - minz;
+	if (dx < 0.0001) {
+		double d = max(dz, dy)/numtiles;
+		for (double z = minz; z <= maxz; z += d)	
+			PaintLine(minx, miny, z, minx, maxy, z, color, lineThickness, lenDelta);
+		for (double y = miny; y <= maxy; y += d)
+			PaintLine(minx, y, minz, minx, y, maxz, color, lineThickness, lenDelta);	
+	} else if (dy < 0.0001) {
+		double d = max(dx, dz)/numtiles;
+		for (double x = minx; x <= maxx; x += d)	
+			PaintLine(x, miny, minz, x, miny, maxz, color, lineThickness, lenDelta);
+		for (double z = minz; z <= maxz; z += d)
+			PaintLine(minx, miny, z, maxx, miny, z, color, lineThickness, lenDelta);	
+	} else if (dz < 0.0001) {
+		double d = max(dx, dy)/numtiles;
+		for (double x = minx; x <= maxx; x += d)	
+			PaintLine(x, miny, minz, x, maxy, minz, color, lineThickness, lenDelta);
+		for (double y = miny; y <= maxy; y += d)
+			PaintLine(minx, y, minz, maxx, y, minz, color, lineThickness, lenDelta);	
+	}
+	
 	return *this;
 }
 

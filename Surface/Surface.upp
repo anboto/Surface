@@ -3,7 +3,8 @@ description "Basic 3D primitives\377B44,169,203";
 uses
 	Eigen,
 	STEM4U,
-	Geom;
+	Geom,
+	RichText;
 
 file
 	Surface.cpp,

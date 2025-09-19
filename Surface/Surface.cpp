@@ -13,6 +13,8 @@ using namespace Eigen;
 void Surface::Clear() {
 	nodes.Clear();
 	panels.Clear();
+	segments.Clear();
+	lines.Clear();
 	skewed.Clear();
 	segWaterlevel.Clear();
 	segTo1panel.Clear();
@@ -99,7 +101,7 @@ Surface::Surface(Surface &&orig) noexcept {		// pick copy (move)
 }
 
 bool Surface::IsEmpty() const {
-	return nodes.IsEmpty();
+	return nodes.IsEmpty() && lines.IsEmpty();
 }
 
 bool Surface::FixSkewed(int ipanel) {
@@ -552,41 +554,67 @@ void Surface::AnalyseSegments(double zTolerance) {
 	}
 }
 
-void Surface::AddLine(const Vector<Point3D> &points3D, const Vector<double> &radius) {
-	ASSERT(points3D.size() == radius.size());
-	
-	Line &l = lines.Add();
+void Surface::SetLine(int id, const Vector<Point3D> &points3D, const Vector<double> &radius) {
+	if (id < 0) {
+		lines.Add();
+		id = lines.size()-1;
+	}
+	Line &l = lines[id];
 	l.lines = clone(points3D);
 	l.radius = clone(radius);
 	
 	const int num = 20;
 	for (int i = 0; i < points3D.size()-1; ++i) {
 		Vector3D normal = (points3D[i] - points3D[i+1]).Normalize();
-		int id = l.toPlot.size();
+		int idd = l.toPlot.size();
 		l.toPlot.Append(GetCircle(points3D[i], normal, radius[i], num));
 		l.toPlot.Append(GetCircle(points3D[i+1], normal, radius[i+1], num));
 		for (int j = 0; j < num/2+1; ++j)
-			l.toPlot << l.toPlot[id+j];
-		l.toPlot << l.toPlot[id+num+num/2+1];
+			l.toPlot << l.toPlot[idd+j];
+		l.toPlot << l.toPlot[idd + num + num/2+1];
 	}
 }
+	
+int Surface::AddLine(const Vector<Point3D> &points3D, const Vector<double> &radius) {
+	ASSERT(points3D.size() == radius.size());
+	
+	SetLine(Null, points3D, radius);
+	return lines.size()-1;
+}
 
-void Surface::AddLine(const Vector<Point3D> &points3D) {
-	Line &l = lines.Add();
+void Surface::SetLine(int id, const Vector<Point3D> &points3D) {
+	if (id < 0) {
+		lines.Add();
+		id = lines.size()-1;
+	}
+	Line &l = lines[id];
 	l.lines = clone(points3D);
 }
 
-void Surface::AddLine(const Vector<Pointf> &points) {
-	UVector<Point3D> points3D(points.size());
+int Surface::AddLine(const Vector<Point3D> &points3D) {
+	SetLine(Null, points3D);
+	return lines.size()-1;
+}
+
+void Surface::SetLine(int id, const Vector<Pointf> &points) {
+	if (id < 0) {
+		lines.Add();
+		id = lines.size()-1;
+	}
+	Line &l = lines[id];
 	
+	UVector<Point3D> points3D(points.size());
 	for (int i = 0; i < points.size(); ++i) {
 		points3D[i].x = points[i].x;
 		points3D[i].y = points[i].y;
 		points3D[i].z = 0;
 	}
-	
-	Line &l = lines.Add();
 	l.lines = pick(points3D);
+}
+
+int Surface::AddLine(const Vector<Pointf> &points) {
+	SetLine(Null, points);
+	return lines.size()-1;
 }
 	
 bool Surface::GetLowest(int &iLowSeg, int &iLowPanel) {	// Get the lowest panel with normal non horizontal
@@ -2134,6 +2162,9 @@ void Surface::CutY(const Surface &orig, int factor) {
 }
 
 Surface &Surface::Append(const Surface &appended) {
+	if (appended.IsEmpty())
+		return *this;
+	
 	int num = nodes.size();
 	nodes.Append(appended.nodes);
 	
@@ -2172,7 +2203,6 @@ Surface &Surface::Translate(double dx, double dy, double dz) {
 	for (int i = 0; i < lines.size(); ++i) 
 		Upp::Translate(lines[i].lines, dx, dy, dz);
 	
-	//pos += Point3D(dx, dy, dz);
 	return *this;
 }
 
@@ -2193,7 +2223,6 @@ Surface &Surface::Rotate(double ax, double ay, double az, double cx, double cy, 
 	for (int i = 0; i < lines.size(); ++i) 
 		Upp::TransRot(lines[i].lines, quat);
 	
-	//angle += Point3D(a_x, a_y, a_z);
 	return *this;
 }
 
@@ -2216,7 +2245,6 @@ Surface &Surface::TransRot(double dx, double dy, double dz, double ax, double ay
 	
 	return *this;
 }
-
 
 bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol) {
 	dz = 0;
@@ -2729,7 +2757,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	int ny = 1 + int((maxY-minY)/panelWidth);
 		
 	// If symmetric
-	if (Sign(maxX) > 0 && Sign(minX) < 0 && maxX + minX < EPS_LEN) {
+	if (Sign(maxX) > 0 && Sign(minX) < 0 && abs(maxX + minX) < EPS_LEN) {
 		maxX = Avg(maxX, -minX);
 		nx = int(maxX/panelWidth);
 		panelWidth = maxX/nx;	
@@ -2737,7 +2765,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		nx *= 2;
 	}
 	double panelHeight = panelWidth;
-	if (Sign(maxY) > 0 && Sign(minY) < 0 && maxY + minY < EPS_LEN) {
+	if (Sign(maxY) > 0 && Sign(minY) < 0 && abs(maxY + minY) < EPS_LEN) {
 		maxY = Avg(maxY, -minY);
 		ny = max(1, int(maxY/panelHeight));
 		panelHeight = maxY/ny;	
@@ -2961,8 +2989,6 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	}
 	s.GetPanelParams();
 	s.Append(stri);
-	
-	//s.SmoothLaplacian(0.3, 50, 0);
 	
 	Append(s);
 }

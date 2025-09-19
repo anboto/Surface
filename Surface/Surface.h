@@ -6,6 +6,7 @@
 #include <Eigen/Eigen.h>
 #include <Functions4U/Functions4U.h>
 #include <Painter/Painter.h>
+#include <RichText/RichText.h>
 
 namespace Upp {
 using namespace Eigen;
@@ -699,10 +700,14 @@ public:
 	
 	VolumeEnvelope env;
 	
-	void AddLine(const Vector<Point3D> &points3D, const Vector<double> &radius);
-	void AddLine(const Vector<Point3D> &points3D);
-	void AddLine(const Vector<Pointf> &points);
-		
+	int AddLine(const Vector<Point3D> &points3D, const Vector<double> &radius);
+	int AddLine(const Vector<Point3D> &points3D);
+	int AddLine(const Vector<Pointf> &points);
+	
+	void SetLine(int id, const Vector<Point3D> &points3D, const Vector<double> &radius);
+	void SetLine(int id, const Vector<Point3D> &points3D);
+	void SetLine(int id, const Vector<Pointf> &points); 
+	
 	String Heal(bool basic, double grid, double eps, Function <bool(String, int pos)> Status = Null);
 	Surface &Orient();
 	Surface &OrientFlat();
@@ -1036,7 +1041,8 @@ public:
 	double thickness;
 	int idBody = -1;
 	int idSubBody = -1;
-	bool overall = false;
+	int idString = -1;
+	char overunder = '\0';
 	
 	ItemView() {}
 	ItemView(const ItemView &orig, int) {
@@ -1047,7 +1053,10 @@ public:
 		color = orig.color;
 		meshColor = orig.meshColor;
 		thickness = orig.thickness;
-		overall = orig.overall;
+		overunder = orig.overunder;
+		idBody = orig.idBody;
+		idSubBody = orig.idSubBody;
+		idString = orig.idString;
 	}
 
 	void Jsonize(JsonIO &json) {
@@ -1070,12 +1079,16 @@ public:
 	}
 };
 
+
 class SurfaceView {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
 	enum ShowMesh  {SHOW_MESH, SHOW_VISIBLE_MESH, SHOW_FACES, SHOW_MESH_FACES, UNKNOWN};
 	enum ShowColor {SHOW_DARKER, SHOW_BRIGHTER, SHOW_FLAT};
+
+	constexpr static double OVER_ALL = std::numeric_limits<double>::max();
+	constexpr static double UNDER_ALL = std::numeric_limits<double>::lowest();
 	
 	void Clear();
 
@@ -1083,11 +1096,13 @@ public:
 	SurfaceView &PaintLine(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double thick, double lenDelta = -20);
 	SurfaceView &PaintLine(const Point3D &p0, const Point3D &p1, const Color &color, double thick, double lenDelta = -20);
 	SurfaceView &PaintLine(const Segment3D &p, const Color &color, double thick, double lenDelta = -20);
-	SurfaceView &PaintLines(const Vector<Point3D>& lines, const Color &color);
+	SurfaceView &PaintLines(const Vector<Point3D>& lines, const Color &color, double thick = Null, double lenDelta = -20);
+	SurfaceView &PaintLines(const Vector<double>& x, const Vector<double>& y, const Vector<double>& z, const Color &color, double thick = Null, double lenDelta = -20);
 	SurfaceView &PaintMesh(const Point3D &p0, const Point3D &p1, const Point3D &p2, const Point3D &p3, const Color &linCol);
 	SurfaceView &PaintSegments(const Vector<Segment3D>& segs, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintSegments(const Surface &surf, const Color &linCol, double lenDelta = -1);
 	SurfaceView &PaintCuboid(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);	
+	SurfaceView &PaintGrid(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintAxis(double x, double y, double z, double len, double lenDelta = -1);
 	SurfaceView &PaintAxis(const Point3D &p, double len, double lenDelta = -1);
 	SurfaceView &PaintDoubleAxis(double x, double y, double z, double len, const Color &color, double lenDelta = -1);
@@ -1097,6 +1112,7 @@ public:
 	SurfaceView &PaintArrow(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double lenDelta = -1); 
 	SurfaceView &PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintArrow2(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
+	SurfaceView &PaintText(double x, double y, double z, const char *str, double where = Null);
 		
 	Image GetImage(Size sz, double scale, double dx, double dy, const Affine3d &rot);
 	
@@ -1119,14 +1135,14 @@ public:
 	
 	SurfaceView &SetPainter(bool b)				{painter = b; 						return *this;}
 
+	SurfaceView &SetSort(bool s)				{sort = s;							return *this;}
+	
 	int GetNumItems()	{return items.size();}
 	int GetNumNodes()	{return nodes0.size();}
 	
 	void SelectPoint(Point p, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody, bool select);	
-
+	
 protected:
-	//void Render(double ax, double ay, double az, double cx, double cy, double cz);
-	//void Render(const Value3D &rotation, const Point3D &centre);
 	void Render(const Affine3d &quat);
 	
 	template <class T>
@@ -1138,6 +1154,8 @@ private:
 	Array<Vector3d> nodes0;		// Base data
 	Vector<ItemView> items;
 	Vector<int> order;
+	bool sort = true;
+	Vector<String> strings;
 	
 	Array<Vector3d> nodesRot;	// Rendered data (panels is sorted but internal values are not changed)
 	Vector<Color> colors;
@@ -1193,18 +1211,30 @@ void SurfaceView::Paint(T& w, Size sz, double scl, double dx, double dy) const {
 	} else {
 		w.DrawRect(sz, background);
 		
-		for (int io = 0; io < order.size(); ++io) {
-			int ip = order[io];
-			const ItemView &p = items[ip];
-			
-			if (p.numIds == 2) {
+		auto DoPaint = [&](const ItemView &p, int ip) {
+			if (p.numIds == 1) {
+				if (p.idString >= 0) {
+					const Point3D &n0 = nodesRot[p.id[0]];
+					if (IsNull(n0))
+						return;
+			        RichText txt = ParseQTF(strings[p.idString]);
+			        PaintInfo pi;
+					txt.ApplyZoom(GetRichTextStdScreenZoom());
+					pi.darktheme = IsDarkTheme();
+			        txt.Paint(w, int(n0.x*scl + dx), int(n0.y*scl + dy), 200, pi);
+				}
+			} else if (p.numIds == 2) {
 				const Point3D &n0 = nodesRot[p.id[0]];
 				const Point3D &n1 = nodesRot[p.id[1]];
+				if (IsNull(n0) || IsNull(n1))
+					return;
 				w.DrawLine(int(n0.x*scl + dx), int(n0.y*scl + dy), int(n1.x*scl + dx), int(n1.y*scl + dy), (int)p.thickness, p.meshColor);
 			} else {
 				Vector<Point> pi;
 				for (unsigned i = 0; i < p.numIds; ++i) {
 					const Point3D &n = nodesRot[p.id[i]];
+					if (IsNull(n))
+						return;
 					pi << Point(int(n.x*scl + dx), int(n.y*scl + dy));
 				}
 				if (showMesh == SHOW_MESH) {
@@ -1217,7 +1247,17 @@ void SurfaceView::Paint(T& w, Size sz, double scl, double dx, double dy) const {
 					w.DrawPolygon(pi, colors[ip]);	
 				else if (showMesh == SHOW_MESH_FACES)
 					w.DrawPolygon(pi, colors[ip], (int)p.thickness, p.meshColor);
-			} 
+			}
+		};
+		
+		if (sort) {
+			for (int io = 0; io < order.size(); ++io) {
+				int ip = order[io];
+				DoPaint(items[ip], ip);
+			}
+		} else {
+			for (int io = 0; io < items.size(); ++io) 
+				DoPaint(items[io], io);
 		}
 	}       
 }	
