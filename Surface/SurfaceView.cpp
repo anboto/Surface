@@ -150,6 +150,8 @@ const SurfaceView &SurfaceView::ZoomToFit(Size sz, double &scale, Pointf &pos) c
 }
 			
 void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, double dy, int &idBody, int &idSubBody, bool select) {
+	idBody = idSubBody = -1;
+
 	Pointf point;
 	
 	dx += sz.cx/2;
@@ -158,7 +160,7 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 	point.x = (pmouse.x - dx)/scale;
 	point.y = (dy - pmouse.y)/scale;
 
-	auto DoPaint = [&](const ItemView &p) {
+	auto DoPaint = [&](const ItemView &p)->bool {
 		if (p.numIds == 3) {
 			const Point3D &n0 = nodesRot[p.id[0]];
 			const Point3D &n1 = nodesRot[p.id[1]];
@@ -173,7 +175,7 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 					else
 						s->RemoveSelPanel(idSubBody);
 				}
-				return;
+				return true;
 			}
 		} else if (p.numIds == 4) {
 			const Point3D &n0 = nodesRot[p.id[0]];
@@ -190,26 +192,36 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 					else
 						s->RemoveSelPanel(idSubBody);
 				}
-				return;
+				return true;
 			}
 		}
+		return false;
 	};
 	
+	bool found = false;
 	if (sort) {
-		for (int io = order.size()-1; io >= 0; --io)
-			DoPaint(items[order[io]]);
+		for (int io = order.size()-1; io >= 0; --io) {
+			if (DoPaint(items[order[io]])) {
+				found = true;
+				break;
+			}
+		}
 	} else {
-		for (int io = 0; io < items.size(); ++io) 
-			DoPaint(items[io]);
+		for (int io = 0; io < items.size(); ++io) {
+			if (DoPaint(items[io])) {
+				found = true;
+				break;
+			}
+		}
 	}
 	
-	if (deselectIfClickOutside) {
+	if (!found && deselectIfClickOutside) {
 		for(int i = 0; i < surfs.size(); i++) {	// Clear all selected panels
 			if (surfs[i]->IsValid()) 
 				surfs[i]->ClearSelPanels();
 		}
 	}
-	idBody = idSubBody = -1;
+	//idBody = idSubBody = -1;
 }
 
 SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshColor, double thick, int idBody, bool showNormals, double normalLen) {
