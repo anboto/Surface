@@ -732,7 +732,7 @@ public:
 	bool GetInertia33_Volume(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
 	bool GetInertia33_Surface(Matrix3d &inertia, const Point3D &cg, bool refine = false) const;
 	bool GetInertia33(Matrix3d &inertia, const Point3D &cg, bool byVolume, bool refine = false) const;
-	void GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const;
+	static void GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine);
 	static void GetInertia33_Radii(Matrix3d &inertia);
 	bool GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const;
 	static void FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3D &c0);

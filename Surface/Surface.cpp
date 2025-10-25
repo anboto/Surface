@@ -1404,7 +1404,7 @@ void Surface::FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3
 	inertia(1, 3) = inertia(3, 1) = -c.z;
 }
 	
-void Surface::GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine) const {
+void Surface::GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const Point3D &cg, const Point3D &c0, bool refine) {
 	inertia = MatrixXd::Zero(6,6);	
 	inertia.bottomRightCorner<3,3>() = inertia33;
 	inertia(0, 0) = inertia(1, 1) = inertia(2, 2) = 1;
