@@ -122,9 +122,9 @@ bool Surface::FixSkewed(int ipanel) {
 		Vector3D normal123 = Normal(p1, p2, p3);
 		Vector3D normal230 = Normal(p2, p3, p0);
 		double d0  = normal301.Length();
-		double d01 = Length(normal301, normal012);
-		double d02 = Length(normal301, normal123);
-		double d03 = Length(normal301, normal230);
+		double d01 = Distance(normal301, normal012);
+		double d02 = Distance(normal301, normal123);
+		double d03 = Distance(normal301, normal230);
 		
 		int numg = 0;
 		if (d0 <= d01)

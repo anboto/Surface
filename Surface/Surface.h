@@ -131,6 +131,8 @@ public:
 	inline void operator*=(double a) 		 {x *= a; y *= a; z *= a;}
 	inline void operator/=(double a) 		 {x /= a; y /= a; z /= a;}
 
+	inline bool operator<=(const Value3D& a) {return x <= a.x && y <= a.y && z <= a.z;}
+
 	double& operator[](int id) {
 		ASSERT(id >= 0 && id < 3);
 		switch (id) {
@@ -216,6 +218,15 @@ Affine3d GetTransformRotation(const Value3D &rot, const Point3D &centre, Rotatio
 Affine3d GetTransform(const Value3D &trans, const Value3D &rot, const Point3D &centre, RotationOrder order = RotationOrder::XYZ);
 
 void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos);
+
+template <template <typename> class Range>
+int FindDelta(const Range<Value3D>& r, const Value3D& value, const double& delta, int from = 0) {
+	for (int i = from; i < r.size(); i++) {
+		if (Distance(r[i], value) <= delta) 
+			return i;
+	}
+	return -1;
+}
 	
 class Value6D : public Moveable<Value6D> {
 public:
@@ -417,7 +428,6 @@ void Vector6ToC(const VectorXd &v, float *c);
 
 
 double Distance(const Value3D &p1, const Value3D &p2);
-double Length(const Value3D &p1, const Value3D &p2);
 double Manhattan(const Value3D &p1, const Value3D &p2);
 Value3D Middle(const Value3D &a, const Value3D &b);
 Value3D WeightedMean(const Value3D &a, double va, const Value3D &b, double vb);
@@ -466,7 +476,7 @@ public:
 		from.SimZ();
 		to.SimZ();
 	}
-	double Length() const {return Upp::Length(from, to);}
+	double Length() const {return Upp::Distance(from, to);}
 	double Dx()	const 	  {return to.x - from.x;}
 	double Dy()	const 	  {return to.y - from.y;}	
 	double Dz()	const 	  {return to.z - from.z;}
