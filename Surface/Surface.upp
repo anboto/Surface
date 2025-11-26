@@ -9,6 +9,7 @@ uses
 file
 	Surface.cpp,
 	Surface.h,
+	2D.cpp,
 	SurfaceView.cpp,
 	Polygon2D.cpp,
 	Polygon3D.cpp,

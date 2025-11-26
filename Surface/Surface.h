@@ -436,11 +436,6 @@ Vector3D Normal(const Value3D &a, const Value3D &b, const Value3D &c);
 bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c);
 double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2);
 
-bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c);
-double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
-double Direction(const Pointf& a, const Pointf& b);
- 
-
 class Segment3D : public Moveable<Segment3D> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -724,7 +719,7 @@ public:
 	void Mirror(int axis);
 	const VolumeEnvelope &GetEnvelope(); 
 	void RedirectTriangles();
-	void GetPanelParams();
+	Surface &GetPanelParams();
 	String CheckErrors() const;
 	double GetArea();
 	double GetAreaXProjection(bool positive, bool negative) const;
@@ -734,7 +729,7 @@ public:
 	void GetSegments();
 	void GetNormals();
 	double GetAvgLenSegment() const {return avgLenSegment;}
-	void GetVolume();
+	Surface &GetVolume();
 	int VolumeMatch(double ratioWarning, double ratioError) const;
 	double VolumeRatio() const;
 	Point3D GetCentreOfBuoyancy() const;
@@ -746,6 +741,7 @@ public:
 	static void GetInertia33_Radii(Matrix3d &inertia);
 	bool GetInertia33_Radii(Matrix3d &inertia, const Point3D &c0, bool byVolume, bool refine) const;
 	static void FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3D &c0);
+	static void FillInertia66mc(MatrixXd &inertia, const Point3D &c);
 		
 	static void TranslateInertia33(Matrix3d &inertia, double m, const Point3D &cg, const Point3D &c0, const Point3D &nc0);
 	static void TranslateInertia66(MatrixXd &inertia, const Point3D &cg, const Point3D &c0, const Point3D &nc0);
@@ -765,14 +761,16 @@ public:
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
-		
+	
+	void Flatten(char axis);
+	
 	char IsWaterPlaneMesh() const; 
 	
 	void TrianglesToQuadsFlat();
 		
-	void CutX(const Surface &orig, int factor = 1);
-	void CutY(const Surface &orig, int factor = 1);
-	void CutZ(const Surface &orig, int factor = 1);
+	Surface &CutX(const Surface &orig, int factor = 1);
+	Surface &CutY(const Surface &orig, int factor = 1);
+	Surface &CutZ(const Surface &orig, int factor = 1);
 	
 	Surface &Append(const Surface &orig);
 	Surface &operator<<(const Surface &orig) {return Append(orig);}
@@ -828,7 +826,7 @@ public:
 	int FindNode(const Point3D &p);
 	
 	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
-	void AddRevolution(const Vector<Pointf> &points, double panelWidth);
+	void AddRevolution(const Vector<Pointf> &points, double panelWidth, double angle = 360, bool close = true, Function <bool(String)> Prompt = Null);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize, bool quads);
 	void Extrude(double dx, double dy, double dz, bool close);
 	void AddPanels(const Surface &from, UVector<int> &panelIds);
@@ -987,23 +985,51 @@ void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z);
 void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z);
 
 void LoadOBJ(String fileName, Surface &surf);
+
+double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
+double Direction(const Pointf& a, const Pointf& b);
 	
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
 ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt);
 
 bool IsClockwise(const UVector<Pointf> &p);
+
+template<typename T>
+T Dot(const Point_<T>& a, const Point_<T>& b) {
+    return a.x*b.x + a.y*b.y;
+}
+
+template<typename T>
+T Cross(const Point_<T>& a, const Point_<T>& b) {
+    return a.x*b.y - a.y*b.x;
+}
 	
 template<typename T>
-auto cross(const Point_<T>& a, const Point_<T>& b, const Point_<T>& c) {
+T Cross(const Point_<T>& a, const Point_<T>& b, const Point_<T>& c) {
     return (b.x - a.x)*(c.y - a.y) - (b.y - a.y)*(c.x - a.x);
 }
 
 template<typename T>
+bool Collinear(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, T tol) {
+	double lenAB = Distance(a, b);
+	double lenAC = Distance(a, c);
+	
+	if(lenAB < tol || lenAC < tol)	// If points are very close, treat as collinear
+		return true;
+	
+	Pointf ab = b - a;
+	Pointf ac = c - a;
+	T crossNormalized = Cross(ab, ac) / (lenAB * lenAC);
+	
+	return abs(crossNormalized) < tol;
+}
+
+template<typename T>
 bool ContainsPoint(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, const Point_<T> &p) {
-    auto cross1 = cross(a, b, p);
-    auto cross2 = cross(b, c, p);
-    auto cross3 = cross(c, a, p);
+    T cross1 = Cross(a, b, p);
+    T cross2 = Cross(b, c, p);
+    T cross3 = Cross(c, a, p);
 
     bool has_neg = (cross1 < 0) || (cross2 < 0) || (cross3 < 0);
     bool has_pos = (cross1 > 0) || (cross2 > 0) || (cross3 > 0);
@@ -1016,6 +1042,8 @@ bool ContainsPoint(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, c
     return ContainsPoint(a, b, c, p) || ContainsPoint(a, c, d, p);
 }
 
+UVector<Pointf> IsRectangle(const UVector<Pointf>& perimeter, double tol = 0.0001);
+	
 Point3D Centroid(const UVector<Point3D> &p);
 double Area(const UVector<Point3D> &p);
 bool IsRectangle(const UVector<Point3D> &p);

@@ -435,6 +435,68 @@ void TestBasic() {
 		}
 	}
 }
+
+void TestIsRectangle() {
+	UppLog() << "\n\nTest IsRectangle()";
+	double tol = 0.0001;
+	
+	UppLog() << "\n 6x4 axis-aligned rectangle";
+	UVector<Pointf> rect1;
+	for(int i = 0; i <= 6; i++) rect1.Add(Pointf(i, 0));
+	for(int i = 1; i <= 4; i++) rect1.Add(Pointf(6, i));
+	for(int i = 5; i >= 0; i--) rect1.Add(Pointf(i, 4));
+	for(int i = 3; i >= 1; i--) rect1.Add(Pointf(0, i));
+	
+	UVector<Pointf> result1 = IsRectangle(rect1, tol);
+	VERIFY(result1.size() == 4);
+	UppLog() << "\n Corners: ";
+	for(const Pointf& p : result1)
+		UppLog() << "  (" << p.x << ", " << p.y << ")";
+	
+	
+	UppLog() << "\n 30 deg rotated rectangle (5x2)";
+	double angle = 30*M_PI/180;
+	
+	UVector<Pointf> base = {Pointf(0,0), Pointf(5,0), Pointf(5,2), Pointf(0,2)};
+	UVector<Pointf> rotated;
+	for(const Pointf& p : base)
+		rotated.Add(Pointf(p.x * cos(angle) - p.y * sin(angle), p.x * sin(angle) + p.y * cos(angle)));
+	
+	UVector<Pointf> rect2;
+	for(int i = 0; i < 4; i++) {
+		const Pointf& p1 = rotated[i];
+		const Pointf& p2 = rotated[(i + 1) % 4];
+		rect2.Add(p1);
+		for(int j = 1; j < 6; j++) {
+			double t = j/6;
+			rect2.Add(p1 + (p2 - p1) * t);
+		}
+	}
+	
+	UVector<Pointf> result2 = IsRectangle(rect2, tol);
+	VERIFY(result2.size() == 4);
+	UppLog() << "\n Corners: ";
+	for(const Pointf& p : result2)
+		UppLog() << "  (" << p.x << ", " << p.y << ")";
+	
+
+	UppLog() << "\n Non-rectangle (Rhombus)";
+	UVector<Pointf> rhombusBase = {Pointf(0,1), Pointf(2,0), Pointf(4,1), Pointf(2,2)};
+	UVector<Pointf> rhombus;
+	for(int i = 0; i < 4; i++) {
+		const Pointf& p1 = rhombusBase[i];
+		const Pointf& p2 = rhombusBase[(i + 1) % 4];
+		rhombus.Add(p1);
+		for(int j = 1; j < 4; j++) {
+			double t = j / 4.0;
+			rhombus.Add(p1 + (p2 - p1) * t);
+		}
+	}
+	
+	UVector<Pointf> result4 = IsRectangle(rhombus, tol);
+	VERIFY(result4.size() == 0);
+}
+
 	
 CONSOLE_APP_MAIN 
 {
@@ -446,6 +508,7 @@ CONSOLE_APP_MAIN
 	try {
 		TestBasic();
 		
+		TestIsRectangle();
 		TestPoly();
 		TestMesh();
 

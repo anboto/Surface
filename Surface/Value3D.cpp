@@ -96,14 +96,6 @@ bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c) {
 	return Vector3D((a - b) % (b - c)).Length() < 0.0001;
 }
 
-bool Collinear(const Pointf &a, const Pointf &b, const Pointf &c) {
-	double area = Area(a, b, c);
-	if (area < 1e-12)
-		return true;
-	double areasq = (max(a.x, b.x, c.x) - min(a.x, b.x, c.x))*(max(a.y, b.y, c.y) - min(a.y, b.y, c.y));
-	return area/areasq < 0.001;		// To validate the scale
-}
-
 /*double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2) {
 	double l01 = Distance(p0, p1);
 	double l12 = Distance(p1, p2);

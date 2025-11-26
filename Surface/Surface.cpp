@@ -993,6 +993,19 @@ void Surface::JointTriangularPanels(int ip0, int ip1, int inode0, int inode1) {
 	panels.Remove(ip1);
 }
 
+void Surface::Flatten(char axis) {
+	if (axis == 'x') {
+		for (Point3D &p : nodes)
+			p.x = 0;
+	} else if (axis == 'x') {
+		for (Point3D &p : nodes)
+			p.y = 0;
+	} else  {
+		for (Point3D &p : nodes)
+			p.z = 0;
+	}
+}
+
 void Surface::GetPanelParams(Panel &panel) const {
 	panel.RedirectTriangles();
 	
@@ -1053,11 +1066,12 @@ void Surface::RedirectTriangles() {
 	}	
 }
 
-void Surface::GetPanelParams() {
+Surface &Surface::GetPanelParams() {
 	for (int ip = 0; ip < panels.size(); ++ip) {
 		Panel &panel = panels[ip];
 		GetPanelParams(panel);
-	}	
+	}
+	return *this;	
 }
 
 double Surface::GetArea() {
@@ -1173,7 +1187,7 @@ Pointf Surface::GetAreaZProjectionCG() const {
 	return ret;
 }
 	
-void Surface::GetVolume() {
+Surface &Surface::GetVolume() {
 	volumex = volumey = volumez = 0;
 	
 	for (int ip = 0; ip < panels.size(); ++ip) {
@@ -1190,6 +1204,8 @@ void Surface::GetVolume() {
 		}
 	}
 	volume = avg(volumex, volumey, volumez);
+	
+	return *this;
 }
 
 double Surface::VolumeRatio() const {
@@ -1320,7 +1336,7 @@ bool Surface::GetInertia33_Volume(Matrix3d &inertia, const Point3D &c0, bool ref
 				
 	if (refine) {
 		double mx = inertia.cwiseAbs().maxCoeff();	
-		inertia = inertia.unaryExpr([&](double v) {return abs(v/mx) > 1E-6 ? 0 : v;});
+		inertia = inertia.unaryExpr([&](double v) {return abs(v/mx) > 1E-6 ? v : 0;});
 	}
 	return true;
 }
@@ -1362,7 +1378,7 @@ bool Surface::GetInertia33_Surface(Matrix3d &inertia, const Point3D &c0, bool re
 	inertia.array() /= total;
 	if (refine) {
 		double mx = inertia.cwiseAbs().maxCoeff();	
-		inertia = inertia.unaryExpr([&](double v){return abs(v/mx) > 1E-6 ? 0 : v;});
+		inertia = inertia.unaryExpr([&](double v){return abs(v/mx) > 1E-6 ? v : 0;});
 	}
 	return true;
 }
@@ -1394,8 +1410,11 @@ void Surface::GetInertia33_Radii(Matrix3d &inertia) {
 }	
 
 void Surface::FillInertia66mc(MatrixXd &inertia, const Point3D &cg, const Point3D &c0) {
-	Point3D c = cg - c0;
-	c *= inertia(0, 0);
+	FillInertia66mc(inertia, cg - c0);
+}
+
+void Surface::FillInertia66mc(MatrixXd &inertia, const Point3D &cc) {
+	Point3D c = cc*inertia(0, 0);
 	inertia(1, 5) = inertia(5, 1) =  c.x;
 	inertia(2, 4) = inertia(4, 2) = -c.x;
 	inertia(2, 3) = inertia(3, 2) =  c.y;
@@ -1413,14 +1432,14 @@ void Surface::GetInertia66(MatrixXd &inertia, const Matrix3d &inertia33, const P
 	
 	if (refine) {
 		double mx = max(max(abs(c.x), abs(c.y)), abs(c.z));
-		if (abs(c.x) < 1E-10 || abs(c.x/mx) > 1E-6)
+		if (abs(c.x) < 1E-10 || abs(c.x/mx) < 1E-6)
 			c.x = 0;
-		if (abs(c.y) < 1E-10 || abs(c.y/mx) > 1E-6)
+		if (abs(c.y) < 1E-10 || abs(c.y/mx) < 1E-6)
 			c.y = 0;
-		if (abs(c.z) < 1E-10 || abs(c.z/mx) > 1E-6)
+		if (abs(c.z) < 1E-10 || abs(c.z/mx) < 1E-6)
 			c.z = 0;		
 	} 
-	FillInertia66mc(inertia, cg, c0);
+	FillInertia66mc(inertia, c);
 }	
 
 void Surface::TranslateInertia33(Matrix3d &inertia, double mass, const Point3D &cg, const Point3D &c0, const Point3D &nc0) {
@@ -1744,7 +1763,7 @@ inline static void CheckAddSegZero(Vector<Segment3D> &seg, const Point3D &p0, co
 		seg << Segment3D(p3, p0);
 }
 
-void Surface::CutZ(const Surface &orig, int factor) {
+Surface &Surface::CutZ(const Surface &orig, int factor) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
@@ -1887,9 +1906,10 @@ void Surface::CutZ(const Surface &orig, int factor) {
 		for (Point3D &node : nodes) 
 			node.z = max(node.z, 0.);	
 	}
+	return *this;
 }
 
-void Surface::CutX(const Surface &orig, int factor) {
+Surface &Surface::CutX(const Surface &orig, int factor) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
@@ -2023,9 +2043,10 @@ void Surface::CutX(const Surface &orig, int factor) {
 		for (Point3D &node : nodes) 
 			node.x = max(node.x, 0.);	
 	}
+	return *this;
 }
 
-void Surface::CutY(const Surface &orig, int factor) {
+Surface &Surface::CutY(const Surface &orig, int factor) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
@@ -2159,6 +2180,7 @@ void Surface::CutY(const Surface &orig, int factor) {
 		for (Point3D &node : nodes) 
 			node.y = max(node.y, 0.);	
 	}
+	return *this;
 }
 
 Surface &Surface::Append(const Surface &appended) {
@@ -2504,7 +2526,7 @@ void Surface::AddFlatRectangle(double lenX, double lenY, double panelWidth, doub
 	SetPanelPoints(pans);
 }
 
-void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
+void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth, double angle, bool close, Function <bool(String)> Prompt) {
 	if (_points.size() < 2)
 		throw Exc(t_("Point number has to be higher than 2"));
 	
@@ -2528,7 +2550,9 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 	for (Pointf &p : points)
 		maxRadius = max(maxRadius, p.x);
 	
-	int numSlices = int(round(2*M_PI*maxRadius/panelWidth));
+	double fullAngle = 2*M_PI*(angle/360);
+	
+	int numSlices = int(round(fullAngle*maxRadius/panelWidth));
 	if (Odd(numSlices))
 		numSlices++;
 	
@@ -2537,6 +2561,12 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 		
 	Array<PanelPoints> pans;
 	pans.SetCount(numSlices*(points.size()-1));
+	
+	if (pans.size() > 50000) {
+		if (Prompt && Prompt(Format(t_("Number of panels is %d.\nDo you wish to continue?"), pans.size())))
+			throw Exc(t_("Stopped by user"));
+	}
+		
 	int n = 0;
 	for (int i = 0; i < points.size()-1; ++i) {
 		if (points[i].x == 0) {
@@ -2545,24 +2575,24 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 				pans[n].data[0].y = 0;
 				pans[n].data[0].z = points[i].y;
 
-				pans[n].data[1].x = points[i+1].x*cos(-(2*M_PI*(j+1))/numSlices);	
-				pans[n].data[1].y = points[i+1].x*sin(-(2*M_PI*(j+1))/numSlices);
+				pans[n].data[1].x = points[i+1].x*cos(-(fullAngle*(j+1))/numSlices);	
+				pans[n].data[1].y = points[i+1].x*sin(-(fullAngle*(j+1))/numSlices);
 				pans[n].data[1].z = points[i+1].y;
 	
-				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos(-(2*M_PI*j)/numSlices);	
-				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin(-(2*M_PI*j)/numSlices);
+				pans[n].data[2].x = pans[n].data[3].x = points[i+1].x*cos(-(fullAngle*j)/numSlices);	
+				pans[n].data[2].y = pans[n].data[3].y = points[i+1].x*sin(-(fullAngle*j)/numSlices);
 				pans[n].data[2].z = pans[n].data[3].z = points[i+1].y;
 				
 				n++;
 			}
 		} else if (points[i+1].x == 0) {
 			for (int j = 0; j < numSlices; j++) {
-				pans[n].data[0].x = points[i].x*cos(-(2*M_PI*j)/numSlices);	
-				pans[n].data[0].y = points[i].x*sin(-(2*M_PI*j)/numSlices);
+				pans[n].data[0].x = points[i].x*cos(-(fullAngle*j)/numSlices);	
+				pans[n].data[0].y = points[i].x*sin(-(fullAngle*j)/numSlices);
 				pans[n].data[0].z = points[i].y;
 	
-				pans[n].data[1].x = points[i].x*cos(-(2*M_PI*(j+1))/numSlices);	
-				pans[n].data[1].y = points[i].x*sin(-(2*M_PI*(j+1))/numSlices);
+				pans[n].data[1].x = points[i].x*cos(-(fullAngle*(j+1))/numSlices);	
+				pans[n].data[1].y = points[i].x*sin(-(fullAngle*(j+1))/numSlices);
 				pans[n].data[1].z = points[i].y;
 											
 				pans[n].data[2].x = pans[n].data[3].x = 0;	
@@ -2573,20 +2603,20 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 			}
 		} else {
 			for (int j = 0; j < numSlices; ++j) {
-				pans[n].data[0].x = points[i].x*cos(-(2*M_PI*j)/numSlices);	
-				pans[n].data[0].y = points[i].x*sin(-(2*M_PI*j)/numSlices);
+				pans[n].data[0].x = points[i].x*cos(-(fullAngle*j)/numSlices);	
+				pans[n].data[0].y = points[i].x*sin(-(fullAngle*j)/numSlices);
 				pans[n].data[0].z = points[i].y;
 				
-				pans[n].data[1].x = points[i].x*cos(-(2*M_PI*(j+1))/numSlices);	
-				pans[n].data[1].y = points[i].x*sin(-(2*M_PI*(j+1))/numSlices);
+				pans[n].data[1].x = points[i].x*cos(-(fullAngle*(j+1))/numSlices);	
+				pans[n].data[1].y = points[i].x*sin(-(fullAngle*(j+1))/numSlices);
 				pans[n].data[1].z = points[i].y;
 	
-				pans[n].data[2].x = points[i+1].x*cos(-(2*M_PI*(j+1))/numSlices);	
-				pans[n].data[2].y = points[i+1].x*sin(-(2*M_PI*(j+1))/numSlices);
+				pans[n].data[2].x = points[i+1].x*cos(-(fullAngle*(j+1))/numSlices);	
+				pans[n].data[2].y = points[i+1].x*sin(-(fullAngle*(j+1))/numSlices);
 				pans[n].data[2].z = points[i+1].y;
 	
-				pans[n].data[3].x = points[i+1].x*cos(-(2*M_PI*j)/numSlices);	
-				pans[n].data[3].y = points[i+1].x*sin(-(2*M_PI*j)/numSlices);
+				pans[n].data[3].x = points[i+1].x*cos(-(fullAngle*j)/numSlices);	
+				pans[n].data[3].y = points[i+1].x*sin(-(fullAngle*j)/numSlices);
 				pans[n].data[3].z = points[i+1].y;
 				
 				n++;
@@ -2595,6 +2625,18 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth) {
 	}
 	pans.SetCount(n);
 	SetPanelPoints(pans);
+	GetPanelParams();
+	
+	if (angle < 360 && close) {
+		Surface lid;
+		
+		lid.AddPolygonalPanel(points, panelWidth, true, true);
+		Append(lid);	
+		
+		lid.Rotate(0, 0, -ToRad(angle), 0, 0, 0);
+		lid.Orient();
+		Append(lid);	
+	}
 }
 
 void Surface::AddPanels(const Surface &from, UVector<int> &panelIds) {
@@ -2685,30 +2727,31 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	
 	Vector<Pointf> bound = clone(_bound);
 	
-	// Close boundary
-	if (bound[0] != bound[bound.size()-1])
+	if (bound[0] != bound[bound.size()-1])		// Close boundary
 		bound << bound[0];
 	
-	// Is it a rectangle?
-	if (IsRectangle(bound)) {
-		double l01 = Length(bound[1] - bound[0]),
-	 	   	   l12 = Length(bound[2] - bound[1]);
-		   
-		AddFlatRectangle(l12, l01, panelWidth, panelWidth);
-		double minx, maxx, miny, maxy;
-		Range(bound, minx, maxx, miny, maxy);	
-		Translate(minx, miny, 0);
+	UVector<Pointf> rect = IsRectangle(bound, EPS_LEN);
+	if (rect.size() == 4) {
+		double angle = atan((rect[1].y - rect[0].y)/(rect[1].x - rect[0].x));
+		double w = sqrt(sqr(rect[1].x - rect[0].x) + sqr(rect[1].y - rect[0].y));
+		double h = sqrt(sqr(rect[2].x - rect[1].x) + sqr(rect[2].y - rect[1].y));
+		Surface s;
+		s.AddFlatRectangle(w, h, panelWidth, panelWidth);
+		s.TransRot(rect[0].x, 0, rect[0].y, -M_PI/2, 0, angle, 0, 0, 0);
+		s.GetPanelParams();
+		Append(s);
+		
 		return;
 	}
 	
 	// Removes short and breaks long segments in the boundary to fit with panel width
 	if (adjustSize) {		
 		for (int i = bound.size()-3; i >= 0; --i) {		// Joins adjacent collinear ...
-			if (Collinear(bound[i], bound[i+1], bound[i+2])) 
+			if (Collinear(bound[i], bound[i+1], bound[i+2], EPS_LEN)) 
 				bound.Remove(i+1);
 		} 
 		if (bound.size() > 3) {							// ... including the first and last
-			if (Collinear(bound[bound.size()-2], bound[0], bound[1])) {
+			if (Collinear(bound[bound.size()-2], bound[0], bound[1], EPS_LEN)) {
 				bound.Remove(0);
 				bound[bound.size()-1] = clone(bound[0]);
 			}
