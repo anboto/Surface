@@ -9,6 +9,13 @@
 namespace Upp {
 using namespace Eigen;
 
+bool PointInSegment(const Pointf &p, const Pointf &from, const Pointf &to) {
+	double dpa = Distance(p, from);
+	double dpb = Distance(p, to);
+	double dab = Distance(from, to);
+	
+	return abs(dpa + dpb - dab) < EPS_LEN;
+}
 
 ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt) {
 	if (PointInPoly(polygon, pt))
@@ -35,7 +42,7 @@ bool IsClockwise(const UVector<Pointf> &p) {
 	ASSERT(n > 2);
 	
 	for (int i = 0; i < n; i++) 
-		area += (p[i]%p[(i + 1) % n]);
+		area += (p[i]%p[(i + 1)%n]);
     
 	return area < 0;
 }
@@ -137,6 +144,13 @@ void Range(const UVector<Pointf> &p, double &minx, double &maxx, double &miny, d
 		else if (p_i.y > maxy)
 			maxy = p_i.y;
 	}
+}
+
+double DistanceToLine(const Pointf &p, const Pointf &a, const Pointf &b) {
+	double numerator = abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y));
+    double denominator = sqrt(sqr(b.x - a.x) + sqr(b.y - a.y));
+
+    return numerator/denominator;
 }
 
 }

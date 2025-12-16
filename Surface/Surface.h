@@ -1043,6 +1043,8 @@ bool ContainsPoint(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, c
 }
 
 UVector<Pointf> IsRectangle(const UVector<Pointf>& perimeter, double tol = 0.0001);
+double DistanceToLine(const Pointf &p, const Pointf &a, const Pointf &b);
+UVector<Pointf> ConvexHull(const UVector<Pointf>& points, bool include_collinear = false, double distanceCollinear = 0.0001);
 	
 Point3D Centroid(const UVector<Point3D> &p);
 double Area(const UVector<Point3D> &p);

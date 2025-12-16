@@ -79,4 +79,16 @@ Pointf[@(0.0.255) `&] [*@3 b])&]
 [s2;%% Returns the angle between two normalized segments [%-*@3 a] 
 and [%-*@3 b].&]
 [s3; &]
+[s4; &]
+[s5;:Upp`:`:ConvexHull`(const UVector`&`,bool`,double`): UVector<Pointf> 
+[* ConvexHull]([@(0.0.255) const] UVector<Pointf>[@(0.0.255) `&] [*@3 points], 
+[@(0.0.255) bool] [*@3 include`_collinear] [@(0.0.255) `=] [@(0.0.255) false], 
+[@(0.0.255) double] [*@3 distanceCollinear] [@(0.0.255) `=] [@3 1][@(0.0.255) .][@3 0][*@3 E][@(0.0.255) `-
+][@3 4])&]
+[s2;%% Obtains the clockwise convex hull with the Andrew`'s monotone 
+chain algorithm. The [%-*@3 points] do not need to be ordered. 
+[%-*@3 include`_collinear] allows to remove the hull points that 
+are collinear. [%-*@3 distanceCollinear] indicates the maximum 
+distance from a point to a line to be considered collinear.&]
+[s3; &]
 [s3;%% ]]

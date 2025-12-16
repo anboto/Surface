@@ -116,4 +116,77 @@ UVector<Pointf> IsRectangle(const UVector<Pointf>& perimeter, double tol) {
 	return corners;
 }
 
+static int Orientation(const Pointf &a, const Pointf &b, const Pointf &c, bool include_collinear, double distanceCollinear) {
+	if (include_collinear) {
+		double ab = Distance(a, b);
+		double bc = Distance(b, c);
+		double ca = Distance(c, a);
+		double mind;
+		if (ab > bc) {
+			if (ab > ca)
+				mind = DistanceToLine(c, a, b);
+			else
+				mind = DistanceToLine(b, a, c);
+		} else
+			mind = DistanceToLine(a, b, c);
+		if (mind <= distanceCollinear)
+			return 0;
+	}
+    double v = a.x*(b.y-c.y) + b.x*(c.y-a.y) + c.x*(a.y-b.y);
+    if (v < 0) 
+    	return -1; // clockwise
+    if (v > 0) 
+    	return +1; // counter-clockwise
+    return 0;
+}
+
+static bool IsClockwise(const Pointf &a, const Pointf &b, const Pointf &c, bool include_collinear, double distanceCollinear) {
+    int o = Orientation(a, b, c, include_collinear, distanceCollinear);
+    return o < 0 || (include_collinear && o == 0);
+}
+
+static bool IsCounterClockwise(const Pointf &a, const Pointf &b, const Pointf &c, bool include_collinear, double distanceCollinear) {
+    int o = Orientation(a, b, c, include_collinear, distanceCollinear);
+    return o > 0 || (include_collinear && o == 0);
+}
+
+UVector<Pointf> ConvexHull(const UVector<Pointf>& points, bool include_collinear, double distanceCollinear) {
+	UVector<Pointf> a = clone(points);
+	
+    if (a.size() <= 1)
+        return a;
+
+    Sort(a, [](const Pointf &a, const Pointf &b) {return a.x == b.x ? a.y < b.y : a.x < b.x;});
+    
+    Pointf p1 = a[0], p2 = a.back();
+    
+    UVector<Pointf> up, down;
+    up << p1;
+    down << p1;
+    for (int i = 1; i < a.size(); i++) {
+        if (i == a.size() - 1 || IsClockwise(p1, a[i], p2, include_collinear, distanceCollinear)) {
+            while (up.size() >= 2 && !IsClockwise(up[up.size()-2], up[up.size()-1], a[i], include_collinear, distanceCollinear))
+                up.Remove(up.size()-1);
+            up << a[i];
+        }
+        if (i == a.size() - 1 || IsCounterClockwise(p1, a[i], p2, include_collinear, distanceCollinear)) {
+            while (down.size() >= 2 && !IsCounterClockwise(down[down.size()-2], down[down.size()-1], a[i], include_collinear, distanceCollinear))
+                down.Remove(down.size()-1);
+            down << a[i];
+        }
+    }
+
+    if (include_collinear && up.size() == a.size()) {
+        Upp::Reverse(a);
+        return a;
+    }
+    a = pick(up);
+    int ic = a.size();
+    a.SetCount(ic + down.size() - 2);
+    for (int i = down.size() - 2; i > 0; i--)
+        a[ic++] = down[i];
+    
+    return a;
+}
+
 }

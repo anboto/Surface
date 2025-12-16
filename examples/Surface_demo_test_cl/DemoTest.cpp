@@ -497,7 +497,28 @@ void TestIsRectangle() {
 	VERIFY(result4.size() == 0);
 }
 
+
+void TestConvexHull() {
+	UppLog() << "\n\nTest TestConvexHull()";
 	
+	UVector<Pointf> points = {{1, 3}, {-2, 4}, {3, 2}, {-1, 5}, {0, 0}, {2, 5}, {1, 7}, {-1, 2}, {1, 5}, {2, 1}, {1, 0}};
+	{
+		UVector<Pointf> hull = ConvexHull(points);	
+		UVector<Pointf> res = {{-2,4}, {1,7}, {2,5}, {3,2}, {1,0}, {0,0}};
+		VERIFY(res.size() == hull.size());
+		for (int i = 0; i < res.size(); ++i)
+			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
+	}
+	{
+		UVector<Pointf> hull = ConvexHull(points, true, 0.001);	
+		UVector<Pointf> res = {{-2,4}, {-1,5}, {1,7}, {2,5}, {3,2}, {2,1}, {1,0}, {0,0}, {-1,2}};
+		VERIFY(res.size() == hull.size());
+		for (int i = 0; i < res.size(); ++i)
+			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
+	}
+
+}
+
 CONSOLE_APP_MAIN 
 {
 	StdLogSetup(LOG_COUT|LOG_FILE);
@@ -508,8 +529,9 @@ CONSOLE_APP_MAIN
 	try {
 		TestBasic();
 		
+		TestConvexHull();
 		TestIsRectangle();
-		TestPoly();
+		TestPoly();	
 		TestMesh();
 
 		TestSurfaceX_Calc();

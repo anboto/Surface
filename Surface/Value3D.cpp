@@ -342,14 +342,6 @@ bool PointInSegment(const Point3D &p, const Segment3D &seg) {
 	return PointInSegment(p, seg.from, seg.to);
 }
 
-bool PointInSegment(const Pointf &p, const Pointf &from, const Pointf &to) {
-	double dpa = Distance(p, from);
-	double dpb = Distance(p, to);
-	double dab = Distance(from, to);
-	
-	return abs(dpa + dpb - dab) < EPS_LEN;
-}
-
 bool SegmentInSegment(const Segment3D &in, double in_len, const Segment3D &seg) {
 	double seg_len = seg.Length();
 	
