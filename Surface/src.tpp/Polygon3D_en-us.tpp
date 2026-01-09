@@ -77,21 +77,24 @@ onst] Vector<Point3D>[@(0.0.255) `&] [*@3 bound])&]
 on Y and Z.&]
 [s3; &]
 [s4; &]
-[s5;:Upp`:`:Point2Dto3D`_XY`(const Vector`&`): Vector<Point3D> [* Point2Dto3D`_XY]([@(0.0.255) c
-onst] Vector<Pointf>[@(0.0.255) `&] [*@3 bound])&]
+[s5;:Upp`:`:Point2Dto3D`_XY`(const Vector`&`,double`): Vector<Point3D> 
+[* Point2Dto3D`_XY]([@(0.0.255) const] Vector<Pointf>[@(0.0.255) `&] 
+[*@3 bound], double [*@3 val ]`= 0)&]
 [s2;%% Converts the 2D polygon [%-*@3 bound] to a 3D polygon based 
-on X and Y.&]
+on X and Y. Z value is [%-*@3 val].&]
 [s3; &]
 [s4; &]
-[s5;:Upp`:`:Point2Dto3D`_XZ`(const Vector`&`): Vector<Point3D> [* Point2Dto3D`_XZ]([@(0.0.255) c
-onst] Vector<Pointf>[@(0.0.255) `&] [*@3 bound])&]
+[s5;:Upp`:`:Point2Dto3D`_XZ`(const Vector`&`,double`): Vector<Point3D> 
+[* Point2Dto3D`_XZ]([@(0.0.255) const] Vector<Pointf>[@(0.0.255) `&] 
+[*@3 bound], double [*@3 val ]`= 0)&]
 [s2;%% Converts the 2D polygon [%-*@3 bound] to a 3D polygon based 
-on X and Z.&]
+on X and Z. Y value is [%-*@3 val].&]
 [s3; &]
 [s4; &]
-[s5;:Upp`:`:Point2Dto3D`_YZ`(const Vector`&`): Vector<Point3D> [* Point2Dto3D`_YZ]([@(0.0.255) c
-onst] Vector<Pointf>[@(0.0.255) `&] [*@3 bound])&]
+[s5;:Upp`:`:Point2Dto3D`_YZ`(const Vector`&`,double`): Vector<Point3D> 
+[* Point2Dto3D`_YZ]([@(0.0.255) const] Vector<Pointf>[@(0.0.255) `&] 
+[*@3 bound], double [*@3 val ]`= 0)&]
 [s2;%% Converts the 2D polygon [%-*@3 bound] to a 3D polygon based 
-on Y and Z.&]
+on Y and Z. X value is [%-*@3 val].&]
 [s3; &]
 [s0;%% ]]

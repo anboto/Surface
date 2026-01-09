@@ -67,6 +67,8 @@ void SurfaceView::Render(const Affine3d &quat) {
 				const Point3D &p2 = nodesRot[pv.id[2]];
 		
 				pv.normal = Normal(p0, p1, p2);				// To simplify, triangles and quads have same normal and centroid
+				if (pv.normal == Value3D::Zero())
+					pv.normal = Normal(p0, p2, nodesRot[pv.id[3]]);
 				pv.centroid = Centroid(p0, p1, p2);
 				
 		 		int c = (int) abs(lightDir.dot(pv.normal) * 255.0);
@@ -267,7 +269,10 @@ SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshCol
 			const Point3D &p1 = nodes0[pv.id[1]];
 			const Point3D &p2 = nodes0[pv.id[2]];
 	
-			pv.normal = Normal(p0, p1, p2);		// To simplify, triangles and quads have same normal and centroid
+			pv.normal = clone(p.normalPaint);
+			//			Normal(p0, p1, p2);		// To simplify, triangles and quads have same normal and centroid
+			//if (pv.normal == Value3D::Zero())
+			//	pv.normal = Normal(p2, nodes0[pv.id[3]], p0);	
 			
 			if (pv.numIds == 3)
 				pv.centroid = Centroid(p0, p1, p2);

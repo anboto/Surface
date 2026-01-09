@@ -55,6 +55,8 @@ public:
 	Value3D() 									{}
 	Value3D(const Value3D &p, int)				{Set(p);}
 	Value3D(const Value3D &p) 					{Set(p);}
+	Value3D(Value3D&&) = default;
+	Value3D& operator=(Value3D&&) = default;
 	Value3D(const Vector3d &p) 					{Set(p);}
 	Value3D(const Vector<double> &p) 			{Set(p);}
 	Value3D(double _x, double _y, double _z) 	{Set(_x, _y, _z);}
@@ -77,8 +79,8 @@ public:
 	void Set(const Vector<double> &p) 			{x = p[0];	y = p[1];	z = p[2];}
 	void Set(double _x, double _y, double _z) 	{x = _x;  	y = _y;  	z = _z;}
 	
-	inline Value3D operator=(const Value3D &p)	{Set(p);	return *this;}
-	inline Value3D operator=(const Vector3d &p)	{Set(p);	return *this;}
+	inline Value3D& operator=(const Value3D &p)	{Set(p);	return *this;}
+	inline Value3D& operator=(const Vector3d &p){Set(p);	return *this;}
 	
     operator Eigen::Vector3d() const {return Eigen::Vector3d(x, y, z);}
     operator Eigen::VectorXd() const {return Eigen::Vector3d(x, y, z);}
@@ -164,7 +166,7 @@ public:
 	Value3D &Normalize() {
 		double length = Length();
 		
-		if (length < 1e-10) 
+		if (length < 1e-10)
 			SetZero();
 		else {
 		    x = x/length;
@@ -234,9 +236,16 @@ public:
 	
 	Value3D t, r;
 	
-	Value6D() {}
+	Value6D() = default;
 	Value6D(const Value6D &f)		{Set(f);}
+	Value6D& operator=(const Value6D& f) {
+        if (this != &f)
+            Set(f);
+        return *this;
+    }
 	Value6D(const Value6D &f, int)	{Set(f);}
+	Value6D(Value6D&&) = default;
+	Value6D& operator=(Value6D&&) = default;
 	Value6D(const VectorXd &v)		{Set(v);}
 	template<typename T>
 	Value6D(const T *v)				{Set(v);}
@@ -678,8 +687,9 @@ public:
 	Surface() {}
 	Surface(const Surface &surf, int)		{Copy(surf);}
 	Surface(const Surface &surf)			{Copy(surf);}
-	Surface& operator=(const Surface &surf) {Copy(surf); return *this;};
 	Surface(Surface &&surf) noexcept;
+	Surface& operator=(const Surface &surf) {Copy(surf); return *this;};
+	Surface& operator=(Surface&&) noexcept = default;
 	
 	bool IsValid() const	{return magic == 1234567890;}
 	virtual ~Surface() 		{magic = 505;}
@@ -728,6 +738,7 @@ public:
 	Pointf GetAreaZProjectionCG() const;
 	void GetSegments();
 	void GetNormals();
+	void GetNormal(int ip);
 	double GetAvgLenSegment() const {return avgLenSegment;}
 	Surface &GetVolume();
 	int VolumeMatch(double ratioWarning, double ratioError) const;
@@ -758,6 +769,7 @@ public:
 	double GetWaterPlaneArea() const;
 	
 	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null, double meshRatio = 1, bool quads = false);
+	void AddCS(const UVector<Surface *> &surfs, double distance, double meshRatio = 1, bool quads = false);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
@@ -827,7 +839,8 @@ public:
 	
 	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth, double angle = 360, bool close = true, Function <bool(String)> Prompt = Null);
-	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize, bool quads);
+	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize, bool quads, double ratioSquareGrid = 1);
+	void AddPolygonalPanel(const Vector<Pointf> &bound, const Vector<Vector<Pointf>> &_internals, double panelWidth, bool adjustSize, bool quads, double ratioSquareGrid = 1);
 	void Extrude(double dx, double dy, double dz, bool close);
 	void AddPanels(const Surface &from, UVector<int> &panelIds);
 		
@@ -853,16 +866,16 @@ public:
 			("lines", lines)
 		;
 	}
-		
+
+	struct TrianglesPoints2D : TriviallyRelocatable<TrianglesPoints2D> {
+		Pointf data[3];
+	};
+	
 protected:
-	struct PanelPoints {
-		PanelPoints() {data.SetCount(4);}
-		Vector<Point3D> data;
+	struct PanelPoints : TriviallyRelocatable<PanelPoints> {
+		Point3D data[4];
 	};
-	struct TrianglesPoints2D {
-		TrianglesPoints2D() {data.SetCount(3);}
-		Vector<Pointf> data;
-	};
+
 	void SetPanelPoints(const Array<PanelPoints> &pans);
 	
 private:
@@ -889,9 +902,74 @@ private:
 	void SmoothLaplacianWeightLess(double lambda, const Vector<bool> &boundaryNodes);
 	void SmoothLaplacianWeight(double lambda, const Vector<bool> &boundaryNodes);
 	void SmoothImplicitLaplacian(double lambda, const Vector<bool> &boundaryNodes);
-	
+		
 	Vector<int> selPanels, selNodes;
 	int magic = 1234567890;
+};
+
+class Delaunay2 {
+public:
+	Delaunay2() : tihull(-1) {}
+	
+	void Build(const Vector<Pointf>& points, double epsilon = 1e-10);
+
+public:
+	struct Triangle {// anticlockwise
+		bool IsProper() const                       { return vertex[0] >= 0; }
+		int  operator [] (int i) const              { return vertex[i]; }
+		int& operator [] (int i)                    { return vertex[i]; }
+
+		int  Next(int i) const                      { return nextindex[i] >> 2; }
+		int  NextIndex(int i) const                 { return nextindex[i] & 3; }
+
+		void Set(int a, int b, int c)               { vertex[0] = a; vertex[1] = b; vertex[2] = c; }
+		void SetNext(int i, int next, int index)    { ASSERT(index >= 0 && index <= 2); nextindex[i] = next * 4 + index; }
+
+		int  vertex[3];    // [0] = -1 => infinity
+		int  nextindex[3]; // neighbour[i] is opposite to vertex[i]; bit 0 & 1 = my index in neighbour's neighbour list
+		
+	};
+
+	bool IsBadTriangle(const Triangle& t, double ratio = 0.04) const;
+	static bool IsBadTriangle(const Pointf& A, const Pointf& B, const Pointf& C, double ratio = 0.04);
+	Vector<int> GetTouchingTriangles(int ti) const;
+
+	bool FindBad(int id, const Vector<Index<int>> &ibadTris) {
+		for (const Index<int> &ib : ibadTris)
+			if (ib.Find(id) >= 0)
+				return true;
+		return false;
+	}
+	
+	void BadTriangleSet(int id, Index<int> &bad, const Vector<Index<int>> &ibadTris) {
+		if (FindBad(id, ibadTris) || bad.Find(id) >= 0)
+			return;
+		const Delaunay2::Triangle &tri = triangles[id];
+		if (IsBadTriangle(tri, 0.04)) {
+			bad.FindAdd(id);
+			Vector<int> touch = GetTouchingTriangles(id);
+			for (int t : touch)
+				BadTriangleSet(t, bad, ibadTris);
+		}
+	}
+
+	int                           GetCount() const                             { return triangles.GetCount(); }
+	const Triangle&               operator [] (int i) const                    { return triangles[i]; }
+	Pointf                        At(int i) const                              { return points[i]; }
+	Pointf                        At(const Triangle& t, int i) const           { return points[t[i]]; }
+	int                           GetHullIndex() const                         { return tihull; }
+
+private:
+	bool                          IsNear(const Pointf& a, const Pointf& b) const { return fabs(a.x - b.x) <= epsilon && fabs(a.y - b.y) <= epsilon; }
+	void                          CreatePair(int i, int j);
+	void                          AddHull(int i);
+	void                          Link(int ta, int ia, int tb, int ib);
+
+	Vector<Pointf>                points;
+	Vector<int>                   order;
+	Array<Triangle>               triangles;
+	double                        epsilon;
+	int                           tihull;
 };
 
 class SurfaceMass  {
@@ -986,8 +1064,12 @@ void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z);
 
 void LoadOBJ(String fileName, Surface &surf);
 
+Pointf Centroid(const Pointf &p0, const Pointf &p1, const Pointf &p2);
 double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
 double Direction(const Pointf& a, const Pointf& b);
+Vector<Pointf> Rotate(const Vector<Pointf>& points, double angle, const Pointf& center);
+Pointf Rotate(const Pointf& points, double angle, const Pointf& center);
+bool IsSimilar(const Pointf &a, const Pointf &b, double similThres);
 	
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
@@ -1042,10 +1124,21 @@ bool ContainsPoint(const Point_<T> &a, const Point_<T> &b, const Point_<T> &c, c
     return ContainsPoint(a, b, c, p) || ContainsPoint(a, c, d, p);
 }
 
+int Orientation(const Pointf& a, const Pointf& b, const Pointf& c);
+bool InCircle(const Pointf& a, const Pointf& b, const Pointf& c, const Pointf& d);
 UVector<Pointf> IsRectangle(const UVector<Pointf>& perimeter, double tol = 0.0001);
 double DistanceToLine(const Pointf &p, const Pointf &a, const Pointf &b);
-UVector<Pointf> ConvexHull(const UVector<Pointf>& points, bool include_collinear = false, double distanceCollinear = 0.0001);
-	
+bool IsClockwise(const Pointf& a, const Pointf& b, const Pointf& c);
+bool IsCounterClockwise(const Pointf& a, const Pointf& b, const Pointf& c);
+UVector<Pointf> ConvexContour(const UVector<Pointf>& points);
+UVector<Pointf> OffsetContourBevel(const Vector<Pointf>& contour, double d);
+UVector<Pointf> OffsetContourRoundArcSteps(const Vector<Pointf>& contour, double d, int arc_steps);
+UVector<Pointf> OffsetContourRoundAngle(const Vector<Pointf>& contour, double d, double deltaangle);
+double DeltaLenToDeltaAngle(double d, double deltaLen);
+UVector<Pointf> RemoveCollinear(const UVector<Pointf>& points,  bool isclosed, double distanceCollinear = 0.0001);
+Vector<Pointf> RemoveClosest(const Vector<Pointf>& pts, bool isclosed, double minDist = 0.1);
+Vector<Pointf> BreakLongSides(const Vector<Pointf>& pts, bool isclosed, double targetLen);
+
 Point3D Centroid(const UVector<Point3D> &p);
 double Area(const UVector<Point3D> &p);
 bool IsRectangle(const UVector<Point3D> &p);
@@ -1061,11 +1154,11 @@ bool IsRectangle(const UVector<Pointf> &p);
 void Range(const UVector<Pointf> &p, double &minx, double &maxx, double &miny, double &maxy);
 	
 Vector<Pointf>  Point3Dto2D_XY(const Vector<Point3D> &bound);
-Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf>  &bound);
+Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf>  &bound, double val = 0);
 Vector<Pointf>  Point3Dto2D_XZ(const Vector<Point3D> &bound);
-Vector<Point3D> Point2Dto3D_XZ(const Vector<Pointf>  &bound);
+Vector<Point3D> Point2Dto3D_XZ(const Vector<Pointf>  &bound, double val = 0);
 Vector<Pointf>  Point3Dto2D_YZ(const Vector<Point3D> &bound);
-Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound);
+Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound, double val = 0);
 
 bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy);
 

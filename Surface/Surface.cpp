@@ -220,18 +220,19 @@ void Surface::TrianglesToFalseQuads() {
 }
 
 void Surface::TriangleToFalseQuad(int ipanel) {
-	ASSERT(panels[ipanel].IsTriangle());
-	Panel &pan00 = panels[ipanel];
-	int id0 = pan00.id[0];
-	//int id1 = pan00.id[1];
-	int id2 = pan00.id[2];
+	Panel &pan = panels[ipanel];
+	
+	ASSERT(pan.IsTriangle());
+
+	int id0 = pan.id[0];
+	int id2 = pan.id[2];
+	
 	const Point3D &p0 = nodes[id0];
-	//const Point3D &p1 = nodes[id1];
 	const Point3D &p2 = nodes[id2];
 		
 	Point3D p20 = Middle(p2, p0);		int id20 = nodes.size();
-	nodes.Add(p20);	
-	pan00.id[3] = id20;
+	nodes << p20;	
+	pan.id[3] = id20;
 }
 
 void Surface::QuadToQuad(Panel &pan) {
@@ -453,7 +454,7 @@ void Surface::GetSegments() {
 		}
 	}
 	if (segments.size() == 0)
-		avgLenSegment = -1;
+		avgLenSegment = Null;
 	else {
 		avgLenSegment = 0;
 		for (const auto &s : segments)
@@ -462,18 +463,22 @@ void Surface::GetSegments() {
 	}
 }
 
-void Surface::GetNormals() {
-	for (Panel &panel : panels) {
-		const Point3D &p0 = nodes[panel.id[0]];
-		const Point3D &p1 = nodes[panel.id[1]];
-		const Point3D &p2 = nodes[panel.id[2]];
-	
-		panel.normal0 = Normal(p0, p1, p2);
-		if (!panel.IsTriangle()) {
-			const Point3D &p3 = nodes[panel.id[3]];
-			panel.normal1 = Normal(p2, p3, p0);
-		}
+inline void Surface::GetNormal(int ip) {
+	Panel &panel = panels[ip];
+	const Point3D &p0 = nodes[panel.id[0]];
+	const Point3D &p1 = nodes[panel.id[1]];
+	const Point3D &p2 = nodes[panel.id[2]];
+
+	panel.normal0 = Normal(p0, p1, p2);
+	if (!panel.IsTriangle()) {
+		const Point3D &p3 = nodes[panel.id[3]];
+		panel.normal1 = Normal(p2, p3, p0);
 	}
+}
+
+void Surface::GetNormals() {
+	for (int ip = 0; ip < panels.size(); ++ip)
+		GetNormal(ip);
 }
 
 void Surface::TrianglesToQuadsFlat() {
@@ -679,7 +684,7 @@ bool Surface::ReorientPanels0(bool _side) {
 		int id = panelStack.size() - 1;
 		int ipp = panelStack[id];
 		panelStack.Remove(id, 1);
-		panelProcessed << ipp;
+		panelProcessed.FindAdd(ipp);
 		
 		for (int is = 0; is < segments.size(); ++is) {
 			const Upp::Index<int> &segPanels = segments[is].idPans;
@@ -695,6 +700,10 @@ bool Surface::ReorientPanels0(bool _side) {
 			}
 		}
 	}
+	if (panelProcessed.size() < panels.size())		// Abandoned panels
+		for (int i = 0; i < panels.size(); ++i)
+			if (panelProcessed.Find(i) < 0)
+				ReorientPanel(i);
 
 	return true;
 }
@@ -1020,16 +1029,22 @@ void Surface::GetPanelParams(Panel &panel) const {
 	if (!panel.IsTriangle()) {
 		panel.surface1  = Area(p2, p3, p0);
 		panel.centroid1 = Centroid(p2, p3, p0);
-		panel.normal1   = Normal(p2, p3, p0);
+		panel.normal1 = Normal(p2, p3, p0);
 		double surf = panel.surface0 + panel.surface1;
 		if (surf == 0) {
-//			throw Exc(t_("Panel with zero surface"));
 			panel.centroidPaint.x = (panel.centroid0.x + panel.centroid1.x)/2;
 			panel.centroidPaint.y = (panel.centroid0.y + panel.centroid1.y)/2;
 			panel.centroidPaint.z = (panel.centroid0.z + panel.centroid1.z)/2;
 			panel.normalPaint.x = (panel.normal0.x + panel.normal1.x)/2;
 			panel.normalPaint.y = (panel.normal0.y + panel.normal1.y)/2;
 			panel.normalPaint.z = (panel.normal0.z + panel.normal1.z)/2;
+			panel.normalPaint.Normalize();
+		} else if (panel.surface0 < 1e-10){
+			panel.centroidPaint = clone(panel.centroid1);
+			panel.normalPaint = clone(panel.normal1);
+		} else if (panel.surface1 < 1e-10){
+			panel.centroidPaint = clone(panel.centroid0);
+			panel.normalPaint = clone(panel.normal0);
 		} else {
 			panel.centroidPaint.x = (panel.centroid0.x*panel.surface0 + panel.centroid1.x*panel.surface1)/surf;
 			panel.centroidPaint.y = (panel.centroid0.y*panel.surface0 + panel.centroid1.y*panel.surface1)/surf;
@@ -1037,8 +1052,8 @@ void Surface::GetPanelParams(Panel &panel) const {
 			panel.normalPaint.x = (panel.normal0.x*panel.surface0 + panel.normal1.x*panel.surface1)/surf;
 			panel.normalPaint.y = (panel.normal0.y*panel.surface0 + panel.normal1.y*panel.surface1)/surf;
 			panel.normalPaint.z = (panel.normal0.z*panel.surface0 + panel.normal1.z*panel.surface1)/surf;
+			panel.normalPaint.Normalize();
 		}
-		panel.normalPaint.Normalize();
 	} else {
 		panel.surface1 = 0;
 		panel.centroidPaint = panel.centroid1 = panel.centroid0;
@@ -2721,29 +2736,76 @@ static void InsertNode(int *panid, int id0, int id1, int id) {
 	}
 	throw Exc("Error in InsertNode");
 }
-			
-void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize, bool quads) {
+
+void AddTriangles(const Delaunay2 &del, const Vector<Pointf> &bound, const Vector<Vector<Pointf>> &internals, Array<Surface::TrianglesPoints2D> &tris) {
+	for (int i = 0; i < del.GetCount(); ++i) {
+		const Delaunay2::Triangle &tri = del[i];
+		
+		if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0)
+			continue; 
+		
+		const Pointf &p0 = del.At(tri[0]);
+		const Pointf &p1 = del.At(tri[1]);
+		const Pointf &p2 = del.At(tri[2]);
+		
+		// Checks if the triangle is inside the contour
+		Pointf cen = Centroid(p0, p1, p2);
+		if (ContainsPoint(bound, cen) > 0) {				// Inside the contour
+			bool inside = true;
+			for (const Vector<Pointf> &it : internals) {
+				if (ContainsPoint(it, cen) > 0) {			// Outside the internals
+					inside = false;
+					break;
+				}
+			}
+			if (inside) {
+				Surface::TrianglesPoints2D &t = tris.Add();
+				t.data[0] = p0;
+				t.data[1] = p1;
+				t.data[2] = p2;
+			}
+		}
+	}
+}
+
+void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize, bool quads, double ratioSquareGrid) {
+	const Vector<Vector<Pointf>> dummy;
+	AddPolygonalPanel(_bound, dummy, panelWidth, adjustSize, quads, ratioSquareGrid);
+}
+		
+void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vector<Pointf>> &_internals, double panelWidth, bool adjustSize, bool quads, double ratioSquareGrid) {
 	ASSERT(_bound.size() >= 2);
+	ASSERT(panelWidth > 0.0001);
 	
-	Vector<Pointf> bound = clone(_bound);
-	
-	if (bound[0] != bound[bound.size()-1])		// Close boundary
+	// Close boundaries
+	Vector<Pointf> bound;
+	bound.Reserve(_bound.size()+1);
+	bound = clone(_bound);
+	if (bound[0] != bound.Top())		
 		bound << bound[0];
 	
-	UVector<Pointf> rect = IsRectangle(bound, EPS_LEN);
-	if (rect.size() == 4) {
-		double angle = atan((rect[1].y - rect[0].y)/(rect[1].x - rect[0].x));
-		double w = sqrt(sqr(rect[1].x - rect[0].x) + sqr(rect[1].y - rect[0].y));
-		double h = sqrt(sqr(rect[2].x - rect[1].x) + sqr(rect[2].y - rect[1].y));
-		Surface s;
-		s.AddFlatRectangle(w, h, panelWidth, panelWidth);
-		s.TransRot(rect[0].x, 0, rect[0].y, -M_PI/2, 0, angle, 0, 0, 0);
-		s.GetPanelParams();
-		Append(s);
-		
-		return;
+	Vector<Vector<Pointf>> internals(_internals.size());
+	for (int i = 0; i < _internals.size(); ++i) {
+		internals[i] = clone(_internals[i]);
+		if (internals[i][0] != internals[i].Top())		
+			internals[i] << internals[i][0];	
 	}
 	
+	if (!internals.IsEmpty()) {
+		Vector<Pointf> rect = IsRectangle(bound, EPS_LEN);
+		if (rect.size() == 4) {
+			double angle = atan((rect[1].y - rect[0].y)/(rect[1].x - rect[0].x));
+			double w = sqrt(sqr(rect[1].x - rect[0].x) + sqr(rect[1].y - rect[0].y));
+			double h = sqrt(sqr(rect[2].x - rect[1].x) + sqr(rect[2].y - rect[1].y));
+			Surface s;
+			s.AddFlatRectangle(w, h, panelWidth, panelWidth);
+			s.TransRot(rect[0].x, 0, rect[0].y, -M_PI/2, 0, angle, 0, 0, 0);
+			s.GetPanelParams();
+			Append(s);
+			
+			return;
+		}
+	}
 	// Removes short and breaks long segments in the boundary to fit with panel width
 	if (adjustSize) {		
 		for (int i = bound.size()-3; i >= 0; --i) {		// Joins adjacent collinear ...
@@ -2753,32 +2815,13 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		if (bound.size() > 3) {							// ... including the first and last
 			if (Collinear(bound[bound.size()-2], bound[0], bound[1], EPS_LEN)) {
 				bound.Remove(0);
-				bound[bound.size()-1] = clone(bound[0]);
+				bound.Top() = clone(bound[0]);
 			}
 		}
-		
-		Vector<double> lens(bound.size()-1);
-		for (int i = 0; i < bound.size()-1; ++i) 
-			lens[i] = Distance(bound[i], bound[i+1]);
-
-		for (int i = lens.size()-1; i >= 0; --i) {		// Breaks long 
-			double rat = lens[i]/panelWidth;	
-			if (rat > 1.5) {
-				int num = int(round(rat));
-			
-				double x0 = bound[i].x;
-				double lenx = bound[i+1].x - bound[i].x;
-				double y0 = bound[i].y;
-				double leny = bound[i+1].y - bound[i].y;
-				for (int in = num-1; in >= 1; --in) {
-					Pointf p(x0 + lenx*in/num, y0 + leny*in/num);
-					bound.Insert(i+1, p);
-				}
-			}
-		}
+		bound = BreakLongSides(bound, false, panelWidth);
 	}
 	
-	// Gets the range
+	// Gets the bound range
 	double minX = std::numeric_limits<double>::max(), minY = std::numeric_limits<double>::max(), 
 		   maxX = std::numeric_limits<double>::lowest(), maxY = std::numeric_limits<double>::lowest();
 	for (const auto &p : bound) {
@@ -2791,11 +2834,9 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		if (p.y > maxY)
 			maxY = p.y;
 	}		
-	//minX -= 0.3*panelWidth;	// To avoid matching with the boundary
-	//minY -= 0.3*panelWidth;
 
 	// Sets the points inside the boundary
-	Array<Pointf> poly;
+	Vector<Pointf> poly;
 	int nx = 1 + int((maxX-minX)/panelWidth);
 	int ny = 1 + int((maxY-minY)/panelWidth);
 		
@@ -2815,114 +2856,153 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		minY = -maxY;
 		ny *= 2;
 	}
-		
-	MatrixXi thereIsPoint = MatrixXi::Zero(nx, ny);		// Saves the quadrangles inside the boundary, so ContainsPoint() doesn't have to be called later
+	
+	// Saves in thereIsPoint the quadrangles inside the boundary, so ContainsPoint() does not have to be called later
+	MatrixXi thereIsPoint = MatrixXi::Zero(nx, ny);		
 	int ix = 0, iy;
+	
+	auto FarFromBound = [](const Vector<Pointf> &b, const Pointf pt, double w) {
+		double w2 = sqr(w);
+		for (int i = 0; i < b.size(); ++i)	// Only adds points that are not too close to an existing one
+			if (SquaredDistance(b[i], pt) < w2)
+				return false;
+		return true;
+	};
+	
 	for (double x = minX; ix < nx; x += panelWidth, ix++) {
 		iy = 0;
-		for (double y = minY; iy < ny; y += panelHeight, iy++) {	
+		for (double y = minY; iy < ny; y += panelHeight, iy++) {
 			Pointf pt(x, y);
-			bool addPoint = true;
-			for (int i = 0; i < bound.size(); ++i)	// Only adds points that are not near an existing one
-				if (Distance(bound[i], pt) < 0.8*panelWidth) {
-					addPoint = false;
-					break;
+			if (FarFromBound(bound, pt, panelWidth*ratioSquareGrid) && ContainsPoint(bound, pt) >= 0) {
+				bool add = true;
+				for (const Vector<Pointf> &it : internals) {
+					if (!FarFromBound(it, pt, panelWidth*ratioSquareGrid) || ContainsPoint(it, pt) >= 0) {
+						add = false;
+						break;
+					}
 				}
-			if (addPoint && ContainsPoint(bound, pt) >= 0) {
-				poly << pt;
-				thereIsPoint(ix, iy) = true;
+				if (add) {
+					poly << pt;
+					thereIsPoint(ix, iy) = true;
+				}
 			}
 		}
 	}
-	Array<Pointf> polySq = clone(poly);
 	
 	// Joins the boundary to the internal points
-	for (const auto &p : bound) 
-		poly << p;
-	
-	double range = max(maxX, maxY) - min(minX, minY);
-	double factor = 1e6/range;
-	Array<Pointf> polyDela(poly.size());
-	for (int i = 0; i < polyDela.size(); ++i) {
-		polyDela[i].x = int(poly[i].x*factor);
-		polyDela[i].y = int(poly[i].y*factor);
-	}
-	
-	Delaunay del;
-	del.Build(polyDela);
-
-	Array<TrianglesPoints2D> tris;
-	for (int i = 0; i < del.GetCount(); ++i) {
-		const Delaunay::Triangle &tri = del[i];
-		if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0)  
-			continue;
-
-		const Pointf &p0 = poly[tri[0]];
-		const Pointf &p1 = poly[tri[1]];
-		const Pointf &p2 = poly[tri[2]];
-
-		// Checks if the triangle touches the contour
-		int idp0 = Find(bound, p0);
-		int idp1 = Find(bound, p1);
-		int idp2 = Find(bound, p2);
+	int sz = poly.size() + bound.size();
+	for (const Vector<Pointf> &it : internals)
+		sz += it.size();
 		
-		// For those that don't touch the contour, see if they are outside the contour, and delete them.
-		bool t01 = idp0 >= 0 && idp1 >= 0 && abs(idp0 - idp1) == 1;	
-		if (!t01)
-			t01 = ContainsPoint(bound, Middle(p0, p1)) >= 0;
-
-		bool t12 = idp1 >= 0 && idp2 >= 0 && abs(idp1 - idp2) == 1;
-		if (!t12)
-			t12 = ContainsPoint(bound, Middle(p1, p2)) >= 0;
-			
-		bool t20 = idp2 >= 0 && idp0 >= 0 && abs(idp2 - idp0) == 1;
-		if (!t20)
-			t20 = ContainsPoint(bound, Middle(p2, p0)) >= 0;		
+	poly.Reserve(sz);
+	poly.Append(bound);
+	for (const Vector<Pointf> &it : internals)
+		poly.Append(it);
+	
+	// Triangularizes
+	Array<Array<TrianglesPoints2D>> trisList(3);
+	double anglecorrection = 0;
+	int ic;
+	int ibest = -1;
+	double bestRatio = 1;
+	for (ic = 0; ic < trisList.size(); ++ic) {			
+		Vector<Pointf> polyr = Upp::Rotate(poly, anglecorrection, Pointf(0, 0));
 		
-		if (t01 && t12 && t20) {
-			TrianglesPoints2D &t = tris.Add();
-			t.data[0].x = poly[tri[0]].x;		t.data[0].y = poly[tri[0]].y;
-			t.data[1].x = poly[tri[1]].x;		t.data[1].y = poly[tri[1]].y;
-			t.data[2].x = poly[tri[2]].x;		t.data[2].y = poly[tri[2]].y;
+		Vector<Pointf> boundr = Upp::Rotate(bound, anglecorrection, Pointf(0, 0));
+		Vector<Vector<Pointf>> internalsr(internals.size());
+		for (int i = 0; i < internals.size(); ++i)
+		 	internalsr[i] = Upp::Rotate(internals[i], anglecorrection, Pointf(0, 0));
+		
+		Delaunay2 del;
+		del.Build(polyr);
+	
+		int numBad = 0;
+		Vector<Index<int>> ibadTris;
+		for (int i = 0; i < del.GetCount(); ++i) {
+			Index<int> bad;
+			del.BadTriangleSet(i, bad, ibadTris);
+			numBad += bad.size();
+			if (!bad.IsEmpty())
+				ibadTris << pick(bad);
 		}
+		double ratio = double(numBad)/del.GetCount();
+		if (ratio < 0.001 || ratio < bestRatio) {
+			AddTriangles(del, boundr, internalsr, trisList[ic]);
+			for (int i = 0; i < trisList[ic].size(); ++i) {
+				TrianglesPoints2D &t = trisList[ic][i];
+				t.data[0] = Upp::Rotate(t.data[0], -anglecorrection, Pointf(0, 0));
+				t.data[1] = Upp::Rotate(t.data[1], -anglecorrection, Pointf(0, 0));
+				t.data[2] = Upp::Rotate(t.data[2], -anglecorrection, Pointf(0, 0));
+			}
+		}
+		if (ratio < 0.001)
+			break;
+		else if (ratio < bestRatio)
+			ibest = ic;
+		anglecorrection += ToRad(5);
 	}
+	if (ic < trisList.size())
+		ibest = ic;
 	
-	// First moves the triangles in the boundaries
+	Array<TrianglesPoints2D> tris = pick(trisList[ibest]);
 	
-	Array<TrianglesPoints2D> trisbound;				// These triangles are extracted
-	for (int i = tris.size()-1; i >= 0; --i) {
-		TrianglesPoints2D &t = tris[i];
+	const double eps = 1E-10;
+	
+	// First moves the triangles in the boundaries trisbound
+	Array<TrianglesPoints2D> trisbound;				// Boundary triangles are extracted from tris
+	for (int ii = tris.size()-1; ii >= 0; --ii) {
+		TrianglesPoints2D &t = tris[ii];
+
+		bool found = false;
 		for (int ip = 0; ip < bound.size(); ++ip) {
-			if (t.data[0] == bound[ip] || t.data[1] == bound[ip] || t.data[2] == bound[ip]) {
-				trisbound.Add(pick(t));
-				tris.Remove(i);
+			const Pointf &p = bound[ip];
+			if (IsSimilar(t.data[0], p, eps) || IsSimilar(t.data[1], p, eps) || IsSimilar(t.data[2], p, eps)) {
+				trisbound << pick(t);
+				tris.Remove(ii);
+				found = true;
 				break;
+			}
+		}
+		if (!found) {
+			for (const Vector<Pointf> &it : internals) {
+				for (int ip = 0; ip < it.size(); ++ip) {
+					const Pointf &p = it[ip];
+					if (IsSimilar(t.data[0], p, eps) || IsSimilar(t.data[1], p, eps) || IsSimilar(t.data[2], p, eps)) {
+						trisbound << pick(t);
+						tris.Remove(ii);
+						found = true;
+						break;	
+					}
+				}
+				if (found)
+					break;
 			}
 		}
 	}
 	
 	Array<PanelPoints> panstri;
-	
 	for (int i = trisbound.size()-1; i >= 0; --i) {
 		TrianglesPoints2D &t = trisbound[i];
 		PanelPoints &p = panstri.Add();						
 		for (int j = 0; j < 3; ++j) {
-			p.data[j].x = t.data[j].x;		p.data[j].y = t.data[j].y;	p.data[j].z = 0;
+			p.data[j].x = t.data[j].x;		
+			p.data[j].y = t.data[j].y;	
+			p.data[j].z = 0;
 		}
 		p.data[3] = clone(p.data[0]);
 	}
+	
 	Surface stri;
 	stri.SetPanelPoints(panstri);
-	if (quads) {
+	if (quads) { // Converts contiguous triangles into quads
 		stri.GetSegments();
 		Vector<bool> panToDel(stri.panels.size(), false);
 		Vector<bool> panDone(stri.panels.size(), false);
 		for (int isg = stri.segments.size()-1; isg >= 0; --isg) {
 			LineSegment &seg = stri.segments[isg];
-			if (seg.idPans.size() > 1 && 
-				!panToDel[seg.idPans[0]] && !panToDel[seg.idPans[1]] &&
-				!panDone[seg.idPans[0]] && !panDone[seg.idPans[1]] &&
-				stri.panels[seg.idPans[0]].IsTriangle() && stri.panels[seg.idPans[1]].IsTriangle()) {
+			if (seg.idPans.size() > 1 && !panToDel[seg.idPans[0]] && !panToDel[seg.idPans[1]] &&
+										 !panDone [seg.idPans[0]] && !panDone [seg.idPans[1]] &&
+										 stri.panels[seg.idPans[0]].IsTriangle() && stri.panels[seg.idPans[1]].IsTriangle()) {
 				Panel &pan0 = stri.panels[seg.idPans[0]];
 				Panel &pan1 = stri.panels[seg.idPans[1]];
 				int idnew = -1;
@@ -2948,10 +3028,11 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 				stri.panels.Remove(i);
 		
 		for (int ip = stri.panels.size()-1; ip >= 0; --ip) {
-			if (stri.panels[ip].IsTriangle()) 
+			if (stri.panels[ip].IsTriangle())
 				stri.TriangleToFalseQuad(ip); 
 		}
 	}
+	stri.GetPanelParams();
 	
 	Array<PanelPoints> pans;
 
@@ -2962,24 +3043,25 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 		iy = 0;
 		for (double y = minY; iy < ny-1; y += panelHeight, iy++) {
 			int sum = 0;
-			if (thereIsPoint(ix, iy))		sum++;
+			if (thereIsPoint(ix,   iy))		sum++;
 			if (thereIsPoint(ix+1, iy))		sum++;
 			if (thereIsPoint(ix+1, iy+1))	sum++;
-			if (thereIsPoint(ix, iy+1))		sum++;
+			if (thereIsPoint(ix,   iy+1))	sum++;
 			
-			if (sum == 4) {									// An square is found
-				PanelPoints &p = pans.Add();
+			if (sum == 4) {									// A square is found
+				PanelPoints p;
 				p.data[0] = Point3D(x, y, 0);
 				p.data[1] = Point3D(x+panelWidth, y, 0);
 				p.data[2] = Point3D(x+panelWidth, y+panelHeight, 0);
 				p.data[3] = Point3D(x, y+panelHeight, 0);
+				pans << p;
 			} else if (sum == 3) {							// This is a triangle, not touching the boundary, but out of the squares
 				for (int i = 0; i < tris.size(); ++i) {		// 		Search if this is a real triangle
 					sum = 0;
 					TrianglesPoints2D &t = tris[i];
 					if (thereIsPoint(ix, iy)) {
 						for (int j = 0; j < 3; j++) {
-							if (t.data[j] == Pointf(x, y)) {
+							if (IsSimilar(t.data[j], Pointf(x, y), eps)) {
 								sum++;
 								break;
 							}
@@ -2987,7 +3069,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 					}
 					if (thereIsPoint(ix+1, iy)) {
 						for (int j = 0; j < 3; j++) {
-							if (t.data[j] == Pointf(x+panelWidth, y)) {
+							if (IsSimilar(t.data[j], Pointf(x+panelWidth, y), eps)) {
 								sum++;
 								break;
 							}
@@ -2995,7 +3077,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 					}
 					if (thereIsPoint(ix+1, iy+1)) {
 						for (int j = 0; j < 3; j++) {
-							if (t.data[j] == Pointf(x+panelWidth, y+panelHeight)) {
+							if (IsSimilar(t.data[j], Pointf(x+panelWidth, y+panelHeight), eps)) {
 								sum++;
 								break;
 							}
@@ -3003,18 +3085,21 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 					}
 					if (thereIsPoint(ix, iy+1)) {
 						for (int j = 0; j < 3; j++) {
-							if (t.data[j] == Pointf(x, y+panelHeight)) {
+							if (IsSimilar(t.data[j], Pointf(x, y+panelHeight), eps)) {
 								sum++;
 								break;
 							}
 						}
 					}
 					if (sum == 3) {
-						PanelPoints &p = pans.Add();
+						PanelPoints p;
 						for (int j = 0; j < 3; ++j) {
-							p.data[j].x = t.data[j].x;		p.data[j].y = t.data[j].y;	p.data[j].z = 0;
+							p.data[j].x = t.data[j].x;		
+							p.data[j].y = t.data[j].y;	
+							p.data[j].z = 0;
 						}
 						p.data[3] = clone(p.data[0]);
+						pans << p;
 						tris.Remove(i);
 						break;
 					}
@@ -3026,7 +3111,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, double panelWidth,
 	s.SetPanelPoints(pans);
 	if (quads) {
 		for (int ip = s.panels.size()-1; ip >= 0; --ip) {
-			if (s.panels[ip].IsTriangle()) 
+			if (s.panels[ip].IsTriangle())
 				s.TriangleToFalseQuad(ip); 
 		}
 	}
@@ -3143,133 +3228,6 @@ void Surface::Extrude(double dx, double dy, double dz, bool close) {
 		Append(lid);
 }
 		
-/*
-void Surface::AddPolygonalPanel2(const Vector<Pointf> &_bound, double panelWidth, bool adjustSize) {
-	ASSERT(_bound.GetCount() >= 2);
-	
-	Vector<Pointf> bound = clone(_bound);
-	
-	// Close boundary
-	if (bound[0] != bound[bound.size()-1])
-		bound << bound[0];
-	
-	// Removes short and breaks long segments to fit with panel width
-	if (adjustSize) {		
-		Vector<double> lens(bound.size()-1);
-		for (int i = 0; i < bound.size()-1; ++i) 
-			lens[i] = Distance(bound[i], bound[i+1]);
-
-		for (int i = lens.size()-2; i >= 0; --i) {		// Removes short
-			double rat = lens[i]/panelWidth;	
-			if (rat < 0.5) {
-				lens[i+1] += lens[i];
-				lens.Remove(i);
-				bound.Remove(i);
-			}
-		}		
-		for (int i = lens.size()-3; i >= 0; --i) {		// Removes short
-			double rat = (lens[i] + lens[i+1])/panelWidth;	
-			if (rat < 1.2) {
-				lens[i] += lens[i+1];
-				lens.Remove(i+1);
-				bound.Remove(i+1);
-			}
-		}
-		for (int i = lens.size()-2; i >= 0; --i) {		// Breaks long 
-			double rat = lens[i]/panelWidth;	
-			if (rat > 1.8) {
-				int num = int(round(rat));
-			
-				double x0 = bound[i].x;
-				double lenx = bound[i+1].x - bound[i].x;
-				double y0 = bound[i].y;
-				double leny = bound[i+1].y - bound[i].y;
-				for (int in = num-1; in >= 1; --in) {
-					Pointf p(x0 + lenx*in/num, y0 + leny*in/num);
-					bound.Insert(i+1, p);
-				}
-			}
-		}
-	}
-	//bound.Remove(bound.size()-1);
-	
-	double avgx = 0, avgy = 0;
-	for (Pointf &p : bound) {
-		avgx += p.x;
-		avgy += p.y;
-	}
-	Pointf avgp(avgx/bound.size(), avgy/bound.size());
-
-	// Genera la lista de puntos con el contorno, y un punto en el medio
-
-	Array<Pointf> delp;
-	delp.SetCount(bound.size());
-	for (int i = 0; i < bound.size(); ++i) 
-		delp[i] = bound[i]; 
-	delp << avgp;
-
-	
-	Delaunay del;
-	
-	int lastnum = -1;
-	while (true) {
-		// Va remallando añadiendo punto a punto
-		
-		del.Build(delp);
-		double avglen = 0, maxlen = 0;
-		int maxid, maxid3, num = 0;
-		for (int i = 0; i < del.GetCount(); ++i) {
-			const Delaunay::Triangle &tri = del[i];
-			if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0)  
-				continue;
-
-			double len;
-			len = sqrt(sqr(delp[tri[0]].x - delp[tri[1]].x) + sqr(delp[tri[0]].y - delp[tri[1]].y));
-			avglen += len;	num++;
-			if (maxlen < len) {
-				maxlen = len;	maxid = i;	maxid3 = 0;
-			}
-			len = sqrt(sqr(delp[tri[1]].x - delp[tri[2]].x) + sqr(delp[tri[1]].y - delp[tri[2]].y));
-			avglen += len;	num++;
-			if (maxlen < len) {
-				maxlen = len;	maxid = i;	maxid3 = 1;
-			}			
-			len = sqrt(sqr(delp[tri[2]].x - delp[tri[0]].x) + sqr(delp[tri[2]].y - delp[tri[0]].y));
-			avglen += len;	num++;
-			if (maxlen < len) {
-				maxlen = len;	maxid = i;	maxid3 = 2;
-			}
-		}
-		// No se ha mejorado, salimos
-		if (num == lastnum)
-			break;
-		lastnum = num;
-		avglen /= num;
-		if (avglen < panelWidth) 
-			break;
-		
-		int maxid33 = maxid3 == 2 ? 0 : maxid3+1;
-		
-		delp << Pointf(Avg(delp[del[maxid][maxid3]].x, delp[del[maxid][maxid33]].x), Avg(delp[del[maxid][maxid3]].y, delp[del[maxid][maxid33]].y));	
-	}
-	
-	Array<PanelPoints> pans;
-	for (int i = 0; i < del.GetCount(); ++i) {
-		const Delaunay::Triangle &tri = del[i];
-		if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0)  
-			continue;
-
-		PanelPoints &pan = pans.Add();
-		pan.data[0].x = delp[tri[0]].x;					pan.data[0].y = delp[tri[0]].y;					pan.data[0].z = 0;
-		pan.data[1].x = delp[tri[1]].x;					pan.data[1].y = delp[tri[1]].y;					pan.data[1].z = 0;
-		pan.data[2].x = pan.data[3].x = delp[tri[2]].x;	pan.data[2].y = pan.data[3].y = delp[tri[2]].y;	pan.data[2].z = pan.data[3].z = 0;
-	}
-	Surface s;
-	s.SetPanelPoints(pans);
-	//s.TrianglesToQuadsFlat();
-	Append(s);
-}
-*/
 Vector<Point3D> GetClosedPolygons(Vector<Segment3D> &segs) {
 	Vector<Point3D> ret;
 	
@@ -3431,6 +3389,77 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 		if (!GetDryPanels(surf, true, grid, eps))
 			throw Exc(t_("There is no mesh in the water surface"));		
 	}
+}
+
+void Surface::AddCS(const UVector<Surface *> &surfs, double distance, double meshRatio, bool quads) {
+	ASSERT(distance > 0);
+
+	// Gets the horizontal bound
+	double minz = std::numeric_limits<double>::max();
+	Vector<Pointf> points;
+	double sidelen = 0;
+	for (int is = 0; is < surfs.size(); ++is) {
+		const Surface &surf = *(surfs[is]);
+		for (int ip = 0; ip < surf.nodes.size(); ++ip) {
+			const Point3D &p = surf.nodes[ip];
+			if (p.z < minz)
+				minz = p.z;
+			points << Pointf(p.x, p.y);
+		}
+		sidelen += surf.GetAvgLenSegment();
+	}
+	sidelen /= surfs.size();
+	
+	sidelen *= 1.5;
+	
+	Vector<Pointf> bound = ConvexContour(points);	
+	bound = OffsetContourBevel(bound, distance);
+	bound = RemoveClosest(bound, false, sidelen*3);
+	bound = BreakLongSides(bound, true, sidelen);
+	
+	// Gets the lower surface
+	AddPolygonalPanel(bound, sidelen*meshRatio, false, quads, 0.75);
+	Translate(0, 0, minz-distance);
+	Orient();
+
+	// Constructs the vertical extrusion
+	int num = int(-(minz-distance)/sidelen);
+	double dz = -(minz-distance)/num;
+	
+	bound << bound[0];
+	Vector<Point3D> bound3D = Point2Dto3D_XY(bound, minz-distance);
+	Value3D delta(0, 0, dz);
+	Array<PanelPoints> pans;
+	for (int ip = bound.size()-1; ip > 0; --ip) {
+		for (int ir = 0; ir < num; ++ir) {	
+			PanelPoints &p = pans.Add();
+			p.data[0] = bound3D[ip]   + delta*ir;
+			p.data[1] = bound3D[ip-1] + delta*ir;
+			p.data[2] = bound3D[ip-1] + delta*(ir + 1);
+			p.data[3] = bound3D[ip]   + delta*(ir + 1);
+		}
+	}
+	Surface s;
+	s.SetPanelPoints(pans);	
+	Append(s);
+
+	// Gets the free surface
+	
+	// Gets the water piercing internal boundaries
+	Vector<Vector<Pointf>> internals;
+	for (int is = 0; is < surfs.size(); ++is) {
+		Vector<Segment3D> segs = GetWaterLineSegments(*(surfs[is]));
+
+		while (!segs.IsEmpty()) {
+			Vector<Point3D> bnd = GetClosedPolygons(segs);
+			if (bnd.IsEmpty())
+				break;
+			Vector<Pointf> bound2D = Point3Dto2D_XY(bnd);
+			if (bound2D.size() > 2)
+				internals << pick(bound2D);
+		}
+	}
+	AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
 }
 
 char Surface::IsWaterPlaneMesh() const {

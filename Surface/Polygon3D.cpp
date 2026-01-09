@@ -203,24 +203,24 @@ Vector<Pointf> Point3Dto2D_YZ(const Vector<Point3D> &bound) {
 	return ret;
 }
 
-Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf> &bound) {
+Vector<Point3D> Point2Dto3D_XY(const Vector<Pointf> &bound, double val) {
 	Vector<Point3D> ret;
 	for (const auto &d: bound)
-		ret << Point3D(d.x, d.y, 0);
+		ret << Point3D(d.x, d.y, val);
 	return ret;
 }
 
-Vector<Point3D> Point2Dto3D_XZ(const Vector<Pointf> &bound) {
+Vector<Point3D> Point2Dto3D_XZ(const Vector<Pointf> &bound, double val) {
 	Vector<Point3D> ret;
 	for (const auto &d: bound)
-		ret << Point3D(d.x, 0, d.y);
+		ret << Point3D(d.x, val, d.y);
 	return ret;
 }
 
-Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf> &bound) {
+Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf> &bound, double val) {
 	Vector<Point3D> ret;
 	for (const auto &d: bound)
-		ret << Point3D(0, d.x, d.y);
+		ret << Point3D(val, d.x, d.y);
 	return ret;
 }
 

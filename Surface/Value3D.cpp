@@ -109,6 +109,10 @@ double Area(const Value3D &a, const Value3D &b, const Value3D &c) {
     return abs(0.5*((b - a)%(c - a)).Length());
 }
 
+Pointf Centroid(const Pointf &a, const Pointf &b, const Pointf &c) {
+    return Pointf(avg(a.x, b.x, c.x), avg(a.y, b.y, c.y));
+}
+
 double Area(const Pointf &a, const Pointf &b, const Pointf &c) {
     return abs(0.5*((b - a)%(c - a)));
 }

@@ -498,26 +498,78 @@ void TestIsRectangle() {
 }
 
 
-void TestConvexHull() {
-	UppLog() << "\n\nTest TestConvexHull()";
+void TestContour() {
+	UppLog() << "\n\nTest contour functions";
 	
+	bool showpoints = true;
+	
+	if (showpoints)
+		UppLog() << "\n\nPoints cloud";
 	UVector<Pointf> points = {{1, 3}, {-2, 4}, {3, 2}, {-1, 5}, {0, 0}, {2, 5}, {1, 7}, {-1, 2}, {1, 5}, {2, 1}, {1, 0}};
-	{
-		UVector<Pointf> hull = ConvexHull(points);	
-		UVector<Pointf> res = {{-2,4}, {1,7}, {2,5}, {3,2}, {1,0}, {0,0}};
-		VERIFY(res.size() == hull.size());
-		for (int i = 0; i < res.size(); ++i)
-			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
+	if (showpoints) {
+		for (int i = 0; i < points.size(); ++i)
+			UppLog() << Format("\n%.5f	%.5f", points[i].x, points[i].y);
 	}
 	{
-		UVector<Pointf> hull = ConvexHull(points, true, 0.001);	
-		UVector<Pointf> res = {{-2,4}, {-1,5}, {1,7}, {2,5}, {3,2}, {2,1}, {1,0}, {0,0}, {-1,2}};
+		UVector<Pointf> hull = ConvexContour(points);	
+		UVector<Pointf> res = {{-2,4}, {1,7}, {2,5}, {3,2}, {1,0}, {0,0}};
 		VERIFY(res.size() == hull.size());
-		for (int i = 0; i < res.size(); ++i)
+		if (showpoints)
+			UppLog() << "\n\nContour";
+		for (int i = 0; i < hull.size(); ++i) {
+			if (showpoints)
+				UppLog() << Format("\n%.5f	%.5f", hull[i].x, hull[i].y);
 			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
+		}
+		
+		UVector<Pointf> offset = OffsetContourBevel(hull, 2);
+		UVector<Pointf> resb = {{-3.414,5.414},{-0.414,8.414},{2.788,7.894},{3.788,5.894},{3.897,5.632},{4.897,2.632},{4.414,0.586},{2.414,-1.414},{1,-2},{0,-2},{-1.788,-0.894},{-3.788,3.105}};
+		if (showpoints)
+			UppLog() << "\n\nContourBevel";
+		for (int i = 0; i < offset.size(); ++i) {
+			if (showpoints)
+				UppLog() << Format("\n%.5f	%.5f", offset[i].x, offset[i].y);
+			VERIFY(EqualRatio(offset[i].x, resb[i].x, 0.001, 0.000001) && EqualRatio(offset[i].y, resb[i].y, 0.001, 0.000001));
+		}
+		
+		UVector<Pointf> round = OffsetContourRoundArcSteps(hull, 2, 3);
+		UVector<Pointf> resr = {{-3.789,3.106},{-3.998,3.905},{-3.865,4.721},{-3.414,5.414},{-0.414,8.414},{0.692,8.976},{1.917,8.777},{2.789,7.894},{3.789,5.894},{3.829,5.809},{3.865,5.721},{3.897,5.632},{4.897,2.632},{4.998,1.905},{4.829,1.191},{4.414,0.586},{2.414,-1.414},{2,-1.732},{1.518,-1.932},{1,-2},{0,-2},{-0.721,-1.865},{-1.346,-1.48},{-1.789,-0.894}};
+
+		if (showpoints)
+			UppLog() << "\n\nOffsetContourRoundArcSteps";
+		for (int i = 0; i < round.size(); ++i) {
+			if (showpoints)
+				UppLog() << Format("\n%.5f	%.5f", round[i].x, round[i].y);
+			VERIFY(EqualRatio(round[i].x, resr[i].x, 0.001, 0.000001) && EqualRatio(round[i].y, resr[i].y, 0.001, 0.000001));
+		}
+		
+		UVector<Pointf> roundA = OffsetContourRoundAngle(hull, 2, ToRad(15.));
+		UVector<Pointf> resrA = {{-3.789,3.106},{-3.977,3.698},{-3.974,4.32},{-3.78,4.911},{-3.414,5.414},{-0.414,8.414},{0.0148705,8.741},{0.516,8.94},{1.051,8.999},{1.584,8.913},{2.073,8.688},{2.485,8.34},{2.789,7.894},{4.897,2.632},{4.998,2.09},{4.947,1.54},{4.747,1.026},{4.414,0.586},{2.414,-1.414},{2,-1.732},{1.518,-1.932},{1,-2},{0,-2},{-0.547,-1.924},{-1.051,-1.701},{-1.476,-1.349},{-1.788,-0.894}};
+
+		if (showpoints)
+			UppLog() << "\n\nContourRoundAngle";
+		for (int i = 0; i < roundA.size(); ++i) {
+			if (showpoints)	
+				UppLog() << Format("\n%.5f	%.5f", roundA[i].x, roundA[i].y);
+			VERIFY(EqualRatio(roundA[i].x, resrA[i].x, 0.001, 0.000001) && EqualRatio(roundA[i].y, resrA[i].y, 0.001, 0.000001));
+		}
+	}
+	{
+		UVector<Pointf> hull0 = {{-2,4}, {-1,5}, {1,7}, {2,5}, {3,2}, {2,1}, {1,0}, {0,0}, {-1,2}};	
+		UVector<Pointf> hull = RemoveCollinear(hull0, true, 0.0001);
+		UVector<Pointf> res = {{-2,4}, {1,7}, {2,5}, {3,2}, {1,0}, {0,0}};
+		VERIFY(res.size() == hull.size());
+		if (showpoints)
+			UppLog() << "\n\nContour include_collinear";
+		for (int i = 0; i < hull.size(); ++i) {
+			if (showpoints)
+				UppLog() << Format("\n%.5f	%.5f", hull[i].x, hull[i].y);
+			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
+		}
 	}
 
 }
+
 
 CONSOLE_APP_MAIN 
 {
@@ -529,7 +581,7 @@ CONSOLE_APP_MAIN
 	try {
 		TestBasic();
 		
-		TestConvexHull();
+		TestContour();
 		TestIsRectangle();
 		TestPoly();	
 		TestMesh();

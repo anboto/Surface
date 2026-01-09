@@ -150,6 +150,9 @@ double DistanceToLine(const Pointf &p, const Pointf &a, const Pointf &b) {
 	double numerator = abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y));
     double denominator = sqrt(sqr(b.x - a.x) + sqr(b.y - a.y));
 
+	if (abs(numerator) < 1E-8 || abs(denominator) < 1E-8)
+		return 0;
+
     return numerator/denominator;
 }
 
