@@ -335,10 +335,10 @@ Vector<Pointf> RemoveClosest(const Vector<Pointf>& pts, bool isclosed, double mi
 Vector<Pointf> BreakLongSides(const Vector<Pointf>& pts, bool isclosed, double targetLen) {
 	Vector<Pointf> ret = clone(pts);
 	
-    int n = pts.GetCount();
-    int seg_count = isclosed ? n : (n - 1);
-    if (seg_count < 1)
-        return ret;
+	int n = pts.GetCount();
+	int seg_count = isclosed ? n : (n - 1);
+	if (seg_count < 1)
+		return ret;
 
 
 	Vector<double> lens(seg_count);
