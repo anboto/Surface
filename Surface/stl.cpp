@@ -4,10 +4,10 @@
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
 
-#include <Functions4U/EnableWarnings.h>
 
 namespace Upp {
 using namespace Eigen;
+
 
 static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 	isText = false;

@@ -5,7 +5,6 @@
 #include <Geom/Geom.h>
 #include <Eigen/Sparse>
 
-#include <Functions4U/EnableWarnings.h>
 
 namespace Upp {
 using namespace Eigen;
@@ -3122,11 +3121,12 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 }
 
 
-void Surface::Extrude(double dx, double dy, double dz, bool close) {
+void Surface::Extrude(double dx, double dy, double dz, double panelWidth, bool close) {
 	Surface lid;
 	
 	GetSegments();
-	double panelWidth = GetAvgLenSegment();
+	if (IsNull(panelWidth))
+		panelWidth = GetAvgLenSegment();
 	
 	if (close) {
 		lid = clone(*this);	
@@ -3460,6 +3460,22 @@ void Surface::AddCS(const UVector<Surface *> &surfs, double distance, double mes
 		}
 	}
 	AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
+}
+
+bool Surface::IsWaterPlanePanel(int id) const {
+	const Panel &pan = panels[id];
+	const int &id0 = pan.id[0];
+	const int &id1 = pan.id[1];
+	const int &id2 = pan.id[2];
+	const int &id3 = pan.id[3];
+	const Point3D &p0 = nodes[id0];
+	const Point3D &p1 = nodes[id1];
+	const Point3D &p2 = nodes[id2];
+	const Point3D &p3 = nodes[id3];	
+	return p0.z >= -EPS_LEN && p0.z <= EPS_LEN && 
+	       p1.z >= -EPS_LEN && p1.z <= EPS_LEN && 
+	       p2.z >= -EPS_LEN && p2.z <= EPS_LEN &&
+		   p3.z >= -EPS_LEN && p3.z <= EPS_LEN;
 }
 
 char Surface::IsWaterPlaneMesh() const {

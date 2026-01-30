@@ -4,8 +4,6 @@
 #include <Surface/Surface.h>
 
 
-#include <Functions4U/EnableWarnings.h>
-
 namespace Upp {
 using namespace Eigen;
 

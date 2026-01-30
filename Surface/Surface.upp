@@ -21,6 +21,7 @@ file
 	ForceVector.cpp,
 	stl.cpp,
 	obj.cpp,
+	vtk.cpp,
 	grd.cpp,
 	msh.cpp,
 	srcdoc.tpp,

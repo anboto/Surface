@@ -777,6 +777,7 @@ public:
 	void Flatten(char axis);
 	
 	char IsWaterPlaneMesh() const; 
+	bool IsWaterPlanePanel(int id) const; 
 	
 	void TrianglesToQuadsFlat();
 		
@@ -841,7 +842,7 @@ public:
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth, double angle = 360, bool close = true, Function <bool(String)> Prompt = Null);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, double panelWidth, bool adjustSize, bool quads, double ratioSquareGrid = 1);
 	void AddPolygonalPanel(const Vector<Pointf> &bound, const Vector<Vector<Pointf>> &_internals, double panelWidth, bool adjustSize, bool quads, double ratioSquareGrid = 1);
-	void Extrude(double dx, double dy, double dz, bool close);
+	void Extrude(double dx, double dy, double dz, double panelWidth, bool close);
 	void AddPanels(const Surface &from, UVector<int> &panelIds);
 		
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
@@ -1061,6 +1062,9 @@ void LoadGMSH(String fileName, Surface &surf);
 
 void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z);
 void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z);
+
+void LoadVTK(String fileName, Surface &surf, bool &y0z);
+void SaveVTK(String fileName, Surface &surf, bool y0z);
 
 void LoadOBJ(String fileName, Surface &surf);
 

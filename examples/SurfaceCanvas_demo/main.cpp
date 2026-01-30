@@ -65,6 +65,8 @@ struct SurfaceViewer : TopWindow {
 				LoadStl(file, surf);
 			else if (ext == ".grd")
 				LoadGRD(file, surf, y0z, x0z);
+			else if (ext == ".vtk")
+				LoadVTK(file, surf, y0z, x0z);
 			else if (ext == ".gmsh")
 				LoadGMSH(file, surf);
 			else if (ext == ".msh")	
