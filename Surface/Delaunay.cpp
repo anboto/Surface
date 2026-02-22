@@ -16,9 +16,9 @@ static void InitializePredicates() {
 int Orientation(const Pointf& a, const Pointf& b, const Pointf& c) {
 	InitializePredicates();
 	
-    double pa[2] = { a.x, a.y };
-    double pb[2] = { b.x, b.y };
-    double pc[2] = { c.x, c.y };
+    double pa[2] = {a.x, a.y};
+    double pb[2] = {b.x, b.y};
+    double pc[2] = {c.x, c.y};
     double v = orient2d(pa, pb, pc);
     return (v > 0) - (v < 0); // +1 (CCW), 0, -1 (CW)
 }
@@ -26,10 +26,10 @@ int Orientation(const Pointf& a, const Pointf& b, const Pointf& c) {
 bool InCircle(const Pointf& a, const Pointf& b, const Pointf& c, const Pointf& d) {
 	InitializePredicates();
 	
-    double pa[2] = { a.x, a.y };
-    double pb[2] = { b.x, b.y };
-    double pc[2] = { c.x, c.y };
-    double pd[2] = { d.x, d.y };
+    double pa[2] = {a.x, a.y};
+    double pb[2] = {b.x, b.y};
+    double pc[2] = {c.x, c.y};
+    double pd[2] = {d.x, d.y};
 
     double o = orient2d(pa, pb, pc);
     double v;
@@ -46,8 +46,7 @@ bool InCircle(const Pointf& a, const Pointf& b, const Pointf& c, const Pointf& d
     if(v < 0) 
     	return false;
 
-    // exact cocircular → reject flip
-    return false;
+    return false;	// exact cocircular → reject flip
 }
 
 inline void Delaunay2::Link(int ta, int ia, int tb, int ib) {
@@ -82,27 +81,27 @@ void Delaunay2::Build(const Vector<Pointf>& p, double e) {
 	order = GetSortOrder(points, [](const Pointf& a, const Pointf& b) {return a.x < b.x || (a.x == b.x && a.y < b.y);});
 	
 	tihull = -1;
-	int npoints = p.GetCount();
+	int npoints = p.size();
 
 	triangles.Clear();
 	if (order.IsEmpty())
 		return;
+	
 	const Pointf *p0 = &points[order[0]];
 	int xi = 0;
 	do
-		if(++xi >= points.GetCount())
+		if(++xi >= points.size())
 			return;
 	while (IsNear(*p0, points[order[xi]]));
 
-	// pass 1: create pair of improper triangles
-	CreatePair(order[0], order[xi]);
+	CreatePair(order[0], order[xi]);	// pass 1: create pair of improper triangles
 	while(++xi < npoints)
 		AddHull(order[xi]);
 	
 	int clean = 0;
 	do {
 		int old_clean = clean;
-		clean = triangles.GetCount();
+		clean = triangles.size();
 		for (int i = clean; --i >= old_clean;)
 			if (triangles[i].IsProper()) {
 				Triangle& t = triangles[i];
@@ -147,11 +146,11 @@ void Delaunay2::Build(const Vector<Pointf>& p, double e) {
 					}
 				}
 			}
-	} while(clean < triangles.GetCount());
+	} while(clean < triangles.size());
 }
 
 void Delaunay2::CreatePair(int i, int j) {
-	int ia = triangles.GetCount(), ib = ia + 1;
+	int ia = triangles.size(), ib = ia + 1;
 	triangles.Add().Set(-1, i, j);
 	triangles.Add().Set(-1, j, i);
 	Link(ia, 0, ib, 0);
@@ -198,7 +197,7 @@ void Delaunay2::AddHull(int i) {
 
 		int j = tm[1];
 
-		int ia = triangles.GetCount(), ib = ia + 1;
+		int ia = triangles.size(), ib = ia + 1;
 		triangles.Add().Set(-1, i, j);
 		triangles.Add().Set(-1, j, i);
 		Link(ia, 0, ib, 0);
@@ -210,7 +209,7 @@ void Delaunay2::AddHull(int i) {
 		Triangle& tl = triangles[vl];
 		int xfn = tf.Next(2), xln = tl.Next(1);
 
-		int xf = triangles.GetCount(), xl = xf + 1;
+		int xf = triangles.size(), xl = xf + 1;
 		
 		triangles.Add().Set(-1, tf[1], i);
 		triangles.Add().Set(-1, i, tl[2]);
@@ -220,7 +219,7 @@ void Delaunay2::AddHull(int i) {
 		int f = vf;
 		while (true) {
 		    triangles[f][0] = i;
-		    if(f == vl)
+		    if (f == vl)
 		        break;
 		
 		    int nf = triangles[f].Next(1);

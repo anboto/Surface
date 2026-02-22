@@ -108,6 +108,10 @@ double Area(const Value3D &a, const Value3D &b, const Value3D &c) {
     return abs(0.5*((b - a)%(c - a)).Length());
 }
 
+Pointf Middle(const Pointf &a, const Pointf &b) {
+	return Pointf(avg(a.x, b.x), avg(a.y, b.y));
+}
+
 Pointf Centroid(const Pointf &a, const Pointf &b, const Pointf &c) {
     return Pointf(avg(a.x, b.x, c.x), avg(a.y, b.y, c.y));
 }
@@ -119,7 +123,6 @@ double Area(const Pointf &a, const Pointf &b, const Pointf &c) {
 double Direction(const Pointf& a, const Pointf& b) {
 	return atan2(b.y - a.y, b.x - a.x);
 }
-
 
 Point3D Intersection(const Vector3D &lineVector, const Point3D &linePoint, const Point3D &planePoint, const Vector3D &planeNormal) {
 	Vector3D diff = planePoint - linePoint;

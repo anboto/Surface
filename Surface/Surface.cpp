@@ -31,7 +31,6 @@ void Surface::Copy(const Surface &orig) {	// deep copy
 	numDupPan = orig.numDupPan;
 	numDupP = orig.numDupP;
 	numSkewed = orig.numSkewed;
-	//numUnprocessed = orig.numUnprocessed;
 	
 	panels = clone(orig.panels);
 	nodes = clone(orig.nodes);
@@ -334,7 +333,22 @@ String Surface::CheckNodeIds() {
 	return String();
 }
 
-int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes) {
+int Surface::FitToZ0(Vector<Point3D> &nodes, double zTolerance) {
+	zTolerance = abs(zTolerance);
+	for (const Point3D &n : nodes)
+		if (n.z > zTolerance)	// Just works if mesh is underwater
+			return 0;
+		int ret = 0;
+	for (Point3D &n : nodes) {
+		if (Between(n.z, -zTolerance, zTolerance)) {
+			n.z = 0;
+			ret++;
+		}
+	}
+	return ret;
+}
+
+int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes, Vector<LineSegment> &_segments) {
 	int num = 0;
 	
 	// Detect duplicated points in nodes
@@ -344,7 +358,7 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 		if (duplic.Find(i) >= 0)
 			continue;
 		for (int j = i+1; j < _nodes.size(); ++j) {
-			if (_nodes[i].IsSimilar(_nodes[j], similThres)) {
+			if (_nodes[i].CompareDelta(_nodes[j], similThres)) {
 				duplic << j;
 				goods << i;
 				num++;
@@ -360,6 +374,22 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 			if (pos >= 0)
 				id = goods[pos];
 		}
+	}
+	
+	// Replace duplicated points with good ones in segments
+	for (int i = 0; i < _segments.size(); ++i) {
+	{
+		int &id = _segments[i].idNod0;
+		int pos = duplic.Find(id);
+		if (pos >= 0)
+			id = goods[pos];
+	}
+	{
+		int &id = _segments[i].idNod1;
+		int pos = duplic.Find(id);
+		if (pos >= 0)
+			id = goods[pos];
+	}
 	}
 	
 	// Find unused nodes
@@ -399,6 +429,19 @@ int Surface::RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Po
 			id = newId[id];
 		}
 	}
+	
+	// Renumber segments
+	for (int i = 0; i < _segments.size(); ++i) {
+	{
+		int& id = _segments[i].idNod0;
+		id = newId[id];
+	}
+	{
+		int& id = _segments[i].idNod1;
+		id = newId[id];
+	}		
+	}
+	
 	return num;
 }
 	
@@ -489,7 +532,7 @@ void Surface::TrianglesToQuadsFlat() {
 		for (const LineSegment &seg : segments) {
 			if (seg.idPans.GetCount() == 2 && 													  // Two adjacent panels (the segment is not boundary)
 				panels[seg.idPans[0]].IsTriangle() && panels[seg.idPans[1]].IsTriangle() &&		  // Both triangles
-				panels[seg.idPans[0]].normal0.IsSimilar(panels[seg.idPans[1]].normal0, 0.01)) {   // Both in similar plane
+				panels[seg.idPans[0]].normal0.CompareDelta(panels[seg.idPans[1]].normal0, 0.01)) {   // Both in similar plane
 				int idp0 = seg.idPans[0];
 				int idp1 = seg.idPans[1];
 				int nid = -1;
@@ -521,7 +564,7 @@ void Surface::TrianglesToQuadsFlat() {
 					id0[3] = nid;
 				
 				Vector3D nn = Normal(nodes[id0[0]], nodes[id0[1]], nodes[id0[2]]);	// If normals don't match
-				if (!nn.IsSimilar(n0, 0.00001))			// Reoriented upside down
+				if (!nn.CompareDelta(n0, 0.00001))			// Reoriented upside down
 					ReorientPanel(idp0);
 				
 				panels.Remove(idp1);
@@ -840,7 +883,7 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 		numDupPan = RemoveDuplicatedPanels(panels);
 		
 		Status(t_("Removing duplicated points"), 45);
-		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes);
+		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 		if (numDupP > 0) 
 			ret << "\n" << Format(t_("Removed %d duplicated points"), numDupP);	
 	
@@ -870,7 +913,7 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 			ret << "\n" << Format(t_("Fixed %d skewed panels"), numSkewed);
 	
 		Status(t_("Removing duplicated points"), 65);
-		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes);
+		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 		if (numDupP > 0) 
 			ret << "\n" << Format(t_("Removed %d duplicated points"), numDupP);	
 	
@@ -892,6 +935,11 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 		else if (numUnprocessed > 0)
 			ret << "\n" << Format(t_("%d panels not reoriented. Body contains separated surfaces"), numUnprocessed);
 */		
+		Status(t_("If only underwater, fit waterlevel points to Z=0"), 85);
+		int num0 = FitToZ0(nodes, zTolerance);
+		if (num0 > 0) 
+			ret << "\n" << Format(t_("Fitted to Z=0 %d points"), num0);
+		
 		healing = true;
 	}
 	return ret;
@@ -2218,7 +2266,7 @@ Surface &Surface::Append(const Surface &appended) {
 	}
 	Surface::RemoveTinyPanels(panels);	
 	Surface::RemoveDuplicatedPanels(panels);
-	Surface::RemoveDuplicatedPointsAndRenumber(panels, nodes);
+	Surface::RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 	Surface::RemoveDuplicatedPanels(panels);
 	
 	return *this;
@@ -2454,7 +2502,7 @@ void Surface::DeployXSymmetry() {
 	}	
 	double grid = 1, eps = 1e-8;
 	RoundClosest(nodes, grid, eps);
-	RemoveDuplicatedPointsAndRenumber(panels, nodes);
+	RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 }
 
 void Surface::DeployYSymmetry() {
@@ -2488,7 +2536,7 @@ void Surface::DeployYSymmetry() {
 	}
 	double grid = 1, eps = 1e-8;
 	RoundClosest(nodes, grid, eps);
-	RemoveDuplicatedPointsAndRenumber(panels, nodes);
+	RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 }
 
 void VolumeEnvelope::MixEnvelope(const VolumeEnvelope &env) {
@@ -2502,7 +2550,7 @@ void VolumeEnvelope::MixEnvelope(const VolumeEnvelope &env) {
 
 void Surface::AddNode(const Point3D &p) {
 	for (const auto &node : nodes) {
-		if (node.IsSimilar(p, EPS_LEN))
+		if (node.CompareDelta(p, EPS_LEN))
 			return;
 	}
 	nodes << p;
@@ -2955,7 +3003,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 		bool found = false;
 		for (int ip = 0; ip < bound.size(); ++ip) {
 			const Pointf &p = bound[ip];
-			if (IsSimilar(t.data[0], p, eps) || IsSimilar(t.data[1], p, eps) || IsSimilar(t.data[2], p, eps)) {
+			if (CompareDelta(t.data[0], p, eps) || CompareDelta(t.data[1], p, eps) || CompareDelta(t.data[2], p, eps)) {
 				trisbound << pick(t);
 				tris.Remove(ii);
 				found = true;
@@ -2966,7 +3014,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 			for (const Vector<Pointf> &it : internals) {
 				for (int ip = 0; ip < it.size(); ++ip) {
 					const Pointf &p = it[ip];
-					if (IsSimilar(t.data[0], p, eps) || IsSimilar(t.data[1], p, eps) || IsSimilar(t.data[2], p, eps)) {
+					if (CompareDelta(t.data[0], p, eps) || CompareDelta(t.data[1], p, eps) || CompareDelta(t.data[2], p, eps)) {
 						trisbound << pick(t);
 						tris.Remove(ii);
 						found = true;
@@ -3060,7 +3108,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 					TrianglesPoints2D &t = tris[i];
 					if (thereIsPoint(ix, iy)) {
 						for (int j = 0; j < 3; j++) {
-							if (IsSimilar(t.data[j], Pointf(x, y), eps)) {
+							if (CompareDelta(t.data[j], Pointf(x, y), eps)) {
 								sum++;
 								break;
 							}
@@ -3068,7 +3116,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 					}
 					if (thereIsPoint(ix+1, iy)) {
 						for (int j = 0; j < 3; j++) {
-							if (IsSimilar(t.data[j], Pointf(x+panelWidth, y), eps)) {
+							if (CompareDelta(t.data[j], Pointf(x+panelWidth, y), eps)) {
 								sum++;
 								break;
 							}
@@ -3076,7 +3124,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 					}
 					if (thereIsPoint(ix+1, iy+1)) {
 						for (int j = 0; j < 3; j++) {
-							if (IsSimilar(t.data[j], Pointf(x+panelWidth, y+panelHeight), eps)) {
+							if (CompareDelta(t.data[j], Pointf(x+panelWidth, y+panelHeight), eps)) {
 								sum++;
 								break;
 							}
@@ -3084,7 +3132,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 					}
 					if (thereIsPoint(ix, iy+1)) {
 						for (int j = 0; j < 3; j++) {
-							if (IsSimilar(t.data[j], Pointf(x, y+panelHeight), eps)) {
+							if (CompareDelta(t.data[j], Pointf(x, y+panelHeight), eps)) {
 								sum++;
 								break;
 							}
@@ -3391,14 +3439,17 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 	}
 }
 
-void Surface::AddCS(const UVector<Surface *> &surfs, double distance, double meshRatio, bool quads) {
+void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio, bool quads) {
 	ASSERT(distance > 0);
 
-	// Gets the horizontal bound
-	double minz = std::numeric_limits<double>::max();
-	Vector<Pointf> points;
+	Vector<Vector<Pointf>> bounds;
 	double sidelen = 0;
+	double minz = std::numeric_limits<double>::max();
+	
+	// Gets the horizontal and vertical bounds
 	for (int is = 0; is < surfs.size(); ++is) {
+		Vector<Pointf> points;
+	
 		const Surface &surf = *(surfs[is]);
 		for (int ip = 0; ip < surf.nodes.size(); ++ip) {
 			const Point3D &p = surf.nodes[ip];
@@ -3406,60 +3457,74 @@ void Surface::AddCS(const UVector<Surface *> &surfs, double distance, double mes
 				minz = p.z;
 			points << Pointf(p.x, p.y);
 		}
-		sidelen += surf.GetAvgLenSegment();
+		double slen = surf.GetAvgLenSegment();
+		
+		Vector<Pointf> bound = ConvexContour(points);	
+		bound = OffsetContourBevel(bound, distance);
+		bound = RemoveClosest(bound, false, slen);
+		bound = BreakLongSides(bound, true, slen);	
+		bounds << pick(bound);
+		
+		sidelen += slen;
 	}
 	sidelen /= surfs.size();
 	
-	sidelen *= 1.5;
-	
-	Vector<Pointf> bound = ConvexContour(points);	
-	bound = OffsetContourBevel(bound, distance);
-	bound = RemoveClosest(bound, false, sidelen*3);
-	bound = BreakLongSides(bound, true, sidelen);
-	
-	// Gets the lower surface
-	AddPolygonalPanel(bound, sidelen*meshRatio, false, quads, 0.75);
-	Translate(0, 0, minz-distance);
-	Orient();
-
-	// Constructs the vertical extrusion
-	int num = int(-(minz-distance)/sidelen);
-	double dz = -(minz-distance)/num;
-	
-	bound << bound[0];
-	Vector<Point3D> bound3D = Point2Dto3D_XY(bound, minz-distance);
-	Value3D delta(0, 0, dz);
-	Array<PanelPoints> pans;
-	for (int ip = bound.size()-1; ip > 0; --ip) {
-		for (int ir = 0; ir < num; ++ir) {	
-			PanelPoints &p = pans.Add();
-			p.data[0] = bound3D[ip]   + delta*ir;
-			p.data[1] = bound3D[ip-1] + delta*ir;
-			p.data[2] = bound3D[ip-1] + delta*(ir + 1);
-			p.data[3] = bound3D[ip]   + delta*(ir + 1);
+	for (int i = 0; i < surfs.size(); ++i)
+		for (int j = i+1; j < surfs.size(); ++j) {
+			Vector<Pointf> &surfa = bounds[i], &surfb = bounds[j];
+			TrimAtIntersection(surfa, surfb, surfa, surfb, EPS_LEN);
+			surfa = BreakLongSides(surfa, true, sidelen);
+			surfb = BreakLongSides(surfb, true, sidelen);
 		}
-	}
-	Surface s;
-	s.SetPanelPoints(pans);	
-	Append(s);
-
-	// Gets the free surface
+			
+	for (int i = 0; i < bounds.size(); ++i) {
+		Vector<Pointf> &bound = bounds[i];
+		Surface &cs = *(surfsTo[i]);
+		
+		// Gets the lower surface
+		cs.AddPolygonalPanel(bound, sidelen*meshRatio, false, quads, 0.75);
+		cs.Translate(0, 0, minz-distance);
+		cs.Orient();
 	
-	// Gets the water piercing internal boundaries
-	Vector<Vector<Pointf>> internals;
-	for (int is = 0; is < surfs.size(); ++is) {
-		Vector<Segment3D> segs = GetWaterLineSegments(*(surfs[is]));
-
-		while (!segs.IsEmpty()) {
-			Vector<Point3D> bnd = GetClosedPolygons(segs);
-			if (bnd.IsEmpty())
-				break;
-			Vector<Pointf> bound2D = Point3Dto2D_XY(bnd);
-			if (bound2D.size() > 2)
-				internals << pick(bound2D);
+		// Constructs the vertical extrusion
+		int num = int(-(minz-distance)/sidelen);
+		double dz = -(minz-distance)/num;
+		
+		bound << bound[0];
+		Vector<Point3D> bound3D = Point2Dto3D_XY(bound, minz-distance);
+		Value3D delta(0, 0, dz);
+		Array<PanelPoints> pans;
+		for (int ip = bound.size()-1; ip > 0; --ip) {
+			for (int ir = 0; ir < num; ++ir) {	
+				PanelPoints &p = pans.Add();
+				p.data[0] = bound3D[ip]   + delta*ir;
+				p.data[1] = bound3D[ip-1] + delta*ir;
+				p.data[2] = bound3D[ip-1] + delta*(ir + 1);
+				p.data[3] = bound3D[ip]   + delta*(ir + 1);
+			}
 		}
+		Surface s;
+		s.SetPanelPoints(pans);	
+		cs.Append(s);
+	
+		// Gets the free surface
+		
+		// Gets the water piercing internal boundaries
+		Vector<Vector<Pointf>> internals;
+		for (int is = 0; is < surfs.size(); ++is) {
+			Vector<Segment3D> segs = GetWaterLineSegments(*(surfs[is]));
+	
+			while (!segs.IsEmpty()) {
+				Vector<Point3D> bnd = GetClosedPolygons(segs);
+				if (bnd.IsEmpty())
+					break;
+				Vector<Pointf> bound2D = Point3Dto2D_XY(bnd);
+				if (bound2D.size() > 2)
+					internals << pick(bound2D);
+			}
+		}
+		cs.AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
 	}
-	AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
 }
 
 bool Surface::IsWaterPlanePanel(int id) const {
@@ -3840,6 +3905,9 @@ Value3D operator*(double b, const Value3D& a) {return a*b;}
 Value3D operator/(double b, const Value3D& a) {return a/b;}
 
 bool IsNum(const Value3D &v) {return IsNum(v.x) && IsNum(v.y) && IsNum(v.z);}
+bool IsValid(const Value3D &v) { 
+	return IsNum(v) && fabs(v.x) < 1e14 && fabs(v.y) < 1e14 && fabs(v.z) < 1e14;
+}
 
 bool IsNum(const Value6D &v) {return IsNum(v.t) && IsNum(v.r);}
 

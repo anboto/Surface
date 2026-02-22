@@ -30,7 +30,6 @@ ContainsPointRes ContainsPoint(const UVector<Point3D> &_polygon, const Point3D &
 		} 
 	}
 	normal /= normals.size();
-	//normal.Normalize();
 	
 	double maxAngle = 0;
 	for (int i = 0; i < normals.size()-1; ++i) {
@@ -174,9 +173,8 @@ bool IsFlat(const UVector<Point3D> &p) {
         if (current_normal.Norm() != 0) 
             current_normal.Normalize();
         
-        if (!normal.IsSimilar(current_normal, EPS_LEN*EPS_LEN)) {
+        if (!normal.CompareDelta(current_normal, EPS_LEN*EPS_LEN))
             return false;
-        }
 	}
 	return true;
 }

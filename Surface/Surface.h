@@ -92,7 +92,7 @@ public:
     
 	String ToString() const {return Format("x: %s. y: %s. z: %s", FDS(x, 10, true), FDS(y, 10, true), FDS(z, 10, true));}
 	
-	inline bool IsSimilar(const Value3D &p, double similThres) const {
+	inline bool CompareDelta(const Value3D &p, double similThres) const {
 		if (IsNull(x) && IsNull(p.x))
 			return true;
 		if (abs(p.x - x) < similThres && abs(p.y - y) < similThres && abs(p.z - z) < similThres)
@@ -100,8 +100,8 @@ public:
 		return false;
 	}
 	#pragma GCC diagnostic ignored "-Wattributes"
-	friend bool operator==(const Value3D& a, const Value3D& b) {return a.IsSimilar(b, EPS_LEN);}
-	friend bool operator!=(const Value3D& a, const Value3D& b) {return !a.IsSimilar(b, EPS_LEN);}
+	friend bool operator==(const Value3D& a, const Value3D& b) {return a.CompareDelta(b, EPS_LEN);}
+	friend bool operator!=(const Value3D& a, const Value3D& b) {return !a.CompareDelta(b, EPS_LEN);}
 	#pragma GCC diagnostic warning "-Wattributes"
 	
 	void Translate(double dx, double dy, double dz);
@@ -116,9 +116,10 @@ public:
 	inline double dot(const Value3D& a) const {return x*a.x + y*a.y + z*a.z;}
 	
 	// Cross product or vector product X (or wedge product ∧ in 3D) 
-	inline friend Value3D operator%(const Value3D& a, const Value3D& b) {return Value3D(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);}
+	inline friend Value3D cross(const Value3D& a, const Value3D& b) 	{return Value3D(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);}
+	inline friend Value3D operator%(const Value3D& a, const Value3D& b) {return cross(a, b);}
 	
-	inline friend Value3D operator-(const Value3D& a) {return Value3D(-a.x, -a.y, -a.z);}
+	inline friend Value3D operator-(const Value3D& a) 					{return Value3D(-a.x, -a.y, -a.z);}
 
 	inline friend Value3D operator+(const Value3D& a, const Value3D& b) {return Value3D(a.x+b.x, a.y+b.y, a.z+b.z);}
 	inline friend Value3D operator-(const Value3D& a, const Value3D& b) {return Value3D(a.x-b.x, a.y-b.y, a.z-b.z);}
@@ -200,6 +201,7 @@ public:
 };
 
 bool IsNum(const Value3D &v);
+bool IsValid(const Value3D &v);
 
 Value3D operator*(double b, const Value3D& a);
 Value3D operator/(double b, const Value3D& a);
@@ -222,7 +224,16 @@ Affine3d GetTransform(const Value3D &trans, const Value3D &rot, const Point3D &c
 void TransRot(const Affine3d &aff, const Value3D &pos, Value3D &npos);
 
 template <template <typename> class Range>
-int FindDelta(const Range<Value3D>& r, const Value3D& value, const double& delta, int from = 0) {
+int FindDelta(const Range<Point3D>& r, const Point3D& value, const double& delta, int from = 0) {
+	for (int i = from; i < r.size(); i++) {
+		if (Distance(r[i], value) <= delta) 
+			return i;
+	}
+	return -1;
+}
+
+template <template <typename> class Range, typename T>
+int FindDelta(const Range<Point_<T>>& r, const Point_<T>& value, const T& delta, int from = 0) {
 	for (int i = from; i < r.size(); i++) {
 		if (Distance(r[i], value) <= delta) 
 			return i;
@@ -280,12 +291,12 @@ public:
 	void SetZero() 			{t.SetZero();	r.SetZero();}
 	static Value6D Zero() 	{return Value6D(0, 0, 0, 0, 0, 0);}
 	
-	inline bool IsSimilar(const Value6D &p, double similThres) const {
-		return t.IsSimilar(p.t, similThres) && r.IsSimilar(p.r, similThres);
+	inline bool CompareDelta(const Value6D &p, double similThres) const {
+		return t.CompareDelta(p.t, similThres) && r.CompareDelta(p.r, similThres);
 	}
 	#pragma GCC diagnostic ignored "-Wattributes"
-	friend bool operator==(const Value6D& a, const Value6D& b) {return a.IsSimilar(b, EPS_LEN);}
-	friend bool operator!=(const Value6D& a, const Value6D& b) {return !a.IsSimilar(b, EPS_LEN);}
+	friend bool operator==(const Value6D& a, const Value6D& b) {return a.CompareDelta(b, EPS_LEN);}
+	friend bool operator!=(const Value6D& a, const Value6D& b) {return !a.CompareDelta(b, EPS_LEN);}
 	#pragma GCC diagnostic warning "-Wattributes"
 	
 	static int size() 		{return 6;}
@@ -624,7 +635,7 @@ class LineSegment : public Moveable<LineSegment> {
 public:
 	LineSegment() {}
 	LineSegment(const LineSegment &orig, int) {Copy(orig);}
-	LineSegment(const LineSegment &orig) {Copy(orig);}
+	LineSegment(const LineSegment &orig) 	  {Copy(orig);}
 	void Copy(const LineSegment &orig) {
 		idNod0 = orig.idNod0;
 		idNod1 = orig.idNod1;
@@ -769,7 +780,7 @@ public:
 	double GetWaterPlaneArea() const;
 	
 	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null, double meshRatio = 1, bool quads = false);
-	void AddCS(const UVector<Surface *> &surfs, double distance, double meshRatio = 1, bool quads = false);
+	static void AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio = 1, bool quads = false);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
@@ -848,8 +859,9 @@ public:
 	static void RoundClosest(Vector<Point3D> &_nodes, double grid, double eps);	
 	static int RemoveDuplicatedPanels(Vector<Panel> &_panels);
 	static int RemoveTinyPanels(Vector<Panel> &_panels);
-	static int RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes);
+	static int RemoveDuplicatedPointsAndRenumber(Vector<Panel> &_panels, Vector<Point3D> &_nodes, Vector<LineSegment> &segments);
 	static void DetectTriBiP(Vector<Panel> &panels) {int dum;	DetectTriBiP(panels, dum, dum, dum);}
+	static int FitToZ0(Vector<Point3D> &nodes, double zTolerance);
 	
 	String CheckNodeIds();
 		
@@ -954,23 +966,23 @@ public:
 		}
 	}
 
-	int                           GetCount() const                             { return triangles.GetCount(); }
-	const Triangle&               operator [] (int i) const                    { return triangles[i]; }
-	Pointf                        At(int i) const                              { return points[i]; }
-	Pointf                        At(const Triangle& t, int i) const           { return points[t[i]]; }
-	int                           GetHullIndex() const                         { return tihull; }
+	int             GetCount() const                             { return triangles.GetCount(); }
+	const Triangle& operator [] (int i) const                    { return triangles[i]; }
+	Pointf          At(int i) const                              { return points[i]; }
+	Pointf          At(const Triangle& t, int i) const           { return points[t[i]]; }
+	int             GetHullIndex() const                         { return tihull; }
 
 private:
-	bool                          IsNear(const Pointf& a, const Pointf& b) const { return fabs(a.x - b.x) <= epsilon && fabs(a.y - b.y) <= epsilon; }
-	void                          CreatePair(int i, int j);
-	void                          AddHull(int i);
-	void                          Link(int ta, int ia, int tb, int ib);
+	bool IsNear(const Pointf& a, const Pointf& b) const { return fabs(a.x - b.x) <= epsilon && fabs(a.y - b.y) <= epsilon; }
+	void CreatePair(int i, int j);
+	void AddHull(int i);
+	void Link(int ta, int ia, int tb, int ib);
 
-	Vector<Pointf>                points;
-	Vector<int>                   order;
-	Array<Triangle>               triangles;
-	double                        epsilon;
-	int                           tihull;
+	Vector<Pointf>  points;
+	Vector<int>     order;
+	Array<Triangle> triangles;
+	double          epsilon;
+	int             tihull;
 };
 
 class SurfaceMass  {
@@ -1027,25 +1039,25 @@ public:
 	MatrixXd normals;	// (panels, 3)
 };
 
-template<class Range>
+template <class Range>
 void Translate(Range &r, double dx, double dy, double dz) {
 	for (Value3D &p : r)
 		p.Translate(dx, dy, dz);
 }
 
-template<class Range>
+template <class Range>
 void TransRot(Range &r, const Affine3d &quat) {
 	for (Value3D &p : r)
 		p.TransRot(quat);
 }
 
-template<class Range>
+template <class Range>
 void TransRot(Range &r, double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz) {
 	for (Value3D &p : r)
 		p.TransRot(dx, dy, dz, ax, ay, az, cx, cy, cz);
 }
 
-template<class Range>
+template <class Range>
 void Rotate(Range &r, double ax, double ay, double az, double cx, double cy, double cz) {
 	for (Value3D &p : r)
 		p.Rotate(ax, ay, az, cx, cy, cz);
@@ -1069,18 +1081,39 @@ void SaveVTK(String fileName, Surface &surf, bool y0z);
 void LoadOBJ(String fileName, Surface &surf);
 
 Pointf Centroid(const Pointf &p0, const Pointf &p1, const Pointf &p2);
+Pointf Middle(const Pointf &p0, const Pointf &p1);
 double Area(const Pointf &p0, const Pointf &p1, const Pointf &p2);
 double Direction(const Pointf& a, const Pointf& b);
 Vector<Pointf> Rotate(const Vector<Pointf>& points, double angle, const Pointf& center);
 Pointf Rotate(const Pointf& points, double angle, const Pointf& center);
-bool IsSimilar(const Pointf &a, const Pointf &b, double similThres);
+
+bool CompareDelta(const Pointf &a, const Pointf &b, double similThres);
+template <template <class> class Range>
+bool CompareDelta(const Range<Pointf> &a, const Range<Pointf> &b, double similThres) {
+	ASSERT(a.size() == b.size());
+	
+	for (int i = 0; i < a.size(); ++i) {
+		if (!CompareDelta(a[i], b[i], similThres))
+			return false;
+	}
+	return true;
+}
+bool CompareDelta(const Pointf *a, const Pointf *b, int num, double similThres);
 	
 enum ContainsPointRes {POLY_NOPLAN = -4, POLY_FAR = -3, POLY_3 = -2, POLY_OUT = -1, POLY_SECT = 0, POLY_IN = 1};
 ContainsPointRes ContainsPoint(const Vector<Point3D> &polygon, const Point3D &point, double distanceTol, double angleNormalTol);
 ContainsPointRes ContainsPoint(const Vector<Pointf>& polygon, const Pointf &pt);
 
 bool IsClockwise(const UVector<Pointf> &p);
+UVector<Pointf> SetDirection(const UVector<Pointf> &p, bool clockwise);
 
+void Intersection(const UVector<Pointf> &a, const UVector<Pointf> &b, UVector<UVector<Pointf>> &res);
+void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &a2, Vector<Pointf> &b2, double epsilon = 1e-10);
+
+int SegmentIntersection(const Pointf &p1, const Pointf &p2, const Pointf &p3, const Pointf &p4,
+                         Pointf pt[2], double t[2], double u[2], double epsilon = 1e-10);
+int AddPolygonIntersections(const Vector<Pointf>& a0, const Vector<Pointf>& b0, Vector<Pointf>& a, Vector<Pointf>& b, double epsilon = 1e-10);
+                              	
 template<typename T>
 T Dot(const Point_<T>& a, const Point_<T>& b) {
     return a.x*b.x + a.y*b.y;
@@ -1089,6 +1122,11 @@ T Dot(const Point_<T>& a, const Point_<T>& b) {
 template<typename T>
 T Cross(const Point_<T>& a, const Point_<T>& b) {
     return a.x*b.y - a.y*b.x;
+}
+
+template<typename T>
+T Cross(const Size_<T>& a, const Size_<T>& b) {
+    return a.cx*b.cy - a.cy*b.cx;
 }
 	
 template<typename T>

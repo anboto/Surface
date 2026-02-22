@@ -137,7 +137,7 @@ void SaveVTK(String fileName, Surface &surf, bool y0z) {
 	
 	out <<	Format("CELL_TYPES   %d\n", panels.size());
 	
-	for (const Panel &panel : panels)
+	for (int i = 0; i < panels.size(); ++i)
 		out << "   9\n";
 	
 	out << "\n";
@@ -152,7 +152,7 @@ void SaveVTK(String fileName, Surface &surf, bool y0z) {
 	out <<  "SCALARS hull int\n"
 			"LOOKUP_TABLE default\n";
 			
-	for (const Panel &panel : panels)
+	for (int i = 0; i < panels.size(); ++i)
 		out << "   0\n";
 }
 

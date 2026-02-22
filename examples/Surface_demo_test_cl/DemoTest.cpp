@@ -246,6 +246,100 @@ void TestMesh() {
 	VERIFY(CompareRatio(m.array(), mat2.array(), 0.001, 10000));
 }
 
+void TestIntersection() {
+	UppLog() << "\nTesting 2D polygon intersection";
+	
+	Pointf pt[2];
+	double t[2], u[2];
+	{
+		UppLog() << "\nClassic crossing:";
+		SegmentIntersection({0,0},{4,4}, {0,4},{4,0}, pt,t,u);
+		VERIFY(CompareDelta(pt, UVector<Pointf>{{2, 2}}, 1, 0.001) && abs(t[0] - 0.5) < 0.001 && abs(u[0] - 0.5) < 0.001);
+	}
+	{
+		UppLog() << "\nPartial overlap (one endpoint inside):";
+		SegmentIntersection({0,0},{8,0}, {2,0},{10,0}, pt,t,u);
+		VERIFY(CompareDelta(pt, UVector<Pointf>{{2,0}}, 1, 0.001) && abs(t[0] - 0.25) < 0.001 && abs(u[0] - 0) < 0.001);
+	}
+	{
+		UppLog() << "\nFull containment (both endpoints inside):";
+		SegmentIntersection({0,0},{10,0}, {3,0},{7,0}, pt,t,u);
+		VERIFY(CompareDelta(pt, UVector<Pointf>{{3,0},{7,0}}, 2, 0.001) && 
+			   CompareDelta(t, UVector<double>{.3,.7}.begin(), 2, 0.001) && 
+			   CompareDelta(u, UVector<double>{0.,1.}.begin(), 2, 0.001));
+	}
+	{
+		UppLog() << "\nParallel, non-collinear:";
+		VERIFY(!SegmentIntersection({0,0},{4,0}, {0,1},{4,1}, pt,t,u));
+	}
+	{
+		UppLog() << "\nCollinear, disjoint:";
+		VERIFY(!SegmentIntersection({0,0},{2,0}, {5,0},{8,0}, pt,t,u));
+	}
+	{
+		UppLog() << "\nIntersection two squares";
+		UVector<Pointf> a = {{0,0},{4,0},{4,4},{0,4}};
+		UVector<Pointf> b = {{2,2},{6,2},{6,6},{2,6}};
+		UVector<Pointf> a2, b2;
+		VERIFY(2 == AddPolygonIntersections(a, b, a2, b2));
+		VERIFY(CompareDelta(a2, {{0,0},{4,0},{4,2},{4,4},{2,4},{0,4}}, 0.001));
+		VERIFY(CompareDelta(b2, {{2,2},{4,2},{6,2},{6,6},{2,6},{2,4}}, 0.001));
+	}
+	{
+		UVector<Pointf> a2, b2;
+		UVector<Pointf> a = {{1,1},{1,2},{1.75,2},{2,2},{2,1},{1.75,1}};
+		{
+			UppLog() << "\nIntersection two squares collinear sides";
+		    UVector<Pointf> b = {{1.25,1},{1.25,2},{1.5,2},{2.25,2},{2.25,1},{1.5,1}};
+		    VERIFY(8 == AddPolygonIntersections(a, b, a2, b2));
+		    VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.25,2},{1.5,2},{1.75,2},{2,2},{2,1},{1.75,1},{1.5,1},{1.25,1}}, 0.0001));
+			VERIFY(CompareDelta(b2, {{1.25,1},{1.25,2},{1.5,2},{1.75,2},{2,2},{2.25,2},{2.25,1},{2,1},{1.75,1},{1.5,1}}, 0.0001));
+		}
+		{
+			UppLog() << "\nIntersection square-prism right top";
+			UVector<Pointf> b = {{1.25,1.25},{1.5,2.25},{2.5,2.5},{2.25,1.5}};
+		    VERIFY(2 == AddPolygonIntersections(a, b, a2, b2));
+		    VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.4375,2},{1.75,2},{2,2},{2,1.4375},{2,1},{1.75,1}}, 0.0001));
+		    VERIFY(CompareDelta(b2, {{1.25,1.25},{1.4375,2},{1.5,2.25},{2.5,2.5},{2.25,1.5},{2,1.4375}}, 0.0001));
+		}
+		{
+			UppLog() << "\nIntersection square-prism left bottom";
+			UVector<Pointf> b = {{0.25,0.25},{0.5,1.25},{1.5,1.5},{1.25,0.5}};
+			VERIFY(2 == AddPolygonIntersections(a, b, a2, b2));
+			VERIFY(CompareDelta(a2, {{1,1},{1,1.375},{1,2},{1.75,2},{2,2},{2,1},{1.75,1},{1.375,1}}, 0.0001));
+			VERIFY(CompareDelta(b2, {{0.25,0.25},{0.5,1.25},{1,1.375},{1.5,1.5},{1.375,1},{1.25,0.5}}, 0.0001));
+		}
+		{
+			UppLog() << "\nIntersection square-prism double right top, left bottom";
+			UVector<Pointf> b = {{0.9,0.9},{1.15,1.9},{2.15,2.15},{1.9,1.15}};
+			VERIFY(4 == AddPolygonIntersections(a, b, a2, b2));
+			VERIFY(CompareDelta(a2, {{1,1},{1,1.3},{1,2},{1.55,2},{1.75,2},{2,2},{2,1.55},{2,1},{1.75,1},{1.3,1}}, 0.0001));
+			VERIFY(CompareDelta(b2, {{0.9,0.9},{1,1.3},{1.15,1.9},{1.55,2},{2.15,2.15},{2,1.55},{1.9,1.15},{1.3,1}}, 0.0001));
+		}
+		{
+			UppLog() << "\nIntersection square-prism no intersection";
+			UVector<Pointf> b = {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5}};
+			VERIFY(0 == AddPolygonIntersections(a, b, a2, b2));
+			VERIFY(CompareDelta(a2, a, 0.0001));
+			VERIFY(CompareDelta(b2, b, 0.0001));
+		}
+		{
+			UppLog() << "\nIntersection square-U four intersection";
+			UVector<Pointf> b = {{1.25,2},{4,2},{4,1},{1.25,1},{3,1.5},{1.25,2}};
+			VERIFY(8 == AddPolygonIntersections(a, b, a2, b2));
+			VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.25,2},{1.75,2},{2,2},{2,1.7857},{2,1.2142},{2,1},{1.75,1},{1.25,1}}, 0.0001));
+			VERIFY(CompareDelta(b2, {{1.25,2},{1.75,2},{2,2},{4,2},{4,1},{2,1},{1.75,1},{1.25,1},{2,1.2142},{3,1.5},{2,1.7857}}, 0.0001));
+		}
+		{
+			UppLog() << "\nIntersection square-U three intersection";
+			UVector<Pointf> b = {{1.25,2},{4,2},{4,1},{1.25,1},{2,1.5},{1.25,2}};
+			VERIFY(7 == AddPolygonIntersections(a, b, a2, b2));
+			VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.25,2},{1.75,2},{2,2},{2,1.5},{2,1},{1.75,1},{1.25,1}}, 0.0001));
+			VERIFY(CompareDelta(b2, {{1.25,2},{1.75,2},{2,2},{4,2},{4,1},{2,1},{1.75,1},{1.25,1},{2,1.5}}, 0.0001));
+		}
+	}
+}
+
 void TestPoly() {
 	UppLog() << "\nTesting 2D and 3D ContainsPoint()";
 	
@@ -254,38 +348,26 @@ void TestPoly() {
 	VERIFY(ContainsPoint(Point(1, 2), Point(10, 20), Point(1, 20), Point(1, 20)));	// In a vertex
 	VERIFY(ContainsPoint(Point(1, 2), Point(10, 20), Point(1, 20), Point(4, 20)));	// In a side
 	
-	UVector<Point3D> polygon = {
-        Point3D(0, 0, 1),
-        Point3D(0, 3.784, 1),
-        Point3D(2.663, 3.784, 2.065),
-        Point3D(2.663, 0, 2.065)
-    };
+	UVector<Point3D> polygon = {{0, 0, 1}, {0, 3.784, 1}, {2.663, 3.784, 2.065}, {2.663, 0, 2.065}};
     
 	UppLog() << "\nTesting ContainsPoint() with a 3D polygon";
 	VERIFY(ContainsPointRes::POLY_IN  == ContainsPoint(polygon, Point3D(1.332, 1.829, 1.533), 0.1, ToRad(2.)));
     VERIFY(ContainsPointRes::POLY_OUT == ContainsPoint(polygon, Point3D(3.832, 1.892, 2.533), 0.1, ToRad(2.)));
-	
-    UVector<Pointf> pol_2 = {	// Convex polygon
-        Pointf(-1, 0),
-        Pointf(2, 0),
-        Pointf(1.5, 1),
-        Pointf(1.5, 2),
-        Pointf(3, 3),
-        Pointf(0, 3),
-        Pointf(0.5, 2),
-        Pointf(0.5, 1)
-    };	
+	// Convex polygon
+    UVector<Pointf> pol_2 = {{-1, 0}, {2, 0}, {1.5, 1}, {1.5, 2}, {3, 3}, {0, 3}, {0.5, 2}, {0.5, 1}};	
     
     VERIFY(!IsClockwise(pol_2));
+    UVector<Pointf> pol_2_rev = SetDirection(pol_2, true);
+    VERIFY(IsClockwise(pol_2_rev));
     
     VERIFY(5 == Area(pol_2));
     
-    Pointf pin_2 = Pointf(1,   2);
-	Pointf ppo_2 = Pointf(1.5, 1.00001);	// In point + error
-	Pointf pl1_2 = Pointf(1,   0.00001);	// In line + error
-	Pointf pl2_2 = Pointf(1.5, 1.50001);	// In line + error
-	Pointf pot_2 = Pointf(0,   1.5);
-	Pointf cen_2 = Pointf(1,   1.5);		// Centroid
+    Pointf pin_2(1,   2);
+	Pointf ppo_2(1.5, 1.00001);	// In point + error
+	Pointf pl1_2(1,   0.00001);	// In line + error
+	Pointf pl2_2(1.5, 1.50001);	// In line + error
+	Pointf pot_2(0,   1.5);
+	Pointf cen_2(1,   1.5);		// Centroid
     
     VERIFY(cen_2 == Centroid(pol_2));
     
@@ -366,6 +448,56 @@ void TestPoly() {
 	    for (int i = 0; i < pol_2.size(); ++i) 
 	        pol_2[i] *= 100;
     }	
+    
+    UVector<Pointf> coll = {{0,0},{1,0},{2,0},{3,0},{3,1}};
+    RemoveCollinear(coll, true, 0.001);
+    
+    TestIntersection();
+    
+    UppLog() << "\nTesting TrimAtIntersection";
+    UVector<Pointf> a = {{1,1},{1,2},{1.75,2},{2,2},{2,1},{1.75,1},{1,1}};
+    {
+        UVector<Pointf> b = {{1.25,1},{1.25,2},{1.5,2},{2.25,2},{2.25,1},{1.5,1},{1.25,1}};
+        UVector<Pointf> a2, b2;
+		TrimAtIntersection(a, b, a2, b2);
+		VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.625,2},{1.625,1}}, 0.0001));
+		VERIFY(CompareDelta(b2, {{2.25,2},{2.25,1},{1.625,1},{1.625,2}}, 0.0001));
+    }
+    {
+        UVector<Pointf> b = {{1.25,1.25},{1.5,2.25},{2.5,2.5},{2.25,1.5},{1.25,1.25}};
+		UVector<Pointf> a2, b2;
+		TrimAtIntersection(a, b, a2, b2);
+		VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.4375,2},{2,1.4375},{2,1}}, 0.0001));
+		VERIFY(CompareDelta(b2, {{1.5,2.25},{2.5,2.5},{2.25,1.5},{2,1.4375},{1.4375,2}}, 0.0001));
+    }
+    {
+        UVector<Pointf> b = {{0.25,0.25},{0.5,1.25},{1.5,1.5},{1.25,0.5},{0.25,0.25}};
+		UVector<Pointf> a2, b2;
+		TrimAtIntersection(a, b, a2, b2);
+		VERIFY(CompareDelta(a2, {{1,2},{2,2},{2,1},{1.375,1},{1,1.375}}, 0.0001));
+		VERIFY(CompareDelta(b2, {{0.25,0.25},{0.5,1.25},{1,1.375},{1.375,1},{1.25,0.5}}, 0.0001));
+    }
+	{
+        UVector<Pointf> b = {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5},{-0.75,-0.75}};        
+        UVector<Pointf> a2, b2;
+		TrimAtIntersection(a, b, a2, b2);  
+		VERIFY(CompareDelta(a2, {{1,1},{1,2},{2,2},{2,1}}, 0.0001));
+		VERIFY(CompareDelta(b2, {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5}}, 0.0001)); 
+    }
+	{
+        UVector<Pointf> b = {{1.25,2},{4,2},{4,1},{1.25,1},{3,1.5},{1.25,2}};        
+        UVector<Pointf> a2, b2;
+		TrimAtIntersection(a, b, a2, b2);  
+		VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.625,2},{2,1.785714},{2,1.214285},{1.625,1}}, 0.0001));
+		VERIFY(CompareDelta(b2, {{4,2},{4,1},{1.625,1},{2,1.214285},{3,1.5},{2,1.785714},{1.625,2}}, 0.0001)); 
+    }
+	{
+        UVector<Pointf> b = {{1.25,2},{4,2},{4,1},{1.25,1},{2,1.5},{1.25,2}};      
+        UVector<Pointf> a2, b2;
+		TrimAtIntersection(a, b, a2, b2);    
+		VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.625,2},{2,1.5},{1.625,1}}, 0.0001));
+		VERIFY(CompareDelta(b2, {{4,2},{4,1},{1.625,1},{2,1.5},{1.625,2}}, 0.0001));
+    }
 }
 
 

@@ -11,9 +11,9 @@ options(CLANG & PEDANTIC) "-Wall -Wextra -Wunused-parameter -Wlogical-op-parenth
 file
 	Surface.cpp,
 	Surface.h,
-	2D.cpp,
 	Delaunay.cpp,
 	SurfaceView.cpp,
+	2D.cpp,
 	Polygon2D.cpp,
 	Polygon3D.cpp,
 	Value3D.cpp,
