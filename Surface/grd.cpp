@@ -12,7 +12,7 @@ using namespace Eigen;
 void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z) {
 	FileInLine in(fileName);
 	if (!in.IsOpen()) 
-		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
+		throw Exc(F(t_("Impossible to open file '%s'"), fileName));
 	
 	try {
 		String line;
@@ -46,7 +46,7 @@ void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z) {
 			panel.id[3] = FindAdd(surf.nodes, Point3D(f.GetDouble(0), f.GetDouble(1), f.GetDouble(2)));			
 		}
 		if (surf.panels.size() != numPanels)
-			throw Exc(Format(t_("The number of panels in the header (%d) does not match the number of panels in the file (%d)"), numPanels, surf.panels.size()));
+			throw Exc(F(t_("The number of panels in the header (%d) does not match the number of panels in the file (%d)"), numPanels, surf.panels.size()));
 		String error = surf.CheckNodeIds();
 		if (!error.IsEmpty())
 			throw Exc(error);
@@ -58,20 +58,20 @@ void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z) {
 void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z) {
 	FileOut out(fileName);
 	if (!out.IsOpen())
-		throw Exc(Format(t_("Impossible to open '%s'\n"), fileName));	
+		throw Exc(F(t_("Impossible to open '%s'\n"), fileName));	
 		
 	const Vector<Panel> &panels = surf.panels;
 	const Vector<Point3D> &nodes = surf.nodes;
 	
-	out << Format("mesh '%s' saved by U++ Anboto", RemoveAccents(GetFileTitle(fileName)))
-		<< Format("\n1.0   %.2f", g)
-		<< Format("\n%d     %d", y0z ? 1 : 0, x0z ? 1 : 0)
+	out << F("mesh '%s' saved by U++ Anboto", RemoveAccents(GetFileTitle(fileName)))
+		<< F("\n1.0   %.2f", g)
+		<< F("\n%d     %d", y0z ? 1 : 0, x0z ? 1 : 0)
 		<< "\n" << panels.size();
 
 	for (const Panel &panel : panels) {
 		for (int i = 0; i < 4; ++i) {
 			const Point3D &p = nodes[panel.id[i]];
-			out << Format("\n%6.3f %6.3f %6.3f", p.x, p.y, p.z);
+			out << F("\n%6.3f %6.3f %6.3f", p.x, p.y, p.z);
 		}
 	}
 }

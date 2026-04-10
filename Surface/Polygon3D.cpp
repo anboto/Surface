@@ -93,7 +93,6 @@ double Area(const UVector<Point3D> &p) {
 
 Point3D Centroid(const UVector<Point3D> &p) {
 	int n = p.size();
-    ASSERT(n > 1);
     Point3D ret = Point3D::Zero();
     
 	if (Last(p) == First(p))

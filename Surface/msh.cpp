@@ -12,7 +12,7 @@ using namespace Eigen;
 void LoadGMSH(String fileName, Surface &surf) {
 	FileInLine in(fileName);
 	if (!in.IsOpen()) 
-		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
+		throw Exc(F(t_("Impossible to open file '%s'"), fileName));
 	
 	try {
 		String line;
@@ -93,7 +93,7 @@ void LoadGMSH(String fileName, Surface &surf) {
 void LoadTDynMsh(String fileName, Surface &surf) {
 	FileInLine in(fileName);
 	if (!in.IsOpen()) 
-		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
+		throw Exc(F(t_("Impossible to open file '%s'"), fileName));
 	
 	try {
 		String line;

@@ -52,9 +52,9 @@ void SurfaceCanvas::SaveToFile(String fileName) {
 		FileSel fs;
 		
 		fs.NoExeIcons();
-		fs.Type(Format(t_("%s bitmap file"), "jpeg"), "*.jpg");
-		fs.Type(Format(t_("%s bitmap file"), "png"), "*.png");
-		fs.Type(Format(t_("%s vector file"), "pdf"), "*.pdf");
+		fs.Type(F(t_("%s bitmap file"), "jpeg"), "*.jpg");
+		fs.Type(F(t_("%s bitmap file"), "png"), "*.png");
+		fs.Type(F(t_("%s vector file"), "pdf"), "*.pdf");
 		fs.AllFilesType();
 		
 		if (!defaultFileName.IsEmpty())
@@ -118,7 +118,7 @@ void SurfaceCanvas::SaveToFile(String fileName) {
 		if (!SaveFile(fileName, spdf))
 			Exclamation(t_("Image has not been saved"));
 	} else 
-		Exclamation(Format(t_("File format \"%s\" not found"), GetFileExt(fileName)));
+		Exclamation(F(t_("File format \"%s\" not found"), GetFileExt(fileName)));
 }
 
 void SurfaceCanvas::SaveToClipboard() {

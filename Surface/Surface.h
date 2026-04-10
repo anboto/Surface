@@ -46,7 +46,7 @@ void Sort(T& a, T& b, T& c) {
 
 enum RotationOrder {XYZ, YZX, ZYX};
 
-class Value3D : public Moveable<Value3D> {
+class Value3D : Moveable<Value3D> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
@@ -90,7 +90,7 @@ public:
         return m;
     }
     
-	String ToString() const {return Format("x: %s. y: %s. z: %s", FDS(x, 10, true), FDS(y, 10, true), FDS(z, 10, true));}
+	String ToString() const {return F("x: %s. y: %s. z: %s", FDS(x, 10, true), FDS(y, 10, true), FDS(z, 10, true));}
 	
 	inline bool CompareDelta(const Value3D &p, double similThres) const {
 		if (IsNull(x) && IsNull(p.x))
@@ -104,10 +104,12 @@ public:
 	friend bool operator!=(const Value3D& a, const Value3D& b) {return !a.CompareDelta(b, EPS_LEN);}
 	#pragma GCC diagnostic warning "-Wattributes"
 	
+	void Translate(const Value3D &offset);
 	void Translate(double dx, double dy, double dz);
 	void TransRot(const Affine3d &quat);
 	void TransRot(double dx, double dy, double dz, double ax, double ay, double az, double cx, double cy, double cz, RotationOrder order = RotationOrder::XYZ);
-	void TransRot(const Value3D &trans, const Value3D &rot, const Value3D &centre, RotationOrder order = RotationOrder::XYZ);
+	void TransRot(const Value3D &trans, const Value3D &angle, const Value3D &centre, RotationOrder order = RotationOrder::XYZ);
+	void Rotate(const Value3D &angle, const Value3D &centre, RotationOrder order = RotationOrder::XYZ);
 	void Rotate(double ax, double ay, double az, double cx, double cy, double cz, RotationOrder order = RotationOrder::XYZ);	
 	void TransRot000(double dx, double dy, double dz, double ax, double ay, double az, RotationOrder order = RotationOrder::XYZ);
 	void TransRot000(const Value3D &trans, const Value3D &rot, RotationOrder order = RotationOrder::XYZ);
@@ -123,6 +125,8 @@ public:
 
 	inline friend Value3D operator+(const Value3D& a, const Value3D& b) {return Value3D(a.x+b.x, a.y+b.y, a.z+b.z);}
 	inline friend Value3D operator-(const Value3D& a, const Value3D& b) {return Value3D(a.x-b.x, a.y-b.y, a.z-b.z);}
+	inline friend Value3D operator*(const Value3D& a, const Value3D& b) {return Value3D(a.x*b.x, a.y*b.y, a.z*b.z);}
+	inline friend Value3D operator/(const Value3D& a, const Value3D& b) {return Value3D(a.x/b.x, a.y/b.y, a.z/b.z);}
 	inline friend Value3D operator*(const Value3D& a, double b) 		{return Value3D(a.x*b, a.y*b, a.z*b);}
 	inline friend Value3D operator/(const Value3D& a, double b) 		{return Value3D(a.x/b, a.y/b, a.z/b);}
 
@@ -131,6 +135,8 @@ public:
 
 	inline void operator+=(const Value3D& a) {x += a.x; y += a.y; z += a.z;}
 	inline void operator-=(const Value3D& a) {x -= a.x; y -= a.y; z -= a.z;}
+	inline void operator*=(const Value3D& a) {x *= a.x; y *= a.y; z *= a.z;}
+	inline void operator/=(const Value3D& a) {x /= a.x; y /= a.y; z /= a.z;}
 	inline void operator*=(double a) 		 {x *= a; y *= a; z *= a;}
 	inline void operator/=(double a) 		 {x /= a; y /= a; z /= a;}
 
@@ -241,7 +247,7 @@ int FindDelta(const Range<Point_<T>>& r, const Point_<T>& value, const T& delta,
 	return -1;
 }
 	
-class Value6D : public Moveable<Value6D> {
+class Value6D : Moveable<Value6D> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
@@ -327,7 +333,7 @@ public:
 		}
 	}
 	String ToString() const {
-		return Format("x: %s. y: %s. z: %s. rx: %s. ry: %s. rz: %s", 
+		return F("x: %s. y: %s. z: %s. rx: %s. ry: %s. rz: %s", 
 			FDS(t.x, 10, true), FDS(t.y, 10, true), FDS(t.z, 10, true),
 			FDS(r.x, 10, true), FDS(r.y, 10, true), FDS(r.z, 10, true));
 	}
@@ -351,7 +357,7 @@ bool IsNum(const Value6D &v);
 
 class ForceVector;
 
-class Force6D : public Moveable<Force6D>, public Value6D {
+class Force6D : Moveable<Force6D>, public Value6D {
 public:
 	Force6D() : Value6D() {}
 	Force6D(const VectorXd &v) : Value6D(v) {}
@@ -405,7 +411,7 @@ public:
 };
 
 // For dummies: https://dynref.engr.illinois.edu/rkg.html
-class Velocity6D : public Moveable<Velocity6D>, public Value6D {
+class Velocity6D : Moveable<Velocity6D>, public Value6D {
 public:
 	Velocity6D() : Value6D() {}
 	template<typename T>
@@ -423,7 +429,7 @@ public:
 	Velocity6D(const Nuller&) 		{SetNull();}
 };
 
-class Acceleration6D : public Moveable<Acceleration6D>, public Value6D {
+class Acceleration6D : Moveable<Acceleration6D>, public Value6D {
 public:
 	Acceleration6D() : Value6D() {}
 	template<typename T>
@@ -456,7 +462,7 @@ Vector3D Normal(const Value3D &a, const Value3D &b, const Value3D &c);
 bool Collinear(const Value3D &a, const Value3D &b, const Value3D &c);
 double Area(const Value3D &p0, const Value3D &p1, const Value3D &p2);
 
-class Segment3D : public Moveable<Segment3D> {
+class Segment3D : Moveable<Segment3D> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
@@ -561,7 +567,7 @@ inline T const& minNotNull(T const& a, T const& b) {
     	return a < b ? a : b;
 }
 
-class Panel : public Moveable<Panel> {
+class Panel : Moveable<Panel> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
@@ -631,7 +637,7 @@ public:
 	Value6D NormalExt(const Point3D &c0) const;
 };
 
-class LineSegment : public Moveable<LineSegment> {
+class LineSegment : Moveable<LineSegment> {
 public:
 	LineSegment() {}
 	LineSegment(const LineSegment &orig, int) {Copy(orig);}
@@ -645,7 +651,7 @@ public:
 	Upp::Index<int> idPans;
 };
 
-class Line : public Moveable<Line> {
+class Line : Moveable<Line> {
 public:
 	Line() {}
 	Line(const Line &orig, int) {Copy(orig);}
@@ -668,7 +674,7 @@ public:
 	Upp::Vector<Point3D> toPlot;
 };
 
-class VolumeEnvelope : public Moveable<VolumeEnvelope> {
+class VolumeEnvelope : Moveable<VolumeEnvelope> {
 public:
 	VolumeEnvelope() {Reset();}
 	void Reset() 	 {maxX = minX = maxY = minY = maxZ = minZ = Null;}
@@ -681,13 +687,14 @@ public:
 		minY = orig.minY;
 		maxZ = orig.maxZ;
 		minZ = orig.minZ;
-	}	
+	}
+	VolumeEnvelope(const Vector<Point3D> &points)	{Set(points);}
 	void Set(const Vector<Point3D> &points);
 	
 	void MixEnvelope(const VolumeEnvelope &env);
 	double Max()	{return maxNotNull(maxNotNull(max(abs(maxX), abs(minX)), maxNotNull(abs(maxY), abs(minY))), maxNotNull(abs(maxZ), abs(minZ)));}
 	double LenRef()	{return maxNotNull(maxNotNull(maxX - minX, maxY - minY), maxZ - minZ);}
-	
+
 	double maxX, minX, maxY, minY, maxZ, minZ;
 };
 
@@ -1002,7 +1009,7 @@ public:
 	}	
 };
 
-class SurfaceX : public Moveable<SurfaceX> {
+class SurfaceX : Moveable<SurfaceX> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	
@@ -1204,7 +1211,7 @@ Vector<Point3D> Point2Dto3D_YZ(const Vector<Pointf>  &bound, double val = 0);
 
 bool PointInPoly(const UVector<Pointf> &xy, const Pointf &pxy);
 
-class ItemView : public Moveable<ItemView> {
+class ItemView : Moveable<ItemView> {
 public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 	

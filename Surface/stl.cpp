@@ -14,7 +14,7 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 	
 	FileInLine in(fileName);
 	if (!in.IsOpen()) 
-		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
+		throw Exc(F(t_("Impossible to open file '%s'"), fileName));
 	
 	String line;
 	LineParser f(in);	
@@ -68,7 +68,7 @@ static void LoadStlTxt(String fileName, Surface &surf, bool &isText) {
 			} else if (label == "endfacet") 
 				break;
 			else
-				throw Exc(in.Str() + ". "  + Format(t_("Label '%s' not handled in facet"), label));	
+				throw Exc(in.Str() + ". "  + F(t_("Label '%s' not handled in facet"), label));	
 		}
 	}
 	String error = surf.CheckNodeIds();
@@ -108,7 +108,7 @@ static double GetFactor(const Surface &surf) {
 void SaveStlTxt(String fileName, const Surface &surf) {
 	FileOut out(fileName);
 	if (!out.IsOpen())
-		throw Exc(Format(t_("Impossible to open '%s'\n"), fileName));	
+		throw Exc(F(t_("Impossible to open '%s'\n"), fileName));	
 	
 	
 	double factor = GetFactor(surf);
@@ -118,7 +118,7 @@ void SaveStlTxt(String fileName, const Surface &surf) {
 	
 	bool forceTriangles = true;
 	
-	out << Format("solid '%s' saved by U++ Anboto\n", RemoveAccents(GetFileTitle(fileName)));
+	out << F("solid '%s' saved by U++ Anboto\n", RemoveAccents(GetFileTitle(fileName)));
 
 	for (int i = 0; i < panels.GetCount(); ++i) {
 		const Panel &panel = panels[i];
@@ -146,7 +146,7 @@ void SaveStlTxt(String fileName, const Surface &surf) {
 static void LoadStlBin(String fileName, Surface &surf, String &header) {
 	FileInBinary in(fileName);
 	if (!in.IsOpen())
-		throw Exc(Format(t_("Impossible to open file '%s'"), fileName));
+		throw Exc(F(t_("Impossible to open file '%s'"), fileName));
 	
 	StringBuffer headerB(80);
 	in.Read(headerB, 80);
@@ -200,14 +200,14 @@ static void STLFacetBinNodeOut(FileOutBinary &out, const Point3D &node) {
 void SaveStlBin(String fileName, const Surface &surf) {
 	FileOutBinary out(fileName);
 	if (!out.IsOpen())
-		throw Exc(Format(t_("Impossible to open '%s'\n"), fileName));	
+		throw Exc(F(t_("Impossible to open '%s'\n"), fileName));	
 
 	double factor = GetFactor(surf);
 
 	const Vector<Panel> &panels = surf.panels;
 	const Vector<Point3D> &nodes = surf.nodes;
 	
-	String header = Format("File '%s' saved by U++ Anboto", RemoveAccents(GetFileTitle(fileName)));
+	String header = F("File '%s' saved by U++ Anboto", RemoveAccents(GetFileTitle(fileName)));
 	header << String(' ', 80 - header.GetCount());
 	out.Write(header, 80);
 	

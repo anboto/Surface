@@ -155,10 +155,18 @@ void TranslateForce(const Point3D &from, const VectorXd &ffrom, Point3D &to, Vec
 	fto(5) += M.z;
 }
 
+void Value3D::Translate(const Value3D &offset) {
+	*this += offset;
+}
+
 void Value3D::Translate(double dx, double dy, double dz) {
 	x += dx;
 	y += dy;
 	z += dz;
+}
+
+void Value3D::Rotate(const Value3D &angle, const Point3D &c0, RotationOrder order) {
+	TransRot(GetTransformRotation(angle, c0, order));
 }
 
 void Value3D::Rotate(double ax, double ay, double az, double cx, double cy, double cz, RotationOrder order) {

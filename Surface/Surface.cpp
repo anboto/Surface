@@ -327,7 +327,7 @@ String Surface::CheckNodeIds() {
 		const Panel &p = panels[ip];
 		for (int i = 0; i < 4; ++i) {
 			if (p.id[i] >= nodes.size())
-				return Format("Node %d in Panel %d does not exist. There are only %d nodes", p.id[i] + 1, ip + 1, nodes.size());
+				return F("Node %d in Panel %d does not exist. There are only %d nodes", p.id[i] + 1, ip + 1, nodes.size());
 		}
 	}
 	return String();
@@ -583,9 +583,9 @@ void Surface::AnalyseSegments(double zTolerance) {
 		int inode1 = segments[i].idNod1;
 		
 		if (inode0 >= nodes.GetCount())
-			throw Exc(Format(t_("Node %d is pointing out of scope"), inode0+1));	
+			throw Exc(F(t_("Node %d is pointing out of scope"), inode0+1));	
 		if (inode1 >= nodes.GetCount())
-			throw Exc(Format(t_("Node %d is pointing out of scope"), inode1+1));
+			throw Exc(F(t_("Node %d is pointing out of scope"), inode1+1));
 		
 		int num = segments[i].idPans.GetCount();
 				
@@ -788,7 +788,7 @@ Vector<Vector<int>> Surface::GetPanelSets(Function <bool(String, int pos)> Statu
 		}
 		ret << panelProcessed.PickKeys();
 		panelProcessed.Clear();
-		Status(Format(t_("Split mesh #%d"), ret.GetCount()), 0);
+		Status(F(t_("Split mesh #%d"), ret.GetCount()), 0);
 	}
 	return ret;
 }
@@ -885,21 +885,21 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 		Status(t_("Removing duplicated points"), 45);
 		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 		if (numDupP > 0) 
-			ret << "\n" << Format(t_("Removed %d duplicated points"), numDupP);	
+			ret << "\n" << F(t_("Removed %d duplicated points"), numDupP);	
 	
 		Status(t_("Removing duplicated panels (pass 2)"), 75);
 		numDupPan += RemoveDuplicatedPanels(panels);	// Second time after duplicated points
 		if (numDupPan > 0) 
-			ret << "\n" << Format(t_("Removed %d duplicated panels"), numDupPan);
+			ret << "\n" << F(t_("Removed %d duplicated panels"), numDupPan);
 	} else {	
 		Status(t_("Detecting triangles and wrong panels"), 40);
 		DetectTriBiP(panels, numTriangles, numBiQuads, numMonoQuads);
 		if (numTriangles > 0)
-			ret << "\n" << Format(t_("Fixed %d triangles"), numTriangles);
+			ret << "\n" << F(t_("Fixed %d triangles"), numTriangles);
 		if (numBiQuads > 0)
-			ret << "\n" << Format(t_("Removed %d 2 points quads"), numBiQuads);
+			ret << "\n" << F(t_("Removed %d 2 points quads"), numBiQuads);
 		if (numMonoQuads > 0)
-			ret << "\n" << Format(t_("Removed %d 1 points quads"), numMonoQuads);
+			ret << "\n" << F(t_("Removed %d 1 points quads"), numMonoQuads);
 		
 		Status(t_("Removing tiny panels"), 45);
 		RemoveTinyPanels(panels);
@@ -910,22 +910,22 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 		Status(t_("Fixing skewed panels"), 60);
 		numSkewed = FixSkewed();
 		if (numSkewed > 0) 
-			ret << "\n" << Format(t_("Fixed %d skewed panels"), numSkewed);
+			ret << "\n" << F(t_("Fixed %d skewed panels"), numSkewed);
 	
 		Status(t_("Removing duplicated points"), 65);
 		numDupP = RemoveDuplicatedPointsAndRenumber(panels, nodes, segments);
 		if (numDupP > 0) 
-			ret << "\n" << Format(t_("Removed %d duplicated points"), numDupP);	
+			ret << "\n" << F(t_("Removed %d duplicated points"), numDupP);	
 	
 		Status(t_("Removing duplicated panels (pass 2)"), 70);
 		numDupPan += RemoveDuplicatedPanels(panels);	// Second time after duplicated points
 		if (numDupPan > 0) 
-			ret << "\n" << Format(t_("Removed %d duplicated panels"), numDupPan);
+			ret << "\n" << F(t_("Removed %d duplicated panels"), numDupPan);
 	
 		Status(t_("Analysing water tightness"), 75);
 		double zTolerance = -0.1;
 		AnalyseSegments(zTolerance);
-		ret << "\n" << Format(t_("%d segments, %d water level, %d water leak and %d multipanel"), 
+		ret << "\n" << F(t_("%d segments, %d water level, %d water leak and %d multipanel"), 
 									segments.GetCount(), segWaterlevel.GetCount(), 
 									segTo1panel.GetCount(), segTo3panel.GetCount());
 /*		
@@ -933,12 +933,12 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 		if (!ReorientPanels0(true))
 			ret << "\n" << t_("Failed to reorient panels to water side");
 		else if (numUnprocessed > 0)
-			ret << "\n" << Format(t_("%d panels not reoriented. Body contains separated surfaces"), numUnprocessed);
+			ret << "\n" << F(t_("%d panels not reoriented. Body contains separated surfaces"), numUnprocessed);
 */		
 		Status(t_("If only underwater, fit waterlevel points to Z=0"), 85);
 		int num0 = FitToZ0(nodes, zTolerance);
 		if (num0 > 0) 
-			ret << "\n" << Format(t_("Fitted to Z=0 %d points"), num0);
+			ret << "\n" << F(t_("Fitted to Z=0 %d points"), num0);
 		
 		healing = true;
 	}
@@ -1113,7 +1113,7 @@ String Surface::CheckErrors() const {
 		const Panel &panel = panels[ip];
 		for (int i = 0; i < 4; ++i) {
 			if (panel.id[i] >= nodes.size())
-				return Format(t_("Node %d [%d] in panel %d does not exist"), panel.id[i]+1, i+1, ip+1);
+				return F(t_("Node %d [%d] in panel %d does not exist"), panel.id[i]+1, i+1, ip+1);
 		}
 	}
 	if (IsEmpty() && lines.IsEmpty())
@@ -2426,7 +2426,7 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 		}
 	}
 	
-	LOG(Format("TranslateArchimede NumIter: %d (%c)", nIter, cond));
+	LOG(F("TranslateArchimede NumIter: %d (%c)", nIter, cond));
 	
 	Translate(0, 0, dz);
 	
@@ -2625,7 +2625,7 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth, do
 	pans.SetCount(numSlices*(points.size()-1));
 	
 	if (pans.size() > 50000) {
-		if (Prompt && Prompt(Format(t_("Number of panels is %d.\nDo you wish to continue?"), pans.size())))
+		if (Prompt && Prompt(F(t_("Number of panels is %d.\nDo you wish to continue?"), pans.size())))
 			throw Exc(t_("Stopped by user"));
 	}
 		
@@ -3889,7 +3889,7 @@ void Surface::SmoothTaubin(double lambda, double mu, int iterations, int w) {
 	
 void Surface::LoadSerialization(String fileName) {
 	if (!FileExists(fileName))
-		throw Exc(Format("File '%s' does not exist", fileName));
+		throw Exc(F("File '%s' does not exist", fileName));
 		
 	String error = LoadFromJsonError(*this, LoadFile(fileName));
 	if (!error.IsEmpty()) 
@@ -3898,7 +3898,7 @@ void Surface::LoadSerialization(String fileName) {
 
 void Surface::SaveSerialization(String fileName) const {
 	if (!StoreAsJsonFile(*this, fileName, false))
-		throw Exc(Format(t_("Impossible to save file '%s'"), fileName));
+		throw Exc(F(t_("Impossible to save file '%s'"), fileName));
 }
 
 Value3D operator*(double b, const Value3D& a) {return a*b;}

@@ -35,9 +35,9 @@ void TestSurfaceX_Calc() {
 	mesh.GetArea();
 	mesh.GetVolume();
 	t.Pause();
-	UppLog() << Format("\nSurface: %.3f", mesh.surface);	
-	UppLog() << Format("\nVolume:  %.3f", mesh.volume);
-	UppLog() << Format("\nSeconds: %.8f", t.Seconds());
+	UppLog() << F("\nSurface: %.3f", mesh.surface);	
+	UppLog() << F("\nVolume:  %.3f", mesh.volume);
+	UppLog() << F("\nSeconds: %.8f", t.Seconds());
 	
 	UppLog() << "\nUnderwater data";
 	under.CutZ(mesh, -1);
@@ -46,11 +46,11 @@ void TestSurfaceX_Calc() {
 	under.GetArea();
 	under.GetVolume();
 	t.Pause();
-	UppLog() << Format("\nSurface: %.3f", under.surface);	
-	UppLog() << Format("\nVolume:  %.3f", under.volume);
-	UppLog() << Format("\nSeconds: %.8f", t.Seconds());
+	UppLog() << F("\nSurface: %.3f", under.surface);	
+	UppLog() << F("\nVolume:  %.3f", under.volume);
+	UppLog() << F("\nSeconds: %.8f", t.Seconds());
 	Point3D cb = under.GetCentreOfBuoyancy();
-	UppLog() << Format("\nCB:      %s %s %s", FDS(cb.x, 10, true), FDS(cb.y, 10, true), FDS(cb.z, 10, true));
+	UppLog() << F("\nCB:      %s %s %s", FDS(cb.x, 10, true), FDS(cb.y, 10, true), FDS(cb.z, 10, true));
 
 	Point3D c0(0, 0, 0);
 	Force6D f = under.GetHydrostaticForce(c0, rho, g);
@@ -65,18 +65,18 @@ void TestSurfaceX_Calc() {
 	surface = SurfaceX::GetSurface(surfx);
 	volume = SurfaceX::GetVolume(surfx);
 	t.Pause();
-	UppLog() << Format("\nSurface: %.3f", surface);
-	UppLog() << Format("\nVolume:  %.3f", volume);
-	UppLog() << Format("\nSeconds: %.8f", t.Seconds());
+	UppLog() << F("\nSurface: %.3f", surface);
+	UppLog() << F("\nVolume:  %.3f", volume);
+	UppLog() << F("\nSeconds: %.8f", t.Seconds());
 	
 	UppLog() << "\nUnderwater X data";
 	t.Start();
 	surface = SurfaceX::GetSurface(surfx, [](double x, double y, double z) {return z <= 0;});
 	volume = SurfaceX::GetVolume(surfx, [](double x, double y, double z) {return z <= 0;});
 	t.Pause();
-	UppLog() << Format("\nSurface: %.3f", surface);
-	UppLog() << Format("\nVolume:  %.3f", volume);
-	UppLog() << Format("\nSeconds: %.8f", t.Seconds());
+	UppLog() << F("\nSurface: %.3f", surface);
+	UppLog() << F("\nVolume:  %.3f", volume);
+	UppLog() << F("\nSeconds: %.8f", t.Seconds());
 	
 	Affine3d quat = GetTransformRotation(Vector3D(1, 2, 3), Point3D(4, 5, 6));
 	double x0 = 1, y0 = 2, z0 = 3;
@@ -640,7 +640,7 @@ void TestContour() {
 	UVector<Pointf> points = {{1, 3}, {-2, 4}, {3, 2}, {-1, 5}, {0, 0}, {2, 5}, {1, 7}, {-1, 2}, {1, 5}, {2, 1}, {1, 0}};
 	if (showpoints) {
 		for (int i = 0; i < points.size(); ++i)
-			UppLog() << Format("\n%.5f	%.5f", points[i].x, points[i].y);
+			UppLog() << F("\n%.5f	%.5f", points[i].x, points[i].y);
 	}
 	{
 		UVector<Pointf> hull = ConvexContour(points);	
@@ -650,7 +650,7 @@ void TestContour() {
 			UppLog() << "\n\nContour";
 		for (int i = 0; i < hull.size(); ++i) {
 			if (showpoints)
-				UppLog() << Format("\n%.5f	%.5f", hull[i].x, hull[i].y);
+				UppLog() << F("\n%.5f	%.5f", hull[i].x, hull[i].y);
 			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
 		}
 		
@@ -660,7 +660,7 @@ void TestContour() {
 			UppLog() << "\n\nContourBevel";
 		for (int i = 0; i < offset.size(); ++i) {
 			if (showpoints)
-				UppLog() << Format("\n%.5f	%.5f", offset[i].x, offset[i].y);
+				UppLog() << F("\n%.5f	%.5f", offset[i].x, offset[i].y);
 			VERIFY(EqualRatio(offset[i].x, resb[i].x, 0.001, 0.000001) && EqualRatio(offset[i].y, resb[i].y, 0.001, 0.000001));
 		}
 		
@@ -671,7 +671,7 @@ void TestContour() {
 			UppLog() << "\n\nOffsetContourRoundArcSteps";
 		for (int i = 0; i < round.size(); ++i) {
 			if (showpoints)
-				UppLog() << Format("\n%.5f	%.5f", round[i].x, round[i].y);
+				UppLog() << F("\n%.5f	%.5f", round[i].x, round[i].y);
 			VERIFY(EqualRatio(round[i].x, resr[i].x, 0.001, 0.000001) && EqualRatio(round[i].y, resr[i].y, 0.001, 0.000001));
 		}
 		
@@ -682,7 +682,7 @@ void TestContour() {
 			UppLog() << "\n\nContourRoundAngle";
 		for (int i = 0; i < roundA.size(); ++i) {
 			if (showpoints)	
-				UppLog() << Format("\n%.5f	%.5f", roundA[i].x, roundA[i].y);
+				UppLog() << F("\n%.5f	%.5f", roundA[i].x, roundA[i].y);
 			VERIFY(EqualRatio(roundA[i].x, resrA[i].x, 0.001, 0.000001) && EqualRatio(roundA[i].y, resrA[i].y, 0.001, 0.000001));
 		}
 	}
@@ -695,7 +695,7 @@ void TestContour() {
 			UppLog() << "\n\nContour include_collinear";
 		for (int i = 0; i < hull.size(); ++i) {
 			if (showpoints)
-				UppLog() << Format("\n%.5f	%.5f", hull[i].x, hull[i].y);
+				UppLog() << F("\n%.5f	%.5f", hull[i].x, hull[i].y);
 			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
 		}
 	}
