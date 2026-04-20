@@ -2435,6 +2435,8 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 	under.GetPanelParams();
 	under.GetVolume();
 	allvol = under.volume;
+	if (allvol <= 0)
+		return false;
 	cb = under.GetCentreOfBuoyancy()*under.volume;
 	for (Surface *s : damaged) {
 		Surface u;
