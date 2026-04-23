@@ -2425,6 +2425,8 @@ bool Surface::TranslateArchimede(double allmass, double rho, double ratioError, 
 			ddz = ddz/2;
 		}
 	}
+	if (nIter == maxIter)
+		return false;
 	
 	LOG(F("TranslateArchimede NumIter: %d (%c)", nIter, cond));
 	
