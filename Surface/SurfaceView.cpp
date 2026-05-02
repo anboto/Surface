@@ -221,7 +221,6 @@ void SurfaceView::SelectPoint(Point pmouse, Size sz, double scale, double dx, do
 				surfs[i]->ClearSelPanels();
 		}
 	}
-	//idBody = idSubBody = -1;
 }
 
 SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshColor, double thick, int idBody, bool showNormals, double normalLen) {
@@ -268,10 +267,7 @@ SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshCol
 			const Point3D &p2 = nodes0[pv.id[2]];
 	
 			pv.normal = clone(p.normalPaint);
-			//			Normal(p0, p1, p2);		// To simplify, triangles and quads have same normal and centroid
-			//if (pv.normal == Value3D::Zero())
-			//	pv.normal = Normal(p2, nodes0[pv.id[3]], p0);	
-			
+
 			if (pv.numIds == 3)
 				pv.centroid = Centroid(p0, p1, p2);
 			else if (pv.numIds == 4) {
@@ -286,7 +282,7 @@ SurfaceView &SurfaceView::PaintSurface(Surface &surf, Color color, Color meshCol
 			}
 			Segment3D seg(pv.centroid, pv.normal, normalLen);	
 			if (paintArrow2)		
-				PaintArrow2(seg.from, seg.to, Blue(), -1);
+				PaintArrow(seg.from, seg.to, Blue(), ARROW_V, -1);
 			else
 				PaintLine(seg.from, seg.to, Blue(), lineThickness, -1);
 		}
@@ -497,9 +493,9 @@ SurfaceView &SurfaceView::PaintAxis(const Point3D &p, double len, double lenDelt
 }
 
 SurfaceView &SurfaceView::PaintAxis(double x, double y, double z, double len, double lenDelta) {
-	PaintArrow(x, y, z, x+len, y	 , z,     LtRed(),   lenDelta);
-	PaintArrow(x, y, z, x	 , y+len , z,     LtGreen(), lenDelta);
-	PaintArrow(x, y, z, x	 , y	 , z+len, LtBlue(),  lenDelta);
+	PaintArrow(Point3D(x, y, z), Point3D(x+len, y	 , z),     LtRed(),   ARROW_DELTA, lenDelta);
+	PaintArrow(Point3D(x, y, z), Point3D(x	 , y+len , z),     LtGreen(), ARROW_DELTA, lenDelta);
+	PaintArrow(Point3D(x, y, z), Point3D(x	 , y	 , z+len), LtBlue(),  ARROW_DELTA, lenDelta);
 	return *this;
 }
 
@@ -522,11 +518,7 @@ SurfaceView &SurfaceView::PaintCube(double x, double y, double z, double side, c
 	return PaintCuboid(Point3D(x-side/2., y-side/2., z-side/2.), Point3D(x+side/2., y+side/2., z+side/2.), color, lenDelta);
 }
 
-SurfaceView &SurfaceView::PaintArrow(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double lenDelta) {
-	return PaintArrow(Point3D(x0, y0, z0), Point3D(x1, y1, z1), color, lenDelta);
-}
-
-SurfaceView &SurfaceView::PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta) {
+SurfaceView &SurfaceView::PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, ARROW_TYPE type, double lenDelta) {
 	Segment3D seg(p0, p1);
 	Vector3D vector = seg.Direction().Normalize();
 	double len = seg.Length();
@@ -538,30 +530,16 @@ SurfaceView &SurfaceView::PaintArrow(const Point3D &p0, const Point3D &p1, const
 	Point3D parr1(pointTri.x + 0.1*len*sin(nangle), pointTri.y + 0.1*len*cos(nangle), pointTri.z); 
 	Point3D parr2(pointTri.x - 0.1*len*sin(nangle), pointTri.y - 0.1*len*cos(nangle), pointTri.z); 
 	
-	PaintLine(p0,   pointTri, color, lineThickness, lenDelta);
-	PaintLine(p1,   parr1, 	  color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
-	PaintLine(p1,   parr2,    color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
-	PaintLine(parr1,parr2,    color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
-	
-	return *this;
-}
-
-SurfaceView &SurfaceView::PaintArrow2(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta) {
-	Segment3D seg(p0, p1);
-	Vector3D vector = seg.Direction().Normalize();
-	double len = seg.Length();
-	double lenArr = 0.8*len;
-	Point3D pointTri = p0 + vector*lenArr;
-	double zangle = atan2(vector.x, vector.y);
-	double nangle = zangle + M_PI/2;
-	
-	Point3D parr1(pointTri.x + 0.1*len*sin(nangle), pointTri.y + 0.1*len*cos(nangle), pointTri.z); 
-	Point3D parr2(pointTri.x - 0.1*len*sin(nangle), pointTri.y - 0.1*len*cos(nangle), pointTri.z); 
-	
-	PaintLine(p0, p1, 	 color, lineThickness, lenDelta);
-	PaintLine(p1, parr1, color, lineThickness, lenDelta*0.1);
-	PaintLine(p1, parr2, color, lineThickness, lenDelta*0.1);
-	
+	if (type == ARROW_DELTA) {
+		PaintLine(p0,   pointTri, color, lineThickness, lenDelta);
+		PaintLine(p1,   parr1, 	  color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+		PaintLine(p1,   parr2,    color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+		PaintLine(parr1,parr2,    color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+	} else if (type == ARROW_V) {
+		PaintLine(p0, p1, 	 color, lineThickness, lenDelta);
+		PaintLine(p1, parr1, color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+		PaintLine(p1, parr2, color, lineThickness, IsNull(lenDelta) ? Null : lenDelta*0.1);
+	}
 	return *this;
 }
 

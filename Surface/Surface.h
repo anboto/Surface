@@ -787,7 +787,7 @@ public:
 	double GetWaterPlaneArea() const;
 	
 	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null, double meshRatio = 1, bool quads = false);
-	static void AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio = 1, bool quads = false);
+	static void AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio = 1, bool quads = false, bool bottom = true, bool top = true);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
 	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
 	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
@@ -1291,9 +1291,8 @@ public:
 	SurfaceView &PaintDoubleAxis(const Point3D &p, double len, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintCube(const Point3D &p, double side, const Color &color, double lenDelta = -1);
 	SurfaceView &PaintCube(double x, double y, double z, double side, const Color &color, double lenDelta = -1);
-	SurfaceView &PaintArrow(double x0, double y0, double z0, double x1, double y1, double z1, const Color &color, double lenDelta = -1); 
-	SurfaceView &PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
-	SurfaceView &PaintArrow2(const Point3D &p0, const Point3D &p1, const Color &color, double lenDelta = -1);
+	enum ARROW_TYPE {ARROW_DELTA, ARROW_V};
+	SurfaceView &PaintArrow(const Point3D &p0, const Point3D &p1, const Color &color, ARROW_TYPE type = ARROW_DELTA, double lenDelta = -1);
 	SurfaceView &PaintText(double x, double y, double z, const char *str, double where = Null);
 		
 	Image GetImage(Size sz, double scale, double dx, double dy, const Affine3d &rot);

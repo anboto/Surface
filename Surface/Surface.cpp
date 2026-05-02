@@ -3443,7 +3443,7 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 	}
 }
 
-void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio, bool quads) {
+void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio, bool quads, bool bottom, bool top) {
 	ASSERT(distance > 0);
 
 	Vector<Vector<Pointf>> bounds;
@@ -3485,49 +3485,52 @@ void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &s
 		Vector<Pointf> &bound = bounds[i];
 		Surface &cs = *(surfsTo[i]);
 		
-		// Gets the lower surface
-		cs.AddPolygonalPanel(bound, sidelen*meshRatio, false, quads, 0.75);
-		cs.Translate(0, 0, minz-distance);
-		cs.Orient();
-	
-		// Constructs the vertical extrusion
-		int num = int(-(minz-distance)/sidelen);
-		double dz = -(minz-distance)/num;
+		if (bottom) {
+			// Gets the lower surface
+			cs.AddPolygonalPanel(bound, sidelen*meshRatio, false, quads, 0.75);
+			cs.Translate(0, 0, minz-distance);
+			cs.Orient();
 		
-		bound << bound[0];
-		Vector<Point3D> bound3D = Point2Dto3D_XY(bound, minz-distance);
-		Value3D delta(0, 0, dz);
-		Array<PanelPoints> pans;
-		for (int ip = bound.size()-1; ip > 0; --ip) {
-			for (int ir = 0; ir < num; ++ir) {	
-				PanelPoints &p = pans.Add();
-				p.data[0] = bound3D[ip]   + delta*ir;
-				p.data[1] = bound3D[ip-1] + delta*ir;
-				p.data[2] = bound3D[ip-1] + delta*(ir + 1);
-				p.data[3] = bound3D[ip]   + delta*(ir + 1);
+			// Constructs the vertical extrusion
+			int num = int(-(minz-distance)/sidelen);
+			double dz = -(minz-distance)/num;
+			
+			bound << bound[0];
+			Vector<Point3D> bound3D = Point2Dto3D_XY(bound, minz-distance);
+			Value3D delta(0, 0, dz);
+			Array<PanelPoints> pans;
+			for (int ip = bound.size()-1; ip > 0; --ip) {
+				for (int ir = 0; ir < num; ++ir) {	
+					PanelPoints &p = pans.Add();
+					p.data[0] = bound3D[ip]   + delta*ir;
+					p.data[1] = bound3D[ip-1] + delta*ir;
+					p.data[2] = bound3D[ip-1] + delta*(ir + 1);
+					p.data[3] = bound3D[ip]   + delta*(ir + 1);
+				}
 			}
+			Surface s;
+			s.SetPanelPoints(pans);	
+			cs.Append(s);
 		}
-		Surface s;
-		s.SetPanelPoints(pans);	
-		cs.Append(s);
-	
-		// Gets the free surface
+		if (top) {
+			// Gets the free surface
+			
+			// Gets the water piercing internal boundaries
+			Vector<Vector<Pointf>> internals;
+			for (int is = 0; is < surfs.size(); ++is) {
+				Vector<Segment3D> segs = GetWaterLineSegments(*(surfs[is]));
 		
-		// Gets the water piercing internal boundaries
-		Vector<Vector<Pointf>> internals;
-		for (int is = 0; is < surfs.size(); ++is) {
-			Vector<Segment3D> segs = GetWaterLineSegments(*(surfs[is]));
-	
-			while (!segs.IsEmpty()) {
-				Vector<Point3D> bnd = GetClosedPolygons(segs);
-				if (bnd.IsEmpty())
-					break;
-				Vector<Pointf> bound2D = Point3Dto2D_XY(bnd);
-				if (bound2D.size() > 2)
-					internals << pick(bound2D);
+				while (!segs.IsEmpty()) {
+					Vector<Point3D> bnd = GetClosedPolygons(segs);
+					if (bnd.IsEmpty())
+						break;
+					Vector<Pointf> bound2D = Point3Dto2D_XY(bnd);
+					if (bound2D.size() > 2)
+						internals << pick(bound2D);
+				}
 			}
+			cs.AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
 		}
-		cs.AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
 	}
 }
 
