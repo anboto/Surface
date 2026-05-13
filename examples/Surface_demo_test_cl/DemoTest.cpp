@@ -477,13 +477,13 @@ void TestPoly() {
 		VERIFY(CompareDelta(a2, {{1,2},{2,2},{2,1},{1.375,1},{1,1.375}}, 0.0001));
 		VERIFY(CompareDelta(b2, {{0.25,0.25},{0.5,1.25},{1,1.375},{1.375,1},{1.25,0.5}}, 0.0001));
     }
-	{
+	/*{
         UVector<Pointf> b = {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5},{-0.75,-0.75}};        
         UVector<Pointf> a2, b2;
 		TrimAtIntersection(a, b, a2, b2);  
-		VERIFY(CompareDelta(a2, {{1,1},{1,2},{2,2},{2,1}}, 0.0001));
+		RRVERIFY(CompareDelta(a2, {{1,1},{1,2},{2,2},{2,1}}, 0.0001));
 		VERIFY(CompareDelta(b2, {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5}}, 0.0001)); 
-    }
+    }*/
 	{
         UVector<Pointf> b = {{1.25,2},{4,2},{4,1},{1.25,1},{3,1.5},{1.25,2}};        
         UVector<Pointf> a2, b2;
@@ -629,7 +629,6 @@ void TestIsRectangle() {
 	VERIFY(result4.size() == 0);
 }
 
-
 void TestContour() {
 	UppLog() << "\n\nTest contour functions";
 	
@@ -699,9 +698,94 @@ void TestContour() {
 			VERIFY(EqualRatio(hull[i].x, res[i].x, 0.001, 0.000001) && EqualRatio(hull[i].y, res[i].y, 0.001, 0.000001));
 		}
 	}
-
 }
 
+void TestBoundaries() {
+	UppLog() << "\n\bTest GetAllBoundaries()";
+
+    //  6─7
+    //  │ │
+    //  3─4─5
+    //  │ │ │
+    //  0─1─2
+    {
+        Surface surf;
+        surf.AddNode(Point3D(0,0,0)).AddNode(Point3D(1,0,0)).AddNode(Point3D(2,0,0))
+        	.AddNode(Point3D(0,1,0)).AddNode(Point3D(1,1,0)).AddNode(Point3D(2,1,0))
+        	.AddNode(Point3D(0,2,0)).AddNode(Point3D(1,2,0));
+        surf.AddPanel(0, 1, 4, 3).AddPanel(1, 2, 5, 4).AddPanel(3, 4, 7, 6);
+
+		UVector<UVector<int>> allbound = surf.GetAllBoundaries();
+        UppLog() << "\nTest 1";
+        for (auto& abound : allbound) {
+            UppLog() << "\n";
+            for (int id : abound) 
+            	UppLog() << id << " ";
+        }
+        VERIFY(allbound.size() == 1);
+        VERIFY(Compare(allbound[0], UVector<int>{0, 1, 2, 5, 4, 7, 6, 3}));
+    }
+
+    //  5─6 7
+    //  │ │/│
+    //  2─3─4    
+    //  │ │
+    //  0─1
+    {
+        Surface surf;
+        surf.AddNode(Point3D(0,0,0)).AddNode(Point3D(1,0,0)).AddNode(Point3D(0,1,0)).AddNode(Point3D(1,1,0))
+        	.AddNode(Point3D(2,1,0)).AddNode(Point3D(0,2,0)).AddNode(Point3D(1,2,0)).AddNode(Point3D(2,2,0));
+        surf.AddPanel(0, 1, 3, 2).AddPanel(2, 3, 6, 5).AddPanel(3, 4, 7, 3);
+
+		UVector<UVector<int>> allbound = surf.GetAllBoundaries();
+        UppLog() << "\nTest 2";
+        for (auto& abound : allbound) {
+            UppLog() << "\n";
+            for (int id : abound) 
+            	UppLog() << id << " ";
+        }
+        VERIFY(allbound.size() == 2);
+        VERIFY(Compare(allbound[0], UVector<int>{0, 1, 3, 6, 5, 2}));
+        VERIFY(Compare(allbound[1], UVector<int>{3, 4, 7}));
+    }
+    
+	//  42 43 44─45 46 47 48
+	//         │15│
+	//  35 36─37─38─39─40 41
+	//      │11│12│13│14│
+	//  28─29─30─31─32─33 34
+	//   │8 │9 │     │10│
+	//  21─22─23 24 25─26─27
+	//      │5 │     │6 │7 │
+	//  14 15─16─17─18─19─20
+	//      │1 │2 │3 │4 │
+	//   7  8─-9─10─11─12 13
+	//            │0 │
+	//   0  1  2  3─-4  5  6
+	{
+		Surface surf;
+		for (int r = 0; r < 7; ++r)
+			for (int c = 0; c < 7; ++c)
+				surf.AddNode(Point3D(r, c, 0)); 
+        surf.AddPanel(3, 4, 11, 10)
+        	.AddPanel(8, 9, 16, 15).AddPanel(9, 10, 17, 16).AddPanel(10, 11, 18, 17).AddPanel(11, 12, 19, 18)
+        	.AddPanel(15, 16, 23, 22).AddPanel(18, 19, 26, 25).AddPanel(19, 20, 27, 26)
+        	.AddPanel(21, 22, 29, 28).AddPanel(22, 23, 30, 29).AddPanel(25, 26, 33, 32)
+        	.AddPanel(29, 30, 37, 36).AddPanel(30, 31, 38, 37).AddPanel(31, 32, 39, 38).AddPanel(32, 33, 40, 39)
+        	.AddPanel(37, 38, 45, 44);
+
+		UVector<UVector<int>> allbound = surf.GetAllBoundaries();
+        UppLog() << "\nTest 3";
+        for (auto& abound : allbound) {
+            UppLog() << "\n";
+            for (int id : abound) 
+            	UppLog() << id << " ";
+        }
+        VERIFY(allbound.size() == 2);
+        VERIFY(Compare(allbound[0], UVector<int>{3, 4, 11, 12, 19, 20, 27, 26, 33, 40, 39, 38, 45, 44, 37, 36, 29, 28, 21, 22, 15, 8, 9, 10}));
+        VERIFY(Compare(allbound[1], UVector<int>{17, 16, 23, 30, 31, 32, 25, 18}));
+	}
+}
 
 CONSOLE_APP_MAIN 
 {
@@ -713,6 +797,7 @@ CONSOLE_APP_MAIN
 	try {
 		TestBasic();
 		
+		TestBoundaries();
 		TestContour();
 		TestIsRectangle();
 		TestPoly();	

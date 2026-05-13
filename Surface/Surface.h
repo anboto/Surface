@@ -853,8 +853,12 @@ public:
 	
 	void RemovePanels2(const UVector<int> &panels);
 	
-	void AddNode(const Point3D &p);
+	Surface &AddNode(const Point3D &p);
+	int AddNodeId(const Point3D &p);
 	int FindNode(const Point3D &p);
+	
+	Surface &AddPanel(const Point3D &p0, const Point3D &p1, const Point3D &p2, const Point3D &p3);
+	Surface &AddPanel(int id0, int id1, int id2, int id3);
 	
 	void AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight);
 	void AddRevolution(const Vector<Pointf> &points, double panelWidth, double angle = 360, bool close = true, Function <bool(String)> Prompt = Null);
@@ -876,6 +880,7 @@ public:
 	
 	Vector<int> GetBoundary();
 	Vector<bool> GetBoundaryBool();
+	Vector<Vector<int>> GetAllBoundaries();
 	void SmoothLaplacian(double lambda, int iterations, int w);
 	void SmoothTaubin(double lambda, double mu, int iterations, int w);
 	
@@ -1308,6 +1313,7 @@ public:
 	SurfaceView &SetLightColor(Color c)			{lightColor = c; 					return *this;}
 	SurfaceView &SetBackgroundColor(Color c)	{background = c; 					return *this;}
 	SurfaceView &SetLineThickness(int t)		{lineThickness = float(t);			return *this;}
+	int GetLineThickness()						{return lineThickness;}
 	
 	SurfaceView &SetShowMesh(ShowMesh s)		{showMesh = s; 						return *this;}
 	SurfaceView &SetShowColor(ShowColor s)		{showColor = s; 					return *this;}

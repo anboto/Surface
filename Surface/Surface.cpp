@@ -578,16 +578,16 @@ void Surface::TrianglesToQuadsFlat() {
 void Surface::AnalyseSegments(double zTolerance) {
 	GetSegments();
 	
-	for (int i = 0; i < segments.GetCount(); ++i) {
+	for (int i = 0; i < segments.size(); ++i) {
 		int inode0 = segments[i].idNod0;
 		int inode1 = segments[i].idNod1;
 		
-		if (inode0 >= nodes.GetCount())
+		if (inode0 >= nodes.size())
 			throw Exc(F(t_("Node %d is pointing out of scope"), inode0+1));	
-		if (inode1 >= nodes.GetCount())
+		if (inode1 >= nodes.size())
 			throw Exc(F(t_("Node %d is pointing out of scope"), inode1+1));
 		
-		int num = segments[i].idPans.GetCount();
+		int num = segments[i].idPans.size();
 				
 		if (num == 1) {
 			if (nodes[inode0].z >= zTolerance && nodes[inode1].z >= zTolerance)
@@ -926,8 +926,8 @@ String Surface::Heal(bool basic, double grid, double eps, Function <bool(String,
 		double zTolerance = -0.1;
 		AnalyseSegments(zTolerance);
 		ret << "\n" << F(t_("%d segments, %d water level, %d water leak and %d multipanel"), 
-									segments.GetCount(), segWaterlevel.GetCount(), 
-									segTo1panel.GetCount(), segTo3panel.GetCount());
+									segments.size(), segWaterlevel.size(), 
+									segTo1panel.size(), segTo3panel.size());
 /*		
 		Status(t_("Reorienting panels water side"), 80);
 		if (!ReorientPanels0(true))
@@ -2552,20 +2552,43 @@ void VolumeEnvelope::MixEnvelope(const VolumeEnvelope &env) {
 	minZ = minNotNull(env.minZ, minZ);
 }
 
-void Surface::AddNode(const Point3D &p) {
-	for (const auto &node : nodes) {
-		if (node.CompareDelta(p, EPS_LEN))
-			return;
+Surface &Surface::AddNode(const Point3D &p) {
+	for (int i = 0; i < nodes.size(); ++i) {
+		if (nodes[i].CompareDelta(p, EPS_LEN))
+			return *this;
 	}
 	nodes << p;
+	return *this;
+}
+
+int Surface::AddNodeId(const Point3D &p) {
+	for (int i = 0; i < nodes.size(); ++i) {
+		if (nodes[i].CompareDelta(p, EPS_LEN))
+			return i;
+	}
+	nodes << p;
+	return nodes.size()-1;
 }
 
 int Surface::FindNode(const Point3D &p) {
-	for (int i = 0; i < nodes.GetCount(); ++i) {
-		if (nodes[i] == p)
+	for (int i = 0; i < nodes.size(); ++i) {
+		if (nodes[i].CompareDelta(p, EPS_LEN))
 			return i;
 	}
 	return -1;
+}
+
+Surface &Surface::AddPanel(const Point3D &p0, const Point3D &p1, const Point3D &p2, const Point3D &p3) {
+	return AddPanel(AddNodeId(p0), AddNodeId(p1), AddNodeId(p2), AddNodeId(p3));
+}
+
+Surface &Surface::AddPanel(int id0, int id1, int id2, int id3) {
+	Panel &panel = panels.Add();
+	panel.id[0] = id0;
+	panel.id[1] = id1;
+	panel.id[2] = id2;
+	panel.id[3] = id3;
+	return *this;
 }
 	
 void Surface::AddFlatRectangle(double lenX, double lenY, double panelWidth, double panelHeight) {
@@ -3693,14 +3716,14 @@ Vector<int> Surface::GetBoundary() {
 	if (segments.IsEmpty())
 		GetSegments();
 	
-	Vector<int> ret;
+	Vector<int> idBound;
 	for (const LineSegment &seg : segments) {
 		if (seg.idPans.size() < 2) {	// If a segment belongs to just a panel, it is a boundary
-			FindAdd(ret, seg.idNod0);	// Its nodes are returned
-			FindAdd(ret, seg.idNod1);
+			FindAdd(idBound, seg.idNod0);	// Its nodes are returned
+			FindAdd(idBound, seg.idNod1);
 		}
 	}
-	return ret;
+	return idBound;
 }
 
 Vector<bool> Surface::GetBoundaryBool() {
@@ -3709,10 +3732,51 @@ Vector<bool> Surface::GetBoundaryBool() {
 	
 	Vector<bool> ret(nodes.size(), false);
 	for (const LineSegment &seg : segments) {
-		if (seg.idPans.size() < 2) 	// If a segment belongs to just a panel, it is a boundary
+		if (seg.idPans.size() < 2) 						// If a segment belongs to just a panel, it is a boundary
 			ret[seg.idNod0] = ret[seg.idNod1] = true;	// Its nodes are returned
 	}
 	return ret;
+}
+
+Vector<Vector<int>> Surface::GetAllBoundaries() {		// ... or all the holes in the closed mesh
+	if (segments.IsEmpty())
+		GetSegments();
+	
+	Vector<LineSegment> segBound;
+	for (const LineSegment &seg : segments) 
+		if (seg.idPans.size() < 2) 	// If a segment belongs to just a panel, it is a boundary
+			segBound << seg;
+
+	Vector<Vector<int>> allBound;	
+	
+	auto FindNextNode = [](int node, Vector<LineSegment> &segBound)->int {
+		int ret;
+		for (int i = 0; i < segBound.size(); ++i) {
+			if (segBound[i].idNod0 == node) {
+				ret = segBound[i].idNod1;
+				segBound.Remove(i);
+				return ret;
+			} else if (segBound[i].idNod1 == node) {
+				ret = segBound[i].idNod0;
+				segBound.Remove(i);
+				return ret;
+			}
+		}
+		return -1;
+	};
+	while (!segBound.IsEmpty()) {
+		Vector<int> &aBound = allBound.Add();
+		int id0 = segBound[0].idNod0;
+		aBound << segBound[0].idNod0;
+		int id = segBound[0].idNod1;
+		aBound << segBound[0].idNod1;
+		segBound.Remove(0);
+		
+		while ((id = FindNextNode(id, segBound)) >= 0 && id != id0) 
+			aBound << id;	
+	}
+	Sort(allBound, [](const Vector<int> &a, const Vector<int> &b)->bool{return a.size() > b.size();});
+	return allBound;
 }
 
 void Surface::SmoothLaplacian(double lambda, int iterations, int w) {
@@ -3729,10 +3793,10 @@ void Surface::SmoothLaplacian(double lambda, int iterations, int w) {
 inline double CotangentWeight(const Point3D& a, const Point3D& b, const Point3D& c) {
     Point3D u = a - c;
     Point3D v = b - c;
-    double dot = u.x * v.x + u.y * v.y + u.z * v.z;
-    double cross_norm = sqrt((u.y * v.z - u.z * v.y) * (u.y * v.z - u.z * v.y) +
-                             (u.z * v.x - u.x * v.z) * (u.z * v.x - u.x * v.z) +
-                             (u.x * v.y - u.y * v.x) * (u.x * v.y - u.y * v.x));
+    double dot = u.x*v.x + u.y*v.y + u.z*v.z;
+    double cross_norm = sqrt((u.y*v.z - u.z*v.y) * (u.y*v.z - u.z*v.y) +
+                             (u.z*v.x - u.x*v.z) * (u.z*v.x - u.x*v.z) +
+                             (u.x*v.y - u.y*v.x) * (u.x*v.y - u.y*v.x));
     return dot / (cross_norm + 1e-8); // Add epsilon to avoid division by zero
 }
 
