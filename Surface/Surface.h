@@ -789,7 +789,7 @@ public:
 	void AddWaterSurface(Surface &surf, const Surface &under, char c, double grid = Null, double eps = Null, double meshRatio = 1, bool quads = false);
 	static void AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &surfsTo, double distance, double meshRatio = 1, bool quads = false, bool bottom = true, bool top = true);
 	static Vector<Segment3D> GetWaterLineSegments(const Surface &orig);
-	bool GetDryPanels(const Surface &surf, bool onlywaterplane, double grid, double eps);
+	bool GetPanels(const Surface &orig, bool dry, bool waterplane, bool wet, double grid, double eps);
 	bool GetSelPanels(const Surface &orig, const Vector<int> &panelIds, double grid, double eps);
 	
 	void Flatten(char axis);
@@ -1313,7 +1313,7 @@ public:
 	SurfaceView &SetLightColor(Color c)			{lightColor = c; 					return *this;}
 	SurfaceView &SetBackgroundColor(Color c)	{background = c; 					return *this;}
 	SurfaceView &SetLineThickness(int t)		{lineThickness = float(t);			return *this;}
-	int GetLineThickness()						{return lineThickness;}
+	float GetLineThickness()					{return lineThickness;}
 	
 	SurfaceView &SetShowMesh(ShowMesh s)		{showMesh = s; 						return *this;}
 	SurfaceView &SetShowColor(ShowColor s)		{showColor = s; 					return *this;}

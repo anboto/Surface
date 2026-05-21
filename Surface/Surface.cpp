@@ -3370,7 +3370,7 @@ void DeleteDuplicatedSegments(Vector<Segment3D> &segs) {
 	}
 }
 
-bool Surface::GetDryPanels(const Surface &orig, bool onlywaterplane, double grid, double eps) {
+bool Surface::GetPanels(const Surface &orig, bool dry, bool waterplane, bool wet, double grid, double eps) {
 	nodes = clone(orig.nodes);
 	panels.Clear();
 	
@@ -3384,10 +3384,10 @@ bool Surface::GetDryPanels(const Surface &orig, bool onlywaterplane, double grid
 		const Point3D &p2 = nodes[id2];
 		const Point3D &p3 = nodes[id3];	
 		
-		if (p0.z >= -EPS_LEN && p1.z >= -EPS_LEN && p2.z >= -EPS_LEN && p3.z >= -EPS_LEN) { 
-			if (!onlywaterplane || (p0.z <= EPS_LEN && p1.z <= EPS_LEN && p2.z <= EPS_LEN && p3.z <= EPS_LEN))
-				panels << clone(pan);
-		}
+		bool up   = p0.z >= -EPS_LEN && p1.z >= -EPS_LEN && p2.z >= -EPS_LEN && p3.z >= -EPS_LEN;
+		bool down = p0.z <= EPS_LEN  && p1.z <= EPS_LEN  && p2.z <= EPS_LEN  && p3.z <= EPS_LEN;
+		if ((waterplane && up && down) || (dry && up) || (wet && down))
+			panels << clone(pan);
 	}
 	Heal(true, grid, eps);	
 	
@@ -3458,10 +3458,10 @@ void Surface::AddWaterSurface(Surface &surf, const Surface &under, char c, doubl
 		panels = clone(under.panels);
 		nodes = clone(under.nodes);
 	} else if (c == 'e') { 		// Copies only the dry and waterline side
-		if (!GetDryPanels(surf, false, grid, eps))
+		if (!GetPanels(surf, true, false, false, grid, eps))
 			throw Exc(t_("There is no mesh in and above the water surface"));		
 	} else if (c == 'w') { 		// Copies only the waterline side
-		if (!GetDryPanels(surf, true, grid, eps))
+		if (!GetPanels(surf, false, true, false, grid, eps))
 			throw Exc(t_("There is no mesh in the water surface"));		
 	}
 }
