@@ -138,8 +138,12 @@ double Manhattan(const Value3D &p1, const Value3D &p2) {
 	return abs(p1.x-p2.x) + abs(p1.y-p2.y) + abs(p1.z-p2.z);
 }
 
+double Distance2(const Value3D &p1, const Value3D &p2) {
+	return sqr(p1.x-p2.x) + sqr(p1.y-p2.y) + sqr(p1.z-p2.z);
+}
+
 double Distance(const Value3D &p1, const Value3D &p2) {
-	return ::sqrt(sqr(p1.x-p2.x) + sqr(p1.y-p2.y) + sqr(p1.z-p2.z));
+	return ::sqrt(Distance2(p1, p2));
 }
 
 void TranslateForce(const Point3D &from, const VectorXd &ffrom, Point3D &to, VectorXd &fto) {

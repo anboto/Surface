@@ -76,8 +76,10 @@ public:
 	
 	void Set(const Value3D &p) 					{x = p.x;	y = p.y;	z = p.z;}
 	void Set(const Vector3d &p) 				{x = p(0);	y = p(1);	z = p(2);}
-	void Set(const Vector<double> &p) 			{x = p[0];	y = p[1];	z = p[2];}
-	void Set(double _x, double _y, double _z) 	{x = _x;  	y = _y;  	z = _z;}
+	template <typename T>
+	void Set(const Vector<T> &p) 			{x = p[0];	y = p[1];	z = p[2];}
+	template <typename T>
+	void Set(T _x, T _y, T _z) 	{x = _x;  	y = _y;  	z = _z;}
 	
 	inline Value3D& operator=(const Value3D &p)	{Set(p);	return *this;}
 	inline Value3D& operator=(const Vector3d &p){Set(p);	return *this;}
@@ -454,6 +456,7 @@ void Vector6ToC(const VectorXd &v, float *c);
 
 
 double Distance(const Value3D &p1, const Value3D &p2);
+double Distance2(const Value3D &p1, const Value3D &p2);
 double Manhattan(const Value3D &p1, const Value3D &p2);
 Value3D Middle(const Value3D &a, const Value3D &b);
 Value3D WeightedMean(const Value3D &a, double va, const Value3D &b, double vb);
@@ -692,8 +695,8 @@ public:
 	void Set(const Vector<Point3D> &points);
 	
 	void MixEnvelope(const VolumeEnvelope &env);
-	double Max()	{return maxNotNull(maxNotNull(max(abs(maxX), abs(minX)), maxNotNull(abs(maxY), abs(minY))), maxNotNull(abs(maxZ), abs(minZ)));}
-	double LenRef()	{return maxNotNull(maxNotNull(maxX - minX, maxY - minY), maxZ - minZ);}
+	double Max() const		{return maxNotNull(maxNotNull(max(abs(maxX), abs(minX)), maxNotNull(abs(maxY), abs(minY))), maxNotNull(abs(maxZ), abs(minZ)));}
+	double LenRef() const	{return maxNotNull(maxNotNull(maxX - minX, maxY - minY), maxZ - minZ);}
 
 	double maxX, minX, maxY, minY, maxZ, minZ;
 };
@@ -723,6 +726,8 @@ public:
 	Vector<Panel> panels;
 	Vector<LineSegment> segments;
 	Array<Line> lines;
+	
+	bool CompareDistance(const Surface &b, double eps, Value3D &distance) const;
 	
 	int GetNumNodes() const		{return nodes.size();}
 	int GetNumPanels() const	{return panels.size();}
@@ -815,7 +820,8 @@ public:
 	void QuadToQuad(Panel &pan);
 	
 	void TrianglesToFalseQuads();
-		
+	
+	Surface &Translate(const Value3D &d) {return Translate(d.x, d.y, d.z);}	
 	Surface &Translate(double dx, double dy, double dz);
 	Surface &Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	Surface &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
@@ -932,6 +938,7 @@ private:
 	int magic = 1234567890;
 };
 
+ 
 class Delaunay2 {
 public:
 	Delaunay2() : tihull(-1) {}
@@ -1088,7 +1095,7 @@ void LoadGRD(String fileName, Surface &surf, bool &y0z, bool &x0z);
 void SaveGRD(String fileName, Surface &surf, double g, bool y0z, bool x0z);
 
 void LoadVTK(String fileName, Surface &surf, bool &y0z);
-void SaveVTK(String fileName, Surface &surf, bool y0z);
+void SaveVTK(String fileName, Surface &surf, bool y0z, bool forceTrianglesToQuads);
 
 void LoadOBJ(String fileName, Surface &surf);
 

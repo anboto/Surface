@@ -104,7 +104,7 @@ String StrDiffrac(double num) {
 	return ret;
 }
 
-void SaveVTK(String fileName, Surface &surf, bool y0z) {
+void SaveVTK(String fileName, Surface &surf, bool y0z, bool forceTrianglesToQuads) {
 	FileOut out(fileName);
 	if (!out.IsOpen())
 		throw Exc(F(t_("Impossible to open '%s'\n"), fileName));	
@@ -129,7 +129,7 @@ void SaveVTK(String fileName, Surface &surf, bool y0z) {
 	out <<	F("CELLS%6d %6d\n", panels.size(), num);
 	
 	for (const Panel &panel : panels) {
-		if (panel.IsTriangle())
+		if (panel.IsTriangle() && !forceTrianglesToQuads)
 			out << F(" %7d %7d %7d %7d\n", 	3, panel.id[0], panel.id[1], panel.id[2]);
 		else
 			out << F(" %7d %7d %7d %7d %7d\n", 4, panel.id[0], panel.id[1], panel.id[2], panel.id[3]);

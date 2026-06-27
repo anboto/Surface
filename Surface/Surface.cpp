@@ -1093,9 +1093,7 @@ void Surface::GetPanelParams(Panel &panel) const {
 			panel.centroidPaint = clone(panel.centroid0);
 			panel.normalPaint = clone(panel.normal0);
 		} else {
-			panel.centroidPaint.x = (panel.centroid0.x*panel.surface0 + panel.centroid1.x*panel.surface1)/surf;
-			panel.centroidPaint.y = (panel.centroid0.y*panel.surface0 + panel.centroid1.y*panel.surface1)/surf;
-			panel.centroidPaint.z = (panel.centroid0.z*panel.surface0 + panel.centroid1.z*panel.surface1)/surf;
+			panel.centroidPaint = (panel.centroid0*panel.surface0 + panel.centroid1*panel.surface1)/surf;
 			panel.normalPaint.x = (panel.normal0.x*panel.surface0 + panel.normal1.x*panel.surface1)/surf;
 			panel.normalPaint.y = (panel.normal0.y*panel.surface0 + panel.normal1.y*panel.surface1)/surf;
 			panel.normalPaint.z = (panel.normal0.z*panel.surface0 + panel.normal1.z*panel.surface1)/surf;
@@ -2917,7 +2915,7 @@ void Surface::AddPolygonalPanel(const Vector<Pointf> &_bound, const Vector<Vecto
 	// If symmetric
 	if (Sign(maxX) > 0 && Sign(minX) < 0 && abs(maxX + minX) < EPS_LEN) {
 		maxX = Avg(maxX, -minX);
-		nx = int(maxX/panelWidth);
+		nx = max(1, int(maxX/panelWidth));
 		panelWidth = maxX/nx;	
 		minX = -maxX;
 		nx *= 2;
@@ -3971,6 +3969,7 @@ void Surface::SaveSerialization(String fileName) const {
 	if (!StoreAsJsonFile(*this, fileName, false))
 		throw Exc(F(t_("Impossible to save file '%s'"), fileName));
 }
+
 
 Value3D operator*(double b, const Value3D& a) {return a*b;}
 Value3D operator/(double b, const Value3D& a) {return a/b;}

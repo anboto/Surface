@@ -36,9 +36,9 @@ struct SurfaceViewer : TopWindow {
 		view.Clear();
 		
 		view.PaintSurface(surf, ~panel.color, ~panel.meshColor, ~panel.thickness, 0, ~panel.opNormals, surf.avgFacetSideLen);
-		view.PaintArrow(Point3D(0, 0, 0), Point3D(surf.env.LenRef()/4., 0, 0), LtRed(),   SurfaceView::ARROW_DELTA_FILLED, -20);
-		view.PaintArrow(Point3D(0, 0, 0), Point3D(0, surf.env.LenRef()/4., 0), LtGreen(), SurfaceView::ARROW_DELTA_FILLED, -20);
-		view.PaintArrow(Point3D(0, 0, 0), Point3D(0, 0, surf.env.LenRef()/4.), LtBlue(),  SurfaceView::ARROW_DELTA_FILLED, -20);
+		view.PaintArrow(Point3D(0, 0, 0), Point3D(surf.env.LenRef()/4., 0, 0), LtRed(),   SurfaceView::ARROW_DELTA, -20);
+		view.PaintArrow(Point3D(0, 0, 0), Point3D(0, surf.env.LenRef()/4., 0), LtGreen(), SurfaceView::ARROW_DELTA, -20);
+		view.PaintArrow(Point3D(0, 0, 0), Point3D(0, 0, surf.env.LenRef()/4.), LtBlue(),  SurfaceView::ARROW_DELTA, -20);
 		
 		if (fit) {
 			view.SetRotation(Value3D(ToRad(-45), 0, ToRad(45)));
