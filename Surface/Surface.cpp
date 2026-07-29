@@ -4,6 +4,7 @@
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
 #include <Eigen/Sparse>
+#include <STEM4U/SeaWaves.h>
 
 
 namespace Upp {
@@ -465,7 +466,7 @@ int Surface::SegmentInSegments(int iseg) const {
 	Segment3D seg(nodes[segments[iseg].idNod0], nodes[segments[iseg].idNod1]);
 	double lenSeg = seg.Length();
 			
-	for (int i = 0; i < segments.GetCount(); ++i) {
+	for (int i = 0; i < segments.size(); ++i) {
 		if (i != iseg) {
 			const LineSegment &segment = segments[i];
 			Segment3D is(nodes[segment.idNod0], nodes[segment.idNod1]);
@@ -481,7 +482,7 @@ int Surface::SegmentInSegments(int iseg) const {
 void Surface::GetSegments() {
 	segments.Clear();
 		
-	for (int i = 0; i < panels.GetCount(); ++i) {
+	for (int i = 0; i < panels.size(); ++i) {
 		int id0 = panels[i].id[0];
 		int id1 = panels[i].id[1];
 		int id2 = panels[i].id[2];
@@ -503,6 +504,53 @@ void Surface::GetSegments() {
 			avgLenSegment += Distance(nodes[s.idNod0], nodes[s.idNod1]);
 		avgLenSegment /= segments.size();
 	}
+}
+
+void Surface::CalcSegmentDimensions(double depth, double g, double &maxRadius, double &maxSide, double &maxSurface, 
+															double &avgRadius, double &avgSide, double &avgSurface, double &maxFrequency) const {
+	maxRadius = maxSide = maxSurface = avgRadius = avgSide = avgSurface = maxFrequency = 0;
+	int numRadius = 0, numSide = 0;
+	
+	if (panels.IsEmpty())
+		return;
+	
+	for (int i = 0; i < panels.size(); ++i) {
+		const Point3D &p0 = nodes[panels[i].id[0]];
+		const Point3D &p1 = nodes[panels[i].id[1]];
+		const Point3D &p2 = nodes[panels[i].id[2]];
+		
+		double p01 = Distance(p0, p1);
+		double p12 = Distance(p1, p2);
+		double p02 = Distance(p0, p2);
+		
+		maxSide = max(maxSide, p01);			avgSide   += p01;	numSide++;
+		maxSide = max(maxSide, p12);			avgSide   += p12;	numSide++;
+		maxRadius = max(maxRadius, p02);		avgRadius += p02;	numRadius++;
+		if (IsPanelTriangle(i)) {
+			double p20 = Distance(p2, p0);
+			
+			maxSide = max(maxSide, p20);		avgSide   += p20;	numSide++;
+			maxRadius = max(maxRadius, p01);	avgRadius += p01;	numRadius++;
+		} else {
+			const Point3D &p3 = nodes[panels[i].id[3]];
+			double p23 = Distance(p2, p3);
+			double p30 = Distance(p3, p0);
+			double p13 = Distance(p1, p3);
+			
+			maxSide = max(maxSide, p23);		avgSide   += p23;	numSide++;
+			maxSide = max(maxSide, p30);		avgSide   += p30;	numSide++;
+			maxRadius = max(maxRadius, p13);	avgRadius += p13;	numRadius++;
+		}
+		double surface = panels[i].surface0 + panels[i].surface1;
+		maxSurface = max(maxSurface, surface);	avgSurface += surface;
+	}
+	avgRadius  /= numRadius;
+	avgSide    /= numSide;
+	avgSurface /= panels.size();
+	
+	double lambda = 9*sqrt(maxSurface);
+	
+	maxFrequency = SeaWaves::FrequencyFromWaveLength(lambda, depth, g);
 }
 
 inline void Surface::GetNormal(int ip) {
@@ -530,7 +578,7 @@ void Surface::TrianglesToQuadsFlat() {
 		GetSegments();
 		found = false;
 		for (const LineSegment &seg : segments) {
-			if (seg.idPans.GetCount() == 2 && 													  // Two adjacent panels (the segment is not boundary)
+			if (seg.idPans.size() == 2 && 													  // Two adjacent panels (the segment is not boundary)
 				panels[seg.idPans[0]].IsTriangle() && panels[seg.idPans[1]].IsTriangle() &&		  // Both triangles
 				panels[seg.idPans[0]].normal0.CompareDelta(panels[seg.idPans[1]].normal0, 0.01)) {   // Both in similar plane
 				int idp0 = seg.idPans[0];

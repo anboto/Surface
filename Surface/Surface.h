@@ -763,6 +763,8 @@ public:
 	void GetNormals();
 	void GetNormal(int ip);
 	double GetAvgLenSegment() const {return avgLenSegment;}
+	void CalcSegmentDimensions(double depth, double g, double &maxRadius, double &maxSide, double &maxSurface, 
+													   double &avgRadius, double &avgSide, double &avgSurface, double &maxFrequency) const;
 	Surface &GetVolume();
 	int VolumeMatch(double ratioWarning, double ratioError) const;
 	double VolumeRatio() const;
@@ -924,7 +926,7 @@ private:
 	bool GetLowest(int &iLowSeg, int &iLowPanel);
 	bool SameOrderPanel(int ip0, int ip1, int in0, int in1);
 	static int PanelGetNumNodes(const Vector<Panel> &_panels, int ip) {return _panels[ip].GetNumNodes();}
-	bool IsPanelTriangle(int ip) 	{return panels[ip].IsTriangle();}
+	bool IsPanelTriangle(int ip) const	{return panels[ip].IsTriangle();}
 	void GetPanelParams(Panel &panel) const;
 	void JointTriangularPanels(int ip0, int ip1, int inode0, int inode1);
 	bool FindMatchingPanels(const Array<PanelPoints> &pans, double x, double y, 
