@@ -823,9 +823,10 @@ public:
 	
 	void TrianglesToFalseQuads();
 	
-	Surface &Translate(const Value3D &d) {return Translate(d.x, d.y, d.z);}	
 	Surface &Translate(double dx, double dy, double dz);
+	Surface &Translate(const Value3D &d) 				{return Translate(d.x, d.y, d.z);}	
 	Surface &Rotate(double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
+	Surface &Rotate(const Value3D &d, const Point3D &c)	{return Rotate(d.x, d.y, d.z, c.x, c.y, c.z);}
 	Surface &TransRot(double dx, double dy, double dz, double ax, double ay, double az, double _c_x, double _c_y, double _c_z);
 	
 	bool TranslateArchimede(double allmass, double rho, double ratioError, const UVector<Surface *> &damaged, double tolerance, double &dz, Point3D &cb, double &allvol);
