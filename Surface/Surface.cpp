@@ -2766,11 +2766,13 @@ void Surface::AddRevolution(const Vector<Pointf> &_points, double panelWidth, do
 		Surface lid;
 		
 		lid.AddPolygonalPanel(points, panelWidth, true, true);
+		lid.Orient();
+		lid.Rotate(ToRad(90), 0, 0, 0, 0, 0);
 		Append(lid);	
 		
 		lid.Rotate(0, 0, -ToRad(angle), 0, 0, 0);
 		lid.Orient();
-		Append(lid);	
+		Append(lid);
 	}
 }
 

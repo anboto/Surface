@@ -29,6 +29,7 @@ file
 	srcdoc.tpp,
 	src.tpp,
 	predicates\predicates.c,
-	predicates\predicates.h;
+	predicates\predicates.h,
+	surface.t;
 
  spellcheck_comments "EN-GB"

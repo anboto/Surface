@@ -1425,7 +1425,13 @@ void SurfaceView::Paint(T& w, Size sz, double scl, double dx, double dy) const {
 				const Point3D &n1 = nodesRot[p.id[1]];
 				if (IsNull(n0) || IsNull(n1))
 					return;
-				w.DrawLine(int(n0.x*scl + dx), int(n0.y*scl + dy), int(n1.x*scl + dx), int(n1.y*scl + dy), (int)p.thickness, p.meshColor);
+				double fromx = n0.x*scl + dx;
+				double fromy = n0.y*scl + dy;
+				double tox = n1.x*scl + dx;
+				double toy = n1.y*scl + dy;
+				if (!InRange<int>(fromx) || !InRange<int>(fromy) || !InRange<int>(tox) || !InRange<int>(toy))
+					return;
+				w.DrawLine(int(fromx), int(fromy), int(tox), int(toy), (int)p.thickness, p.meshColor);
 			} else {
 				Vector<Point> pi;
 				for (unsigned i = 0; i < p.numIds; ++i) {

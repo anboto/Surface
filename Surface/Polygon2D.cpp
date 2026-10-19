@@ -611,51 +611,7 @@ int AddPolygonIntersections(const Vector<Pointf>& a0, const Vector<Pointf>& b0, 
 	
 	return ret;
 }
-/*
-struct Segment2 {
-	int idfrom, idto;	
-};
 
-// Detect points of crossing lines
-static void AddPendingPoints(Vector<Segment2> &seg, Vector<Pointf> &points) {
-	
-}
-
-static void JoinSegments(Vector<Segment2> &seg, Vector<Pointf> &points, Vector<Segment2> &seg2, Vector<Pointf> &points2) {
-	// Joins them
-	// Remove too close points
-}
-	
-static void PolyToSegments(const Vector<Pointf> &a, Vector<Segment2> &seg, Vector<Pointf> &points) {
-	
-}
-
-void Intersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Vector<Pointf>> &res) {
-	res.Clear();
-	
-	Vector<Segment2> seg, segb;
-	Vector<Pointf> points, pointsb;
-	
-	PolyToSegments(a, seg, points);
-	AddPendingPoints(seg, points);
-	
-	PolyToSegments(b, segb, pointsb);
-	AddPendingPoints(segb, pointsb);
-	
-	JoinSegments(seg, points, segb, pointsb);
-	
-	struct IsUsedSeg {
-		bool leftRight = false, rightLeft = false;	
-	};
-
-	Vector<IsUsedSeg> used(seg.size());
-	
-	// Loops sobre los sgmentos hasta que used no tenga nada en true
-	// Los poligonos se crean uno a uno hasta que se cierra o se acaba
-	// Se crea un de mas. el exterios, que se ha de quitar
-	
-}
-*/
 void ReplaceSharedContiguousAverage(Vector<Pointf> &a, Vector<Pointf> &b, double epsilon) {
 	Vector<int> todeletea, todeleteb;
 	int nb = b.size();
@@ -685,7 +641,56 @@ void ReplaceSharedContiguousAverage(Vector<Pointf> &a, Vector<Pointf> &b, double
     for (int i = todeleteb.size()-1; i >= 0; --i)
         b.Remove(todeleteb[i]);
 }
-  
+/*
+May the algorithm be: 
+1. Densify the polygon so the segments length is similar and enough dense, 
+2. Delaunay triangularisation, removing segments out of the concave shape, 
+3. Create a list of points with the 2 points to join, and the centers of the new internal segments defined by the triangularisation. 
+4. Get the closest path using Dijkstra
+*/
+
+// Smooths a path of 2D points using Chaikin's Corner Cutting Algorithm
+Vector<Pointf> ChaikinSmooth(const Vector<Pointf>& points, int iterations = 2, bool keep_endpoints = true) {
+    Vector<Pointf> ret = clone(points);
+    
+    if (points.size() < 3 || iterations <= 0)
+        return ret;
+    
+    Pointf start_point = ret[0];
+    Pointf end_point   = ret.Top();
+    
+    int smoothLen = ret.size();		// Pre-calculate the exact final size after all iterations
+    for (int it = 0; it < iterations; ++it)
+        smoothLen = (smoothLen - 1) * 2 + (keep_endpoints ? 2 : 0);
+    
+	Vector<Pointf> smoothed;
+    smoothed.Reserve(smoothLen);
+    
+    for (int it = 0; it < iterations; ++it) {
+        smoothed.Clear(); 			// Resets count to 0, but keeps the allocated memory
+        	
+        if (keep_endpoints)
+            smoothed << ret[0];
+        
+        for (int i = 0; i < ret.size() - 1; ++i) {
+            Pointf p0 = ret[i];
+            Pointf p1 = ret[i + 1];
+            
+            // Calculate Q (1/4 point) and R (3/4 point)
+            smoothed << Pointf(0.75*p0.x + 0.25*p1.x, 0.75*p0.y + 0.25*p1.y);
+            smoothed << Pointf(0.25*p0.x + 0.75*p1.x, 0.25*p0.y + 0.75*p1.y);
+        }
+        if (keep_endpoints) {
+            smoothed << ret.Top();
+            smoothed[0] = start_point;
+            smoothed.Top() = end_point;
+        }
+        ret = pick(smoothed);
+    }
+    return ret;
+}
+
+// Clips two overlapping polygons at their intersection points and replaces the overlapping region with the common boundary segment joining those intersections
 void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &aret, Vector<Pointf> &bret, double epsilon) {
 	Vector<Pointf> a2 = clone(a);
 	Vector<Pointf> b2 = clone(b);
