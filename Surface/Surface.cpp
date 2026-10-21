@@ -3543,11 +3543,12 @@ void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &s
 		sidelen += slen;
 	}
 	sidelen /= surfs.size();
+	sidelen *= meshRatio*1.3;		// A little bigger than the average, as the CS is very continuous
 	
 	for (int i = 0; i < surfs.size(); ++i)
 		for (int j = i+1; j < surfs.size(); ++j) {
 			Vector<Pointf> &surfa = bounds[i], &surfb = bounds[j];
-			TrimAtIntersection(surfa, surfb, surfa, surfb, EPS_LEN);
+			TrimAtIntersection(surfa, surfb, surfa, surfb, sidelen, EPS_LEN);
 			surfa = BreakLongSides(surfa, true, sidelen);
 			surfb = BreakLongSides(surfb, true, sidelen);
 		}
@@ -3558,7 +3559,7 @@ void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &s
 		
 		if (bottom) {
 			// Gets the lower surface
-			cs.AddPolygonalPanel(bound, sidelen*meshRatio, false, quads, 0.75);
+			cs.AddPolygonalPanel(bound, sidelen, false, quads, 0.75);
 			cs.Translate(0, 0, minz-distance);
 			cs.Orient();
 		
@@ -3600,7 +3601,7 @@ void Surface::AddCS(const UVector<Surface *> &surfs, const UVector<Surface *> &s
 						internals << pick(bound2D);
 				}
 			}
-			cs.AddPolygonalPanel(bound, internals, sidelen*meshRatio, false, quads, 0.75);
+			cs.AddPolygonalPanel(bound, internals, sidelen, false, quads, 0.75);
 		}
 	}
 }

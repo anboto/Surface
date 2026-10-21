@@ -477,13 +477,6 @@ void TestPoly() {
 		VERIFY(CompareDelta(a2, {{1,2},{2,2},{2,1},{1.375,1},{1,1.375}}, 0.0001));
 		VERIFY(CompareDelta(b2, {{0.25,0.25},{0.5,1.25},{1,1.375},{1.375,1},{1.25,0.5}}, 0.0001));
     }
-	/*{
-        UVector<Pointf> b = {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5},{-0.75,-0.75}};        
-        UVector<Pointf> a2, b2;
-		TrimAtIntersection(a, b, a2, b2);  
-		RRVERIFY(CompareDelta(a2, {{1,1},{1,2},{2,2},{2,1}}, 0.0001));
-		VERIFY(CompareDelta(b2, {{-0.75,-0.75},{-0.5,0.25},{0.5,0.5},{0.25,-0.5}}, 0.0001)); 
-    }*/
 	{
         UVector<Pointf> b = {{1.25,2},{4,2},{4,1},{1.25,1},{3,1.5},{1.25,2}};        
         UVector<Pointf> a2, b2;
@@ -497,6 +490,19 @@ void TestPoly() {
 		TrimAtIntersection(a, b, a2, b2);    
 		VERIFY(CompareDelta(a2, {{1,1},{1,2},{1.625,2},{2,1.5},{1.625,1}}, 0.0001));
 		VERIFY(CompareDelta(b2, {{4,2},{4,1},{1.625,1},{2,1.5},{1.625,2}}, 0.0001));
+    }
+    {
+        UVector<Pointf> p;
+        for (int r = 0; r < 10; ++r)
+            for (int c = 0; c < 10; ++c)
+                if (!(r == 4 && c == 4))
+                	p << Pointf(r, c);
+        
+	    UVector<int> ret = ShortestPolyline(p, 0, 98, 2); 
+	    UVector<Pointf> b2;
+	    for (int i : ret)
+	        b2 << p[i];
+		VERIFY(CompareDelta(b2, {{0,0},{0,1},{1,2},{2,3},{3,4},{4,5},{5,5},{6,6},{7,7},{8,8},{9,9}}, 0.0001));	    
     }
 }
 

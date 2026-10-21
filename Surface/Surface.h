@@ -989,6 +989,7 @@ public:
 	}
 
 	int             GetCount() const                             { return triangles.GetCount(); }
+	int             size() const                             { return triangles.GetCount(); }
 	const Triangle& operator [] (int i) const                    { return triangles[i]; }
 	Pointf          At(int i) const                              { return points[i]; }
 	Pointf          At(const Triangle& t, int i) const           { return points[t[i]]; }
@@ -1130,8 +1131,8 @@ bool IsClockwise(const UVector<Pointf> &p);
 UVector<Pointf> SetDirection(const UVector<Pointf> &p, bool clockwise);
 
 void Intersection(const UVector<Pointf> &a, const UVector<Pointf> &b, UVector<UVector<Pointf>> &res);
-void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &a2, Vector<Pointf> &b2, double epsilon = 1e-10);
-
+void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &a2, Vector<Pointf> &b2, double sidelen = Null, double epsilon = 1e-10);
+void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &aret, Vector<Pointf> &bret, double epsilon);
 int SegmentIntersection(const Pointf &p1, const Pointf &p2, const Pointf &p3, const Pointf &p4,
                          Pointf pt[2], double t[2], double u[2], double epsilon = 1e-10);
 int AddPolygonIntersections(const Vector<Pointf>& a0, const Vector<Pointf>& b0, Vector<Pointf>& a, Vector<Pointf>& b, double epsilon = 1e-10);
@@ -1202,7 +1203,8 @@ double DeltaLenToDeltaAngle(double d, double deltaLen);
 UVector<Pointf> RemoveCollinear(const UVector<Pointf>& points,  bool isclosed, double distanceCollinear = 0.0001);
 Vector<Pointf> RemoveClosest(const Vector<Pointf>& pts, bool isclosed, double minDist = 0.1);
 Vector<Pointf> BreakLongSides(const Vector<Pointf>& pts, bool isclosed, double targetLen);
-
+Vector<int> ShortestPolyline(const Vector<Pointf>& points, int start, int end, double maxDist);
+	
 Point3D Centroid(const UVector<Point3D> &p);
 double Area(const UVector<Point3D> &p);
 bool IsRectangle(const UVector<Point3D> &p);

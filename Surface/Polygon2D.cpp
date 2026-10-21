@@ -3,7 +3,7 @@
 #include <Core/Core.h>
 #include <Surface/Surface.h>
 #include <Geom/Geom.h>
-
+#include <STEM4U/ShortestPath.h>
 
 namespace Upp {
 using namespace Eigen;
@@ -15,16 +15,14 @@ UVector<Pointf> ExtractCorners(const UVector<Pointf>& perimeter, double tol) {
 
 	UVector<Pointf> cleaned = clone(perimeter);
 
-	// Remove closing point if polygon is closed
-	if(Distance(perimeter[0], perimeter.Top()) < tol)
+	if(Distance(perimeter[0], perimeter.Top()) < tol)	// Remove closing point if polygon is closed
 		cleaned.Drop();
 
 	int n = cleaned.GetCount();
 	if(n < 3)
 		return cleaned;
 
-	// Find first non-collinear point as start
-	int startIdx = 0;
+	int startIdx = 0;				// Find first non-collinear point as start
 	for(int i = 0; i < n; i++) {
 		if(!Collinear(cleaned[(i - 1 + n) % n], cleaned[i], cleaned[(i + 1) % n], tol)) {
 			startIdx = i;
@@ -35,8 +33,7 @@ UVector<Pointf> ExtractCorners(const UVector<Pointf>& perimeter, double tol) {
 	UVector<Pointf> corners;
 	corners.Add(cleaned[startIdx]);
 
-	// Walk perimeter and collect corner points
-	int i = (startIdx + 1) % n;
+	int i = (startIdx + 1) % n;		// Walk perimeter and collect corner points
 	while(i != startIdx) {
 		const Pointf& prev = corners.Top();
 		const Pointf& curr = cleaned[i];
@@ -48,8 +45,7 @@ UVector<Pointf> ExtractCorners(const UVector<Pointf>& perimeter, double tol) {
 		i = (i + 1) % n;
 	}
 
-	// Remove duplicates
-	UVector<Pointf> unique;
+	UVector<Pointf> unique;			// Remove duplicates
 	for(const Pointf& p : corners) {
 		bool duplicate = false;
 		for(const Pointf& up : unique) {
@@ -72,8 +68,7 @@ bool ValidateRectangle(const UVector<Pointf>& corners, double tol) {
 	for(int i = 0; i < 4; i++)
 		sides.Add(corners[(i + 1) % 4] - corners[i]);
 
-	// Check perpendicular adjacent sides
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; i++) {							// Check perpendicular adjacent sides
 		double len1 = Length(sides[i]);
 		double len2 = Length(sides[(i + 1) % 4]);
 
@@ -87,19 +82,16 @@ bool ValidateRectangle(const UVector<Pointf>& corners, double tol) {
 			return false; // Not perpendicular
 	}
 
-	// Check opposite sides equal length
 	if(fabs(Length(sides[0]) - Length(sides[2])) > tol ||
-	   fabs(Length(sides[1]) - Length(sides[3])) > tol)
+	   fabs(Length(sides[1]) - Length(sides[3])) > tol)		// Check opposite sides equal length
 		return false;
 
-	// Check equal diagonals (most reliable test)
-	double diag1 = Distance(corners[0], corners[2]);
+	double diag1 = Distance(corners[0], corners[2]);		// Check equal diagonals (most reliable test)
 	double diag2 = Distance(corners[1], corners[3]);
 	if(fabs(diag1 - diag2) > tol)
 		return false;
 
-	// Check diagonal bisection
-	Pointf mid1 = (corners[0] + corners[2]) / 2;
+	Pointf mid1 = (corners[0] + corners[2]) / 2;			// Check diagonal bisection
 	Pointf mid2 = (corners[1] + corners[3]) / 2;
 	if(Distance(mid1, mid2) > tol)
 		return false;
@@ -149,9 +141,10 @@ bool IsClockwise(const UVector<Pointf> &p) {
 	return area < 0;
 }
 
+// Return a copy of the points ordered clockwise or counterclockwise
 UVector<Pointf> SetDirection(const UVector<Pointf> &p, bool clockwise) {
 	UVector<Pointf> ret = clone(p);
-	if (IsClockwise(p) && clockwise)
+	if (IsClockwise(p) == clockwise)
 		return ret;
 	Reverse(ret);
 	return ret;
@@ -182,6 +175,8 @@ Pointf Centroid(const UVector<Pointf> &p) {
 	return ret;
 }
 
+// Computes the convex hull of the input points: the outer convex boundary enclosing them all, like a rubber band stretched around the points.
+// Returns the boundary vertices without modifying the original points. Concave indentations and interior points are discarded.
 UVector<Pointf> ConvexContour(const UVector<Pointf>& points) {
 	UVector<Pointf> a = clone(points);
 
@@ -216,6 +211,7 @@ UVector<Pointf> ConvexContour(const UVector<Pointf>& points) {
 	return up;
 }
 
+// Shifts every edge of a closed polygon sideways by distance d, connecting consecutive shifted edges with bevels, meaning straight cuts across the corners.
 Vector<Pointf> OffsetContourBevel(const Vector<Pointf>& contour, double d) {
 	int n = contour.size();
 	ASSERT(n >= 3);
@@ -236,6 +232,7 @@ Vector<Pointf> OffsetContourBevel(const Vector<Pointf>& contour, double d) {
 	return out;
 }
 
+// Offset a closed polygon by distance d, replacing each corner with a circular arc
 Vector<Pointf> OffsetContourRoundArcSteps(const Vector<Pointf>& contour, double d, int arc_steps) {
 	int n = contour.size();
 	ASSERT(n > 2);
@@ -271,6 +268,7 @@ Vector<Pointf> OffsetContourRoundArcSteps(const Vector<Pointf>& contour, double 
 	return out;
 }
 
+// Constructs a polygon offset with rounded corners, but controls the arc resolution using an angular increment rather than a fixed number of steps.
 Vector<Pointf> OffsetContourRoundAngle(const Vector<Pointf>& contour, double d, double deltaangle) {
 	int n = contour.size();
 	ASSERT(n >= 3);
@@ -345,6 +343,7 @@ bool IsRectangle(const UVector<Pointf> &p) {
 	return true;	
 }
 
+// Finds the axis-aligned bounding box of a set of 2D points
 void Range(const UVector<Pointf> &p, double &minx, double &maxx, double &miny, double &maxy) {
 	int n = p.size();
 	
@@ -365,7 +364,7 @@ void Range(const UVector<Pointf> &p, double &minx, double &maxx, double &miny, d
 	}
 }
 
-
+// Simplifies a polyline or polygon by removing points that lie approximately on a straight line, but keeping the corners
 UVector<Pointf> RemoveCollinear(const UVector<Pointf>& pts, bool isclosed, double distanceCollinear) {
 	int n = pts.size();
 	if(n < 3)
@@ -396,13 +395,13 @@ UVector<Pointf> RemoveCollinear(const UVector<Pointf>& pts, bool isclosed, doubl
 			}
 			++i;
 		}
-		// Remove duplicate closure if produced
-		if(out.size() > 1 && out[0] == out.Top())
+		if(out.size() > 1 && out[0] == out.Top())		// Remove duplicate closure if produced
 			out.Drop();
 	}
 	return out;
 }
 
+// Simplifies a polyline or polygon by removing points that are too close to the last retained point.
 Vector<Pointf> RemoveClosest(const Vector<Pointf>& pts, bool isclosed, double minDist) {
     int n = pts.size();
     if(n == 0)
@@ -442,16 +441,26 @@ Vector<Pointf> RemoveClosest(const Vector<Pointf>& pts, bool isclosed, double mi
     return out;
 }
 
+// Returns the average distance between segments
+double AverageSegLen(const Vector<Pointf>& p) {
+	double ret = 0;
+	for (int i = 0; i < p.size()-1; ++i)
+		ret += Distance(p[i], p[i+1]);
+	return ret/p.size();
+}
+
+// Subdivides long sides of a polyline or polygon by inserting equally spaced points
 Vector<Pointf> BreakLongSides(const Vector<Pointf>& pts, bool isclosed, double targetLen) {
+	ASSERT(targetLen > 0);
 	Vector<Pointf> ret = clone(pts);
 	
-	int n = pts.GetCount();
+	int n = pts.size();
 	int seg_count = isclosed ? n : (n - 1);
 	if (seg_count < 1)
 		return ret;
 
 
-	Vector<double> lens(seg_count);
+	Vector<double> lens(seg_count);		// Store original side lengths before inserting any new points.
 	for (int i = 0; i < seg_count; ++i) {
         int i0 = i;
         int i1 = (i + 1) % n; // wraps for the closing segment if isclosed
@@ -461,23 +470,23 @@ Vector<Pointf> BreakLongSides(const Vector<Pointf>& pts, bool isclosed, double t
 	for (int i = seg_count - 1; i >= 0; --i) {		// Breaks long 
 		double rat = lens[i]/targetLen;	
 		if (rat > 1.2) {
-			int num = int(round(rat));
+			int num = int(round(rat));				// Choose the nearest integer number of equal subdivisions.
 			if (num >= 2) {
 				int i0 = i;
 	            int i1 = (i + 1) % n;
 	
-	            double x0 = ret[i0].x;
+	            double x0 = ret[i0].x;				// Original start point and displacement along this side.
 	            double y0 = ret[i0].y;
 	            double lenx = ret[i1].x - ret[i0].x;
 	            double leny = ret[i1].y - ret[i0].y;
 	
 	            int insert_pos;
-	            if (isclosed && i == n - 1)
-	                insert_pos = ret.size(); // append in order along last->first
+	            if (isclosed && i == n - 1)			// Closing-side points belong after the last original point.
+	                insert_pos = ret.size(); 		// Append in order along last->first
 	            else
 	                insert_pos = i0 + 1;
 	
-	            for (int in = num - 1; in >= 1; --in) {
+	            for (int in = num - 1; in >= 1; --in) {// Insert num - 1 points using linear interpolation.
 	                Pointf p(x0 + lenx*(double)in/(double)num,
 	                         y0 + leny*(double)in/(double)num);
 	                ret.Insert(insert_pos, p);
@@ -488,6 +497,7 @@ Vector<Pointf> BreakLongSides(const Vector<Pointf>& pts, bool isclosed, double t
 	return ret;
 }
 
+// Rotates a set of 2D points around a specified center
 Vector<Pointf> Rotate(const Vector<Pointf>& points, double angle, const Pointf& center) {
 	Vector<Pointf> ret(points.size());
 	
@@ -505,16 +515,9 @@ Vector<Pointf> Rotate(const Vector<Pointf>& points, double angle, const Pointf& 
     return ret;
 }
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AddPolygonIntersections
-//
-// Given two closed polygons 'a' and 'b'
-// finds every intersection and inserts the intersection
+// Given two closed polygons 'a' and 'b', finds every intersection and inserts the intersection
 // points into both polygons at the correct positions along each edge.
-//
 //   epsilon   — tolerance for floating-point comparisons
-// ─────────────────────────────────────────────────────────────────────────────
 int AddPolygonIntersections(const Vector<Pointf>& a0, const Vector<Pointf>& b0, Vector<Pointf>& a, Vector<Pointf>& b, double epsilon) {
 	a = clone(a0);
 	if (CompareDelta(Last(a), First(a), 0.00001))
@@ -612,6 +615,7 @@ int AddPolygonIntersections(const Vector<Pointf>& a0, const Vector<Pointf>& b0, 
 	return ret;
 }
 
+// Collapses pairs of consecutive points shared by a and b into a single midpoint,
 void ReplaceSharedContiguousAverage(Vector<Pointf> &a, Vector<Pointf> &b, double epsilon) {
 	Vector<int> todeletea, todeleteb;
 	int nb = b.size();
@@ -641,13 +645,6 @@ void ReplaceSharedContiguousAverage(Vector<Pointf> &a, Vector<Pointf> &b, double
     for (int i = todeleteb.size()-1; i >= 0; --i)
         b.Remove(todeleteb[i]);
 }
-/*
-May the algorithm be: 
-1. Densify the polygon so the segments length is similar and enough dense, 
-2. Delaunay triangularisation, removing segments out of the concave shape, 
-3. Create a list of points with the 2 points to join, and the centers of the new internal segments defined by the triangularisation. 
-4. Get the closest path using Dijkstra
-*/
 
 // Smooths a path of 2D points using Chaikin's Corner Cutting Algorithm
 Vector<Pointf> ChaikinSmooth(const Vector<Pointf>& points, int iterations = 2, bool keep_endpoints = true) {
@@ -691,21 +688,20 @@ Vector<Pointf> ChaikinSmooth(const Vector<Pointf>& points, int iterations = 2, b
 }
 
 // Clips two overlapping polygons at their intersection points and replaces the overlapping region with the common boundary segment joining those intersections
-void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &aret, Vector<Pointf> &bret, double epsilon) {
-	Vector<Pointf> a2 = clone(a);
-	Vector<Pointf> b2 = clone(b);
+void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector<Pointf> &aret, Vector<Pointf> &bret, double sidelen, double epsilon) {
+	aret = clone(a);
+	bret = clone(b);
 	
-	a2 = RemoveCollinear(a2, true, epsilon);
-	b2 = RemoveCollinear(b2, true, epsilon);
-	
-	if (0 == AddPolygonIntersections(a2, b2, a2, b2, epsilon))
+	aret = RemoveCollinear(aret, true, epsilon);
+	bret = RemoveCollinear(bret, true, epsilon);
+
+	if (0 == AddPolygonIntersections(aret, bret, aret, bret, epsilon))
 		return;
 
 	auto ReOrder = [](Vector<Pointf> &a, const Vector<Pointf> &b)->bool {
 		int na = a.size();
 		int id0 = -1;
-		for (int i = 0; i < na; ++i) {
-			//Pointf middle = Middle(a[i], a[(i + 1)%na]);
+		for (int i = 0; i < na; ++i) {	//Pointf middle = Middle(a[i], a[(i + 1)%na]);
 			if (POLY_OUT == ContainsPoint(b, a[i]) && POLY_OUT == ContainsPoint(b, a[i+1])) {
 				id0 = i;
 				break;
@@ -718,49 +714,169 @@ void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector
 		
 		return true;
 	};
-	if (!ReOrder(a2, b2))
+	if (!ReOrder(aret, bret))
 		return;
-	if (!ReOrder(b2, a2))
+	if (!ReOrder(bret, aret))
 		return;
-	
-	ReplaceSharedContiguousAverage(a2, b2, epsilon);
-	
-	if (!ReOrder(a2, b2))
+
+	ReplaceSharedContiguousAverage(aret, bret, epsilon);
+
+	if (!ReOrder(aret, bret))
 		return;
-	if (!ReOrder(b2, a2))
+	if (!ReOrder(bret, aret))
 		return;
 
 	auto AddBetween = [](int id0, int id1, Vector<int> &remove) {
 		if (id0 > id1)
 			Swap(id0, id1);
 		for (int i = id0+1; i < id1; ++i)
-			remove << i;
+			FindAdd(remove, i);
 	};
 	Vector<int> removea, removeb;
 	int idstarta = -1, idstartb;
-	for (int i = 0; i < a2.size(); ++i) {
-		int idb = FindDelta(b2, a2[i], epsilon);
-		if (idb < 0)
-			continue;
+	
+	if (IsNull(sidelen)) {			// Joints between cs follow a line between intersections
+		for (int i = 0; i < aret.size(); ++i) {
+			int idb = FindDelta(bret, aret[i], epsilon);
+			if (idb < 0)
+				continue;
+			
+			if (idstarta < 0) {
+				idstarta = i;
+				idstartb = idb;
+			} else {
+				AddBetween(idstarta, i, removea);
+				AddBetween(idstartb, idb, removeb);
+				idstarta = -1;
+			}
+		}
+		for (int i = removea.size()-1; i >= 0; --i)
+			aret.Remove(removea[i]);
+		for (int i = removeb.size()-1; i >= 0; --i)
+			bret.Remove(removeb[i]);	
+	} else {						// Joints between cs go through the middle between overlapped boundaries, until the intersections
+		Pointf start, end;
+		Vector<Pointf> bound;
+		Vector<Vector<Pointf>> pathToAdd;
+		Vector<int> wherea, whereb;
+		for (int i = 0; i < aret.size(); ++i) {
+			int idb = FindDelta(bret, aret[i], epsilon);
+			if (idb >= 0) {
+				if (idstarta < 0) {			// Find first intersection
+					start = aret[i];
+					idstarta = i;
+					idstartb = idb;
+					bound.Clear();
+				} else {					// Go to next intersection
+					end = aret[i];
+					AddBetween(idstarta, i, removea);				// Set to remove the points between
+					AddBetween(idstartb, idb, removeb);
+					
+					bound.Reserve(removea.size()+removeb.size());
 		
-		if (idstarta < 0) {
-			idstarta = i;
-			idstartb = idb;
-		} else {
-			AddBetween(idstarta, i, removea);
-			AddBetween(idstartb, idb, removeb);
-			idstarta = -1;
+					for (int i = removea.size()-1; i >= 0; --i) {
+						bound << aret[removea[i]];
+						aret.Remove(removea[i]);
+					}
+					bound << start;
+					
+					for (int i = removeb.size()-1; i >= 0; --i) {
+						bound << bret[removeb[i]];
+						bret.Remove(removeb[i]);
+					}
+					bound.Insert(0, end);			
+						
+					bound = BreakLongSides(bound, true, sidelen);	// Densify the polygon so the segments length is similar and enough dense
+					
+					removea.Clear();
+					removeb.Clear();
+						
+					Delaunay2 del;								// Fill the combined boundary with triangles
+					del.Build(bound);
+					
+					Vector<Pointf> points;
+					points << start << end;
+					for (int i = 0; i < del.size(); ++i) {
+						const int *tri = del[i].vertex;
+						if (tri[0] < 0 || tri[1] < 0 || tri[2] < 0)
+							continue; 
+						const Pointf &p0 = bound[tri[0]];
+						const Pointf &p1 = bound[tri[1]];
+						const Pointf &p2 = bound[tri[2]];
+						
+						if (abs(tri[0] - tri[1]) > 1)			// Delaunay new sides
+							FindAdd(points, Middle(p0, p1));	// The points are in the middle of the triangle sides (better than in the centroids)
+						if (abs(tri[1] - tri[2]) > 1)
+							FindAdd(points, Middle(p1, p2));
+						if (abs(tri[2] - tri[0]) > 1)
+							FindAdd(points, Middle(p2, p0));
+					}
+											
+					Vector<int> path;
+					for (int fact = 1; path.IsEmpty() && fact < 5; ++fact)		// Gets the shortest path in the middle of the boundaries
+						path = ShortestPolyline(points, 0, 1, sidelen*fact);	// Go trying with increasing sidelen
+						
+					Vector<Pointf> &ppath = pathToAdd.Add();
+					ppath.SetCount(path.size());
+					for (int i = 0; i < path.size(); ++i)
+						ppath[i] = points[path[i]];
+					
+					wherea << idstarta+1;
+					whereb << idb+1;
+				}
+			}
+		}
+		for (int i = wherea.size()-1; i >= 0; --i) {
+			Vector<Pointf> &ppath = pathToAdd[i];
+			aret.Insert(wherea[i], ppath);	// Inserts the new path in the cs of both bodies
+			Reverse(ppath);
+			bret.Insert(whereb[i], ppath);	
 		}
 	}
-	Sort(removea);
-	for (int i = removea.size()-1; i >= 0; --i)
-		a2.Remove(removea[i]);
-	Sort(removeb);
-	for (int i = removeb.size()-1; i >= 0; --i)
-		b2.Remove(removeb[i]);
-	
-	aret = pick(a2);
-	bret = pick(b2);
 }
 
+// Get the shortest polyline between start and end, with segments no longer than maxDist
+Vector<int> ShortestPolyline(const Vector<Pointf>& points, int start, int end, double maxDist) {
+    Vector<int> path;
+    int n = points.size();
+
+	ASSERT(!(start < 0 || start >= n || end < 0 || end >= n || !std::isfinite(maxDist) || maxDist < 0));
+    if(start < 0 || start >= n || end < 0 || end >= n || !std::isfinite(maxDist) || maxDist < 0)
+        return path;
+
+    Vector<Vector<SegSP<double>>> adjList;
+    adjList.SetCount(n);
+
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            double distance = Distance(points[i], points[j]);
+
+            if(distance <= maxDist) {
+                adjList[i] << SegSP<double>(j, distance);
+                adjList[j] << SegSP<double>(i, distance);
+            }
+        }
+    }
+
+    Vector<SegSP<double>> dist = Dijkstra(adjList, start);		// Calculate shortest distances and predecessors.
+
+    if (dist[end].weight == std::numeric_limits<double>::max())
+        return path;                         					// No route exists
+
+    int current = end;											// Follow predecessors from end back to start.
+    for (int steps = 0; steps < n; steps++) {
+        path << current;
+
+        if(current == start) {
+            Reverse(path);                   // Return start -> ... -> end
+            return path;
+        }
+        current = dist[current].node;
+        if (current < 0 || current >= n)
+            break;
+    }
+    path.Clear();                            // Invalid predecessor chain
+    return path;
+
+}
 }
