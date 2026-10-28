@@ -19,9 +19,9 @@ void TestSurfaceX_Calc() {
 	RealTimeStop t;
 	String strfile = String(Model, Model_length);
 	
-	String folder = AFX(GetTempDirectory(), "Surface");
+	String folder = GetTempDirectory() / "Surface";
 	DirectoryCreate(folder);
-	String file = AFX(folder, "demo.stl");
+	String file = folder / "demo.stl";
 	SaveFile(file, strfile);
 	
 	Surface mesh, under;
@@ -203,7 +203,7 @@ void TestMesh() {
 	
 	String file = "MeshDemo.stl";
 	UppLog() << "\nSaving " << file;
-	SaveStlBin(AFX(GetTempDirectory(), file), s);
+	SaveStlBin(GetTempDirectory() / file, s);
 	
 	// Testing inertia translation
 	MatrixXd mat0(6, 6), mat1(6, 6), mat2(6, 6), m;

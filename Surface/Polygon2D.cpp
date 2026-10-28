@@ -813,13 +813,16 @@ void TrimAtIntersection(const Vector<Pointf> &a, const Vector<Pointf> &b, Vector
 					}
 											
 					Vector<int> path;
-					for (int fact = 1; path.IsEmpty() && fact < 5; ++fact)		// Gets the shortest path in the middle of the boundaries
-						path = ShortestPolyline(points, 0, 1, sidelen*fact);	// Go trying with increasing sidelen
+					for (int fact = 1; path.IsEmpty() && fact < 5; ++fact)	// Gets the shortest path in the middle of the boundaries
+						path = ShortestPolyline(points, 0, 1, sidelen*fact);// Go trying with increasing sidelen
 						
 					Vector<Pointf> &ppath = pathToAdd.Add();
 					ppath.SetCount(path.size());
 					for (int i = 0; i < path.size(); ++i)
 						ppath[i] = points[path[i]];
+					
+					ppath = ChaikinSmooth(ppath, 6, true);					// Smooths the contour
+					ppath = RemoveClosest(ppath, false, sidelen*.7);		// Reduces the fragmentation created by the smoothing
 					
 					wherea << idstarta+1;
 					whereb << idb+1;
